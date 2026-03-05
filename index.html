@@ -4,7 +4,358 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Souvenirs de Couronne</title>
-    <link rel="stylesheet" href="css/style.css">
+    <style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #1a1a2e;
+    color: #eee;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+}
+
+.screen {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.screen.active {
+    display: flex;
+}
+
+#menu-screen {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    justify-content: center;
+    align-items: center;
+}
+
+.menu-container {
+    text-align: center;
+}
+
+.game-title {
+    font-size: 3.5rem;
+    color: #e2b714;
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(226,183,20,0.3);
+    margin-bottom: 0.3rem;
+    font-variant: small-caps;
+    letter-spacing: 3px;
+}
+
+.subtitle {
+    color: #8899aa;
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+    font-style: italic;
+}
+
+.menu-buttons {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.menu-btn {
+    background: linear-gradient(180deg, #3a506b 0%, #2a3a4e 100%);
+    color: #e2b714;
+    border: 2px solid #e2b714;
+    padding: 12px 40px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    border-radius: 4px;
+    min-width: 220px;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.menu-btn:hover {
+    background: linear-gradient(180deg, #4a607b 0%, #3a4a5e 100%);
+    transform: scale(1.03);
+}
+
+.seed-input {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.seed-input label {
+    color: #8899aa;
+    font-size: 0.9rem;
+}
+
+.seed-input input {
+    background: #0f1923;
+    border: 1px solid #3a506b;
+    color: #eee;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 1rem;
+    text-align: center;
+    width: 220px;
+}
+
+#game-screen {
+    flex-direction: column;
+    background: #111;
+}
+
+#game-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+}
+
+#resource-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(180deg, rgba(15,20,30,0.95) 0%, rgba(15,20,30,0.85) 100%);
+    border-bottom: 2px solid #e2b714;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 16px;
+    z-index: 10;
+    font-size: 0.85rem;
+    overflow-x: auto;
+}
+
+.resource {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    padding: 2px 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+}
+
+.res-icon { font-size: 1rem; }
+
+#right-panel {
+    position: absolute;
+    top: 44px;
+    right: 0;
+    width: 240px;
+    bottom: 60px;
+    background: rgba(15,20,30,0.9);
+    border-left: 2px solid #3a506b;
+    z-index: 10;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+#info-panel h3 {
+    color: #e2b714;
+    border-bottom: 1px solid #3a506b;
+    padding-bottom: 4px;
+    margin-bottom: 8px;
+}
+
+#info-content { font-size: 0.85rem; line-height: 1.5; }
+#info-content .info-row { display: flex; justify-content: space-between; padding: 2px 0; }
+#info-content .info-label { color: #8899aa; }
+#info-content button { margin-top: 6px; width: 100%; padding: 6px; background: #3a506b; color: #e2b714; border: 1px solid #e2b714; cursor: pointer; border-radius: 3px; font-size: 0.8rem; }
+#info-content button:hover { background: #4a607b; }
+
+#action-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 200px;
+    height: 60px;
+    background: rgba(15,20,30,0.95);
+    border-top: 2px solid #3a506b;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    gap: 8px;
+    overflow-x: auto;
+}
+
+.action-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-right: 8px;
+    border-right: 1px solid #2a3a4e;
+}
+.action-group:last-child { border-right: none; }
+.group-label { font-size: 0.7rem; color: #667; margin-right: 4px; white-space: nowrap; }
+
+.action-btn {
+    background: linear-gradient(180deg, #2a3a4e 0%, #1a2a3e 100%);
+    color: #ccc;
+    border: 1px solid #3a506b;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    border-radius: 3px;
+    white-space: nowrap;
+    transition: all 0.15s;
+}
+.action-btn:hover { background: #3a506b; color: #e2b714; border-color: #e2b714; }
+.action-btn.selected { background: #4a607b; color: #e2b714; border-color: #e2b714; box-shadow: 0 0 6px rgba(226,183,20,0.3); }
+.action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#time-controls {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 11;
+    display: flex;
+    gap: 4px;
+}
+.time-btn { background: #2a3a4e; color: #ccc; border: 1px solid #3a506b; padding: 6px 14px; font-size: 1rem; cursor: pointer; border-radius: 3px; }
+.time-btn.active { background: #4a607b; color: #e2b714; border-color: #e2b714; }
+.time-btn:hover { background: #3a506b; }
+
+#minimap-container {
+    position: absolute;
+    bottom: 64px;
+    right: 4px;
+    z-index: 11;
+    border: 2px solid #3a506b;
+    border-radius: 3px;
+    background: #0a0a0a;
+}
+#minimap-canvas { display: block; }
+
+#notifications {
+    position: absolute;
+    top: 48px;
+    right: 250px;
+    z-index: 15;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    pointer-events: none;
+}
+.notification {
+    background: rgba(15,20,30,0.92);
+    border: 1px solid #e2b714;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    color: #eee;
+    animation: notifSlide 0.3s ease-out;
+    max-width: 300px;
+}
+.notification.alert { border-color: #e74c3c; }
+.notification.success { border-color: #2ecc71; }
+@keyframes notifSlide {
+    from { transform: translateX(100px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+#battle-screen {
+    background: rgba(0,0,0,0.85);
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+}
+.battle-container {
+    background: #1a1a2e;
+    border: 2px solid #e2b714;
+    border-radius: 8px;
+    padding: 30px;
+    max-width: 600px;
+    width: 90%;
+    text-align: center;
+}
+.battle-container h2 { color: #e2b714; margin-bottom: 16px; }
+#battle-content { margin-bottom: 16px; }
+.battle-forces { display: flex; justify-content: space-around; margin: 16px 0; gap: 20px; }
+.battle-side { flex: 1; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; }
+.battle-side h4 { margin-bottom: 8px; color: #e2b714; }
+.battle-side .unit-line { font-size: 0.85rem; padding: 2px 0; }
+#army-selector { margin: 12px 0; text-align: left; }
+.army-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; background: rgba(255,255,255,0.03); margin: 4px 0; border-radius: 3px; }
+.army-row input { width: 60px; background: #0f1923; border: 1px solid #3a506b; color: #eee; padding: 4px 8px; border-radius: 3px; text-align: center; }
+#battle-report { text-align: left; font-size: 0.9rem; line-height: 1.6; margin: 12px 0; }
+
+#tech-screen {
+    background: rgba(0,0,0,0.85);
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+}
+.tech-container {
+    background: #1a1a2e;
+    border: 2px solid #e2b714;
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 900px;
+    width: 95%;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+.tech-container h2 { color: #e2b714; text-align: center; margin-bottom: 16px; }
+#tech-branches { display: flex; gap: 16px; }
+.tech-branch { flex: 1; background: rgba(255,255,255,0.03); border-radius: 6px; padding: 12px; }
+.tech-branch h3 { color: #e2b714; text-align: center; margin-bottom: 10px; font-size: 1rem; }
+.tech-node { background: #2a3a4e; border: 1px solid #3a506b; border-radius: 4px; padding: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+.tech-node:hover { border-color: #e2b714; }
+.tech-node.researched { background: #1a4a2e; border-color: #2ecc71; }
+.tech-node.researching { background: #4a3a1e; border-color: #e2b714; animation: pulse 1.5s infinite; }
+.tech-node.locked { opacity: 0.4; cursor: not-allowed; }
+.tech-node .tech-name { font-weight: bold; font-size: 0.85rem; margin-bottom: 3px; }
+.tech-node .tech-desc { font-size: 0.72rem; color: #8899aa; }
+.tech-node .tech-cost { font-size: 0.72rem; color: #e2b714; margin-top: 3px; }
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 4px rgba(226,183,20,0.3); }
+    50% { box-shadow: 0 0 12px rgba(226,183,20,0.6); }
+}
+
+#victory-screen, #defeat-screen { justify-content: center; align-items: center; z-index: 25; }
+#victory-screen { background: rgba(0,50,0,0.9); }
+#defeat-screen { background: rgba(50,0,0,0.9); }
+.victory-container, .defeat-container { text-align: center; padding: 40px; }
+.victory-container h1 { color: #e2b714; font-size: 3rem; margin-bottom: 16px; }
+.defeat-container h1 { color: #e74c3c; font-size: 3rem; margin-bottom: 16px; }
+#victory-stats, #defeat-stats { margin: 20px 0; font-size: 1rem; line-height: 2; }
+
+#pause-overlay { background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 20; }
+.pause-container { text-align: center; display: flex; flex-direction: column; gap: 12px; }
+.pause-container h2 { color: #e2b714; margin-bottom: 10px; }
+
+#villager-overlay { background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 20; }
+.villager-manage-container {
+    background: #1a1a2e;
+    border: 2px solid #e2b714;
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+.villager-manage-container h2 { color: #e2b714; text-align: center; margin-bottom: 12px; }
+.villager-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; margin: 4px 0; background: rgba(255,255,255,0.04); border-radius: 3px; }
+.villager-row .v-name { flex: 1; font-size: 0.85rem; }
+.villager-row select { background: #0f1923; color: #eee; border: 1px solid #3a506b; padding: 3px 6px; border-radius: 3px; font-size: 0.8rem; }
+    </style>
 </head>
 <body>
     <!-- Main Menu Screen -->
@@ -160,22 +511,3007 @@
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="js/perlin.js"></script>
-    <script src="js/config.js"></script>
-    <script src="js/map.js"></script>
-    <script src="js/renderer.js"></script>
-    <script src="js/camera.js"></script>
-    <script src="js/resources.js"></script>
-    <script src="js/buildings.js"></script>
-    <script src="js/population.js"></script>
-    <script src="js/military.js"></script>
-    <script src="js/combat.js"></script>
-    <script src="js/factions.js"></script>
-    <script src="js/tech.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/notifications.js"></script>
-    <script src="js/save.js"></script>
-    <script src="js/game.js"></script>
+    <script>
+// === js/perlin.js ===
+// Perlin noise implementation for map generation
+const Perlin = (function() {
+    const permutation = [];
+    const p = new Array(512);
+
+    function seed(s) {
+        // Simple seeded random
+        let seed = hashString(s);
+        const perm = [];
+        for (let i = 0; i < 256; i++) perm[i] = i;
+        for (let i = 255; i > 0; i--) {
+            seed = (seed * 16807 + 0) % 2147483647;
+            const j = seed % (i + 1);
+            [perm[i], perm[j]] = [perm[j], perm[i]];
+        }
+        for (let i = 0; i < 256; i++) {
+            p[i] = perm[i];
+            p[i + 256] = perm[i];
+        }
+    }
+
+    function hashString(str) {
+        str = String(str);
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) - hash) + str.charCodeAt(i);
+            hash = hash & hash;
+        }
+        return Math.abs(hash) || 1;
+    }
+
+    function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+    function lerp(a, b, t) { return a + t * (b - a); }
+
+    function grad(hash, x, y) {
+        const h = hash & 3;
+        const u = h < 2 ? x : y;
+        const v = h < 2 ? y : x;
+        return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+    }
+
+    function noise2D(x, y) {
+        const X = Math.floor(x) & 255;
+        const Y = Math.floor(y) & 255;
+        x -= Math.floor(x);
+        y -= Math.floor(y);
+        const u = fade(x);
+        const v = fade(y);
+        const A = p[X] + Y;
+        const B = p[X + 1] + Y;
+        return lerp(
+            lerp(grad(p[A], x, y), grad(p[B], x - 1, y), u),
+            lerp(grad(p[A + 1], x, y - 1), grad(p[B + 1], x - 1, y - 1), u),
+            v
+        );
+    }
+
+    function octave(x, y, octaves, persistence) {
+        let total = 0;
+        let frequency = 1;
+        let amplitude = 1;
+        let maxValue = 0;
+        for (let i = 0; i < octaves; i++) {
+            total += noise2D(x * frequency, y * frequency) * amplitude;
+            maxValue += amplitude;
+            amplitude *= persistence;
+            frequency *= 2;
+        }
+        return total / maxValue;
+    }
+
+    // Seeded random number generator
+    let rngState = 1;
+    function seedRng(s) {
+        rngState = hashString(s);
+    }
+    function random() {
+        rngState = (rngState * 16807 + 0) % 2147483647;
+        return (rngState - 1) / 2147483646;
+    }
+
+    return { seed, noise2D, octave, seedRng, random, hashString };
+})();
+
+
+// === js/config.js ===
+// Game configuration constants
+const CONFIG = {
+    MAP_WIDTH: 60,
+    MAP_HEIGHT: 60,
+    TILE_WIDTH: 64,
+    TILE_HEIGHT: 32,
+
+    // Terrain types
+    TERRAIN: {
+        WATER: 0,
+        PLAINS: 1,
+        GRASS: 2,
+        FOREST: 3,
+        HILLS: 4,
+        MOUNTAIN: 5
+    },
+
+    TERRAIN_NAMES: {
+        0: 'Eau',
+        1: 'Plaine',
+        2: 'Herbe',
+        3: 'Foret',
+        4: 'Collines',
+        5: 'Montagne'
+    },
+
+    TERRAIN_COLORS: {
+        0: { fill: '#2980b9', stroke: '#1a5276', top: '#3498db' },
+        1: { fill: '#a8c256', stroke: '#7d9a1e', top: '#bdd468' },
+        2: { fill: '#68b04a', stroke: '#4a8a32', top: '#7ec860' },
+        3: { fill: '#2d7d3a', stroke: '#1a5226', top: '#3d9a4e' },
+        4: { fill: '#a08060', stroke: '#7a6040', top: '#b89878' },
+        5: { fill: '#888888', stroke: '#666666', top: '#aaaaaa' }
+    },
+
+    // Building types
+    BUILDINGS: {
+        TOWN_HALL: {
+            id: 'town_hall', name: 'Hotel de ville', icon: '\u{1F3DB}',
+            cost: { wood: 0, stone: 0, food: 0, gold: 0 },
+            size: 1, maxLevel: 5,
+            desc: 'Centre du village. Ameliorez pour debloquer des batiments.'
+        },
+        HOUSE: {
+            id: 'house', name: 'Maison', icon: '\u{1F3E0}',
+            cost: { wood: 30, stone: 10, food: 0, gold: 0 },
+            popIncrease: 5,
+            desc: 'Augmente la capacite de population de 5.'
+        },
+        FARM: {
+            id: 'farm', name: 'Ferme', icon: '\u{1F33E}',
+            cost: { wood: 20, stone: 5, food: 0, gold: 0 },
+            production: { food: 8 },
+            validTerrain: [1, 2],
+            desc: 'Produit 8 nourriture/cycle. Terrain: plaine ou herbe.'
+        },
+        SAWMILL: {
+            id: 'sawmill', name: 'Scierie', icon: '\u{1FAB5}',
+            cost: { wood: 10, stone: 15, food: 0, gold: 0 },
+            production: { wood: 6 },
+            validTerrain: [3],
+            desc: 'Produit 6 bois/cycle. Terrain: foret.'
+        },
+        MINE: {
+            id: 'mine', name: 'Mine', icon: '\u{26CF}',
+            cost: { wood: 25, stone: 5, food: 0, gold: 0 },
+            production: { stone: 5 },
+            validTerrain: [4, 5],
+            desc: 'Produit 5 pierre/cycle. Terrain: collines ou montagne.'
+        },
+        MARKET: {
+            id: 'market', name: 'Marche', icon: '\u{1F4B0}',
+            cost: { wood: 40, stone: 30, food: 0, gold: 10 },
+            production: { gold: 4 },
+            desc: 'Genere 4 or/cycle.'
+        },
+        BARRACKS: {
+            id: 'barracks', name: 'Caserne', icon: '\u{2694}',
+            cost: { wood: 50, stone: 40, food: 0, gold: 20 },
+            desc: 'Permet de recruter guerriers et archers.',
+            requiresTownHall: 2
+        },
+        STABLE: {
+            id: 'stable', name: 'Ecurie', icon: '\u{1F40E}',
+            cost: { wood: 60, stone: 30, food: 20, gold: 30 },
+            desc: 'Permet de recruter des cavaliers.',
+            requiresTownHall: 3
+        },
+        SIEGE_WORKSHOP: {
+            id: 'siege_workshop', name: 'Atelier de siege', icon: '\u{1F4A5}',
+            cost: { wood: 80, stone: 60, food: 0, gold: 50 },
+            desc: 'Permet de construire catapultes et beliers.',
+            requiresTownHall: 4
+        },
+        WATCHTOWER: {
+            id: 'watchtower', name: 'Tour de guet', icon: '\u{1F441}',
+            cost: { wood: 35, stone: 25, food: 0, gold: 5 },
+            visionRange: 5,
+            desc: 'Etend la visibilite de 5 tuiles.'
+        },
+        WALL: {
+            id: 'wall', name: 'Muraille', icon: '\u{1F9F1}',
+            cost: { wood: 10, stone: 30, food: 0, gold: 0 },
+            defense: 10,
+            desc: 'Defense passive +10.'
+        }
+    },
+
+    // Unit types
+    UNITS: {
+        WARRIOR: {
+            id: 'warrior', name: 'Guerrier', icon: '\u{2694}',
+            cost: { food: 10, gold: 15 },
+            hp: 100, attack: 15, defense: 12, speed: 1,
+            building: 'barracks'
+        },
+        ARCHER: {
+            id: 'archer', name: 'Archer', icon: '\u{1F3F9}',
+            cost: { food: 8, gold: 12 },
+            hp: 70, attack: 18, defense: 6, speed: 1,
+            building: 'barracks'
+        },
+        CAVALRY: {
+            id: 'cavalry', name: 'Cavalier', icon: '\u{1F40E}',
+            cost: { food: 20, gold: 30 },
+            hp: 120, attack: 20, defense: 10, speed: 2,
+            building: 'stable'
+        },
+        SIEGE: {
+            id: 'siege', name: 'Machine de siege', icon: '\u{1F4A5}',
+            cost: { food: 5, gold: 40, wood: 30 },
+            hp: 80, attack: 35, defense: 4, speed: 0.5,
+            building: 'siege_workshop'
+        }
+    },
+
+    // Villager roles
+    ROLES: ['Paysan', 'Bucheron', 'Mineur', 'Fermier', 'Marchand', 'Soldat', 'Archer', 'Cavalier', 'Ingenieur'],
+
+    // Names for villagers
+    FIRST_NAMES: [
+        'Aelric', 'Baudouin', 'Cedric', 'Darius', 'Edmond', 'Faldric', 'Gontran',
+        'Henri', 'Isidore', 'Jehan', 'Lothaire', 'Marceau', 'Norbert', 'Osmond',
+        'Pierre', 'Raoul', 'Sigebert', 'Thibault', 'Ulric', 'Vivien',
+        'Adele', 'Blanche', 'Clotilde', 'Diane', 'Eloise', 'Flore', 'Genevieve',
+        'Helene', 'Isabeau', 'Jeanne', 'Louise', 'Margot', 'Ninon', 'Odette',
+        'Perrine', 'Rosalie', 'Solene', 'Therese', 'Ursule', 'Violette'
+    ],
+
+    // Seasons
+    SEASONS: [
+        { name: 'Printemps', icon: '\u{1F33F}' },
+        { name: 'Ete', icon: '\u{2600}' },
+        { name: 'Automne', icon: '\u{1F342}' },
+        { name: 'Hiver', icon: '\u{2744}' }
+    ],
+
+    // Speed settings (ms per cycle tick)
+    SPEED: {
+        PAUSED: 0,
+        NORMAL: 3000,
+        FAST: 1000
+    },
+
+    // Faction colors
+    FACTION_COLORS: [
+        '#3498db', // player - blue
+        '#e74c3c', // rival 1 - red
+        '#f39c12', // rival 2 - orange
+        '#9b59b6', // rival 3 - purple
+        '#1abc9c', // bandits - teal
+        '#e67e22', // empire - dark orange
+    ],
+
+    // Food consumption per person per cycle
+    FOOD_PER_POP: 1,
+
+    // Starting resources
+    START_RESOURCES: {
+        wood: 100,
+        stone: 50,
+        food: 80,
+        gold: 30
+    },
+
+    // Fog of war initial vision radius from town hall
+    VISION_RADIUS: 6
+};
+
+
+// === js/map.js ===
+// Map generation and management
+const GameMap = {
+    tiles: [],
+    regions: [],
+    width: CONFIG.MAP_WIDTH,
+    height: CONFIG.MAP_HEIGHT,
+
+    generate(seed) {
+        Perlin.seed(seed);
+        Perlin.seedRng(seed);
+        this.tiles = [];
+        this.regions = [];
+
+        // Generate terrain using Perlin noise
+        for (let y = 0; y < this.height; y++) {
+            this.tiles[y] = [];
+            for (let x = 0; x < this.width; x++) {
+                const elevation = Perlin.octave(x * 0.06, y * 0.06, 4, 0.5);
+                const moisture = Perlin.octave(x * 0.05 + 100, y * 0.05 + 100, 3, 0.5);
+
+                let terrain;
+                if (elevation < -0.25) terrain = CONFIG.TERRAIN.WATER;
+                else if (elevation < -0.05) terrain = CONFIG.TERRAIN.PLAINS;
+                else if (elevation < 0.15) {
+                    terrain = moisture > 0.1 ? CONFIG.TERRAIN.FOREST : CONFIG.TERRAIN.GRASS;
+                }
+                else if (elevation < 0.35) terrain = CONFIG.TERRAIN.HILLS;
+                else terrain = CONFIG.TERRAIN.MOUNTAIN;
+
+                this.tiles[y][x] = {
+                    x, y,
+                    terrain,
+                    building: null,
+                    owner: -1, // -1 = unclaimed
+                    visible: false,
+                    explored: false,
+                    decoration: null
+                };
+            }
+        }
+
+        // Add some decorations
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                if (this.tiles[y][x].terrain === CONFIG.TERRAIN.FOREST && Perlin.random() < 0.6) {
+                    this.tiles[y][x].decoration = 'tree';
+                }
+                if (this.tiles[y][x].terrain === CONFIG.TERRAIN.MOUNTAIN && Perlin.random() < 0.3) {
+                    this.tiles[y][x].decoration = 'rock';
+                }
+            }
+        }
+
+        // Generate regions for factions
+        this.generateRegions();
+    },
+
+    generateRegions() {
+        // Divide map into roughly equal regions using a simple grid approach
+        // Player starts near center, rivals at edges
+        const regionSize = 15; // approximate region side
+        this.regions = [];
+
+        // Player region - center area
+        const cx = Math.floor(this.width / 2);
+        const cy = Math.floor(this.height / 2);
+
+        // Find valid starting position for player near center
+        const playerStart = this.findValidSpot(cx, cy, 5);
+        this.regions.push({
+            id: 0,
+            name: 'Votre Royaume',
+            faction: 0,
+            color: CONFIG.FACTION_COLORS[0],
+            tiles: [],
+            capital: playerStart,
+            isPlayer: true
+        });
+
+        // Rival kingdoms at corners/edges
+        const rivalPositions = [
+            { x: 10, y: 10 },
+            { x: this.width - 10, y: 10 },
+            { x: 10, y: this.height - 10 },
+            { x: this.width - 10, y: this.height - 10 }
+        ];
+
+        const factionNames = ['Royaume de Fer', 'Duche de Flamme', 'Comtat des Ombres', 'Empire Dore'];
+
+        for (let i = 0; i < 4; i++) {
+            const pos = this.findValidSpot(rivalPositions[i].x, rivalPositions[i].y, 5);
+            const fType = i < 3 ? 'rival' : 'empire';
+            this.regions.push({
+                id: i + 1,
+                name: factionNames[i],
+                faction: i + 1,
+                color: CONFIG.FACTION_COLORS[i + 1],
+                tiles: [],
+                capital: pos,
+                isPlayer: false,
+                type: fType
+            });
+        }
+
+        // Add bandit camps scattered around
+        for (let b = 0; b < 6; b++) {
+            const bx = Math.floor(Perlin.random() * (this.width - 10)) + 5;
+            const by = Math.floor(Perlin.random() * (this.height - 10)) + 5;
+            const pos = this.findValidSpot(bx, by, 4);
+            this.regions.push({
+                id: 5 + b,
+                name: 'Bandits',
+                faction: -2, // bandit
+                color: '#666',
+                tiles: [],
+                capital: pos,
+                isPlayer: false,
+                type: 'bandit'
+            });
+        }
+
+        // Assign initial territory: each faction gets a radius of tiles around capital
+        for (const region of this.regions) {
+            const radius = region.isPlayer ? 4 : (region.type === 'bandit' ? 2 : 3);
+            for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    const tx = region.capital.x + dx;
+                    const ty = region.capital.y + dy;
+                    if (tx < 0 || ty < 0 || tx >= this.width || ty >= this.height) continue;
+                    if (this.tiles[ty][tx].terrain === CONFIG.TERRAIN.WATER) continue;
+                    if (dx * dx + dy * dy <= radius * radius) {
+                        if (this.tiles[ty][tx].owner === -1) {
+                            this.tiles[ty][tx].owner = region.id;
+                            region.tiles.push({ x: tx, y: ty });
+                        }
+                    }
+                }
+            }
+        }
+    },
+
+    findValidSpot(cx, cy, radius) {
+        // Find a non-water tile near the given position
+        for (let r = 0; r <= radius; r++) {
+            for (let dy = -r; dy <= r; dy++) {
+                for (let dx = -r; dx <= r; dx++) {
+                    const x = cx + dx;
+                    const y = cy + dy;
+                    if (x >= 0 && y >= 0 && x < this.width && y < this.height) {
+                        if (this.tiles[y][x].terrain !== CONFIG.TERRAIN.WATER &&
+                            this.tiles[y][x].terrain !== CONFIG.TERRAIN.MOUNTAIN) {
+                            return { x, y };
+                        }
+                    }
+                }
+            }
+        }
+        return { x: cx, y: cy };
+    },
+
+    getTile(x, y) {
+        if (x < 0 || y < 0 || x >= this.width || y >= this.height) return null;
+        return this.tiles[y][x];
+    },
+
+    revealArea(cx, cy, radius) {
+        for (let dy = -radius; dy <= radius; dy++) {
+            for (let dx = -radius; dx <= radius; dx++) {
+                if (dx * dx + dy * dy > radius * radius) continue;
+                const tx = cx + dx;
+                const ty = cy + dy;
+                if (tx >= 0 && ty >= 0 && tx < this.width && ty < this.height) {
+                    this.tiles[ty][tx].visible = true;
+                    this.tiles[ty][tx].explored = true;
+                }
+            }
+        }
+    },
+
+    updateVisibility(playerRegionId) {
+        // Reset visibility (explored stays)
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                this.tiles[y][x].visible = false;
+            }
+        }
+        // Reveal around player buildings and territory
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                const tile = this.tiles[y][x];
+                if (tile.owner === playerRegionId) {
+                    let radius = 3;
+                    if (tile.building) {
+                        if (tile.building.type === 'watchtower') radius = CONFIG.BUILDINGS.WATCHTOWER.visionRange + 3;
+                        else if (tile.building.type === 'town_hall') radius = CONFIG.VISION_RADIUS;
+                        else radius = 4;
+                    }
+                    this.revealArea(x, y, radius);
+                }
+            }
+        }
+    },
+
+    getRegion(id) {
+        return this.regions.find(r => r.id === id);
+    },
+
+    getPlayerRegion() {
+        return this.regions.find(r => r.isPlayer);
+    },
+
+    getAdjacentEnemyRegions(playerRegionId) {
+        const adjacent = new Set();
+        const playerRegion = this.getRegion(playerRegionId);
+        if (!playerRegion) return [];
+
+        for (const t of playerRegion.tiles) {
+            const neighbors = [
+                { x: t.x - 1, y: t.y }, { x: t.x + 1, y: t.y },
+                { x: t.x, y: t.y - 1 }, { x: t.x, y: t.y + 1 }
+            ];
+            for (const n of neighbors) {
+                const tile = this.getTile(n.x, n.y);
+                if (tile && tile.owner !== -1 && tile.owner !== playerRegionId) {
+                    adjacent.add(tile.owner);
+                }
+            }
+        }
+        return [...adjacent].map(id => this.getRegion(id)).filter(Boolean);
+    },
+
+    annexRegion(targetId, newOwnerId) {
+        const target = this.getRegion(targetId);
+        const newOwner = this.getRegion(newOwnerId);
+        if (!target || !newOwner) return;
+
+        for (const t of target.tiles) {
+            this.tiles[t.y][t.x].owner = newOwnerId;
+            newOwner.tiles.push({ x: t.x, y: t.y });
+        }
+        target.tiles = [];
+        target.faction = -99; // defeated
+    },
+
+    countTotalLandTiles() {
+        let count = 0;
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                if (this.tiles[y][x].terrain !== CONFIG.TERRAIN.WATER) count++;
+            }
+        }
+        return count;
+    },
+
+    countOwnedTiles(regionId) {
+        let count = 0;
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                if (this.tiles[y][x].owner === regionId) count++;
+            }
+        }
+        return count;
+    },
+
+    getConquestPercent(regionId) {
+        const total = this.countTotalLandTiles();
+        const owned = this.countOwnedTiles(regionId);
+        return total > 0 ? Math.round((owned / total) * 100) : 0;
+    }
+};
+
+
+// === js/renderer.js ===
+// Isometric renderer using HTML5 Canvas
+const Renderer = {
+    canvas: null,
+    ctx: null,
+    minimapCanvas: null,
+    minimapCtx: null,
+
+    init() {
+        this.canvas = document.getElementById('game-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.minimapCanvas = document.getElementById('minimap-canvas');
+        this.minimapCtx = this.minimapCanvas.getContext('2d');
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+    },
+
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+    },
+
+    render() {
+        const ctx = this.ctx;
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.fillStyle = '#0a0e14';
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        const bounds = Camera.getVisibleBounds();
+        const tw = CONFIG.TILE_WIDTH * Camera.zoom;
+        const th = CONFIG.TILE_HEIGHT * Camera.zoom;
+
+        // Render tiles in isometric order (back to front)
+        for (let y = bounds.minY; y <= bounds.maxY; y++) {
+            for (let x = bounds.minX; x <= bounds.maxX; x++) {
+                const tile = GameMap.getTile(x, y);
+                if (!tile) continue;
+
+                const screen = Camera.tileToScreen(x, y);
+                const sx = screen.x - Camera.x;
+                const sy = screen.y - Camera.y;
+
+                // Skip if offscreen
+                if (sx < -tw || sx > this.canvas.width + tw ||
+                    sy < -th * 3 || sy > this.canvas.height + th) continue;
+
+                if (!tile.explored) {
+                    // Draw fog
+                    this.drawFogTile(ctx, sx, sy, tw, th);
+                    continue;
+                }
+
+                // Draw terrain
+                this.drawTerrain(ctx, tile, sx, sy, tw, th);
+
+                // Draw territory color overlay
+                if (tile.owner >= 0) {
+                    this.drawTerritoryOverlay(ctx, tile, sx, sy, tw, th);
+                }
+
+                // Draw decoration
+                if (tile.decoration && tile.visible) {
+                    this.drawDecoration(ctx, tile.decoration, sx, sy, tw, th);
+                }
+
+                // Draw building
+                if (tile.building && tile.visible) {
+                    this.drawBuilding(ctx, tile.building, sx, sy, tw, th);
+                }
+
+                // Fog of war (explored but not visible = dimmed)
+                if (tile.explored && !tile.visible) {
+                    this.drawDimOverlay(ctx, sx, sy, tw, th);
+                }
+            }
+        }
+
+        // Draw selection highlight
+        if (typeof Game !== 'undefined' && Game.selectedTile) {
+            const st = Game.selectedTile;
+            const screen = Camera.tileToScreen(st.x, st.y);
+            const sx = screen.x - Camera.x;
+            const sy = screen.y - Camera.y;
+            this.drawSelectionHighlight(ctx, sx, sy, tw, th);
+        }
+
+        // Draw build preview
+        if (typeof Game !== 'undefined' && Game.buildMode) {
+            this.drawBuildPreview(ctx, tw, th);
+        }
+    },
+
+    drawIsoDiamond(ctx, x, y, w, h) {
+        ctx.beginPath();
+        ctx.moveTo(x, y - h / 2);          // top
+        ctx.lineTo(x + w / 2, y);           // right
+        ctx.lineTo(x, y + h / 2);           // bottom
+        ctx.lineTo(x - w / 2, y);           // left
+        ctx.closePath();
+    },
+
+    drawTerrain(ctx, tile, sx, sy, tw, th) {
+        const colors = CONFIG.TERRAIN_COLORS[tile.terrain];
+        const depth = tile.terrain === CONFIG.TERRAIN.MOUNTAIN ? 8 * Camera.zoom :
+                      tile.terrain === CONFIG.TERRAIN.HILLS ? 4 * Camera.zoom :
+                      tile.terrain === CONFIG.TERRAIN.WATER ? -2 * Camera.zoom : 2 * Camera.zoom;
+
+        // Side faces (depth)
+        if (depth > 0) {
+            // Right side
+            ctx.beginPath();
+            ctx.moveTo(sx, sy + th / 2);
+            ctx.lineTo(sx + tw / 2, sy);
+            ctx.lineTo(sx + tw / 2, sy - depth);
+            ctx.lineTo(sx, sy + th / 2 - depth);
+            ctx.closePath();
+            ctx.fillStyle = colors.stroke;
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Left side
+            ctx.beginPath();
+            ctx.moveTo(sx, sy + th / 2);
+            ctx.lineTo(sx - tw / 2, sy);
+            ctx.lineTo(sx - tw / 2, sy - depth);
+            ctx.lineTo(sx, sy + th / 2 - depth);
+            ctx.closePath();
+            ctx.fillStyle = colors.fill;
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
+        // Top face
+        const topY = sy - depth;
+        this.drawIsoDiamond(ctx, sx, topY, tw, th);
+        ctx.fillStyle = colors.top;
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        // Water shimmer
+        if (tile.terrain === CONFIG.TERRAIN.WATER) {
+            this.drawIsoDiamond(ctx, sx, sy, tw, th);
+            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+            ctx.fill();
+        }
+    },
+
+    drawTerritoryOverlay(ctx, tile, sx, sy, tw, th) {
+        const region = GameMap.getRegion(tile.owner);
+        if (!region) return;
+        this.drawIsoDiamond(ctx, sx, sy, tw, th);
+        ctx.fillStyle = region.color + '30'; // semi-transparent
+        ctx.fill();
+        // Territory border
+        ctx.strokeStyle = region.color + '60';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+    },
+
+    drawDecoration(ctx, type, sx, sy, tw, th) {
+        const z = Camera.zoom;
+        if (type === 'tree') {
+            // Simple cartoon tree
+            const treeH = 18 * z;
+            const trunkH = 6 * z;
+            // Trunk
+            ctx.fillStyle = '#6B4226';
+            ctx.fillRect(sx - 2 * z, sy - th / 2 - trunkH - treeH + trunkH, 4 * z, trunkH);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(sx - 2 * z, sy - th / 2 - trunkH - treeH + trunkH, 4 * z, trunkH);
+            // Canopy (triangle)
+            ctx.beginPath();
+            ctx.moveTo(sx, sy - th / 2 - treeH);
+            ctx.lineTo(sx + 8 * z, sy - th / 2 - trunkH);
+            ctx.lineTo(sx - 8 * z, sy - th / 2 - trunkH);
+            ctx.closePath();
+            ctx.fillStyle = '#27ae60';
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        } else if (type === 'rock') {
+            const rz = 6 * z;
+            ctx.beginPath();
+            ctx.moveTo(sx - rz, sy - th / 4);
+            ctx.lineTo(sx - rz / 2, sy - th / 4 - rz);
+            ctx.lineTo(sx + rz / 2, sy - th / 4 - rz * 0.8);
+            ctx.lineTo(sx + rz, sy - th / 4);
+            ctx.closePath();
+            ctx.fillStyle = '#7f8c8d';
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+    },
+
+    drawBuilding(ctx, building, sx, sy, tw, th) {
+        const z = Camera.zoom;
+        const bDef = CONFIG.BUILDINGS[building.type.toUpperCase()] || {};
+        const bh = 20 * z; // building height
+
+        // Building base (cube-like shape)
+        const bw = tw * 0.6;
+        const bd = th * 0.6;
+
+        // Left face
+        ctx.beginPath();
+        ctx.moveTo(sx - bw / 2, sy - th / 4);
+        ctx.lineTo(sx, sy - th / 4 + bd / 2);
+        ctx.lineTo(sx, sy - th / 4 + bd / 2 - bh);
+        ctx.lineTo(sx - bw / 2, sy - th / 4 - bh);
+        ctx.closePath();
+        ctx.fillStyle = this.getBuildingColor(building.type, 'left');
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Right face
+        ctx.beginPath();
+        ctx.moveTo(sx + bw / 2, sy - th / 4);
+        ctx.lineTo(sx, sy - th / 4 + bd / 2);
+        ctx.lineTo(sx, sy - th / 4 + bd / 2 - bh);
+        ctx.lineTo(sx + bw / 2, sy - th / 4 - bh);
+        ctx.closePath();
+        ctx.fillStyle = this.getBuildingColor(building.type, 'right');
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Top face
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - th / 4 - bh);
+        ctx.lineTo(sx + bw / 2, sy - th / 4 - bh);
+        ctx.lineTo(sx, sy - th / 4 + bd / 2 - bh);
+        ctx.lineTo(sx - bw / 2, sy - th / 4 - bh);
+        ctx.closePath();
+        ctx.fillStyle = this.getBuildingColor(building.type, 'top');
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Building icon/label
+        const fontSize = Math.max(10, 14 * z);
+        ctx.font = `${fontSize}px serif`;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        const icon = bDef.icon || '?';
+        const iy = sy - th / 4 - bh / 2;
+        ctx.strokeText(icon, sx, iy);
+        ctx.fillText(icon, sx, iy);
+
+        // Level indicator for town hall
+        if (building.type === 'town_hall' && building.level > 1) {
+            ctx.font = `bold ${Math.max(8, 10 * z)}px sans-serif`;
+            ctx.fillStyle = '#e2b714';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.strokeText('Nv.' + building.level, sx, sy - th / 4 - bh - 4 * z);
+            ctx.fillText('Nv.' + building.level, sx, sy - th / 4 - bh - 4 * z);
+        }
+    },
+
+    getBuildingColor(type, face) {
+        const colors = {
+            town_hall: { left: '#8B7355', right: '#A0855C', top: '#C4A46C' },
+            house: { left: '#8B6914', right: '#A07828', top: '#BFA050' },
+            farm: { left: '#8B8B00', right: '#9A9A20', top: '#C0C040' },
+            sawmill: { left: '#6B4226', right: '#7B5236', top: '#9B7256' },
+            mine: { left: '#555', right: '#666', top: '#888' },
+            market: { left: '#8B4513', right: '#A0552A', top: '#C08050' },
+            barracks: { left: '#4A0E0E', right: '#5A1E1E', top: '#7A3E3E' },
+            stable: { left: '#3A5A1E', right: '#4A6A2E', top: '#6A8A4E' },
+            siege_workshop: { left: '#3A3A3A', right: '#4A4A4A', top: '#6A6A6A' },
+            watchtower: { left: '#5A5A7A', right: '#6A6A8A', top: '#8A8AAA' },
+            wall: { left: '#6A6A6A', right: '#7A7A7A', top: '#9A9A9A' }
+        };
+        const c = colors[type] || { left: '#666', right: '#777', top: '#999' };
+        return c[face];
+    },
+
+    drawFogTile(ctx, sx, sy, tw, th) {
+        this.drawIsoDiamond(ctx, sx, sy, tw, th);
+        ctx.fillStyle = '#0a0e14';
+        ctx.fill();
+        ctx.strokeStyle = '#151a22';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+    },
+
+    drawDimOverlay(ctx, sx, sy, tw, th) {
+        this.drawIsoDiamond(ctx, sx, sy, tw, th);
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fill();
+    },
+
+    drawSelectionHighlight(ctx, sx, sy, tw, th) {
+        this.drawIsoDiamond(ctx, sx, sy, tw + 2, th + 2);
+        ctx.strokeStyle = '#e2b714';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        this.drawIsoDiamond(ctx, sx, sy, tw + 2, th + 2);
+        ctx.fillStyle = 'rgba(226,183,20,0.15)';
+        ctx.fill();
+    },
+
+    drawBuildPreview(ctx, tw, th) {
+        if (!Game.buildMode || !Game._hoverTile) return;
+        const hx = Game._hoverTile.x;
+        const hy = Game._hoverTile.y;
+        const screen = Camera.tileToScreen(hx, hy);
+        const sx = screen.x - Camera.x;
+        const sy = screen.y - Camera.y;
+
+        const tile = GameMap.getTile(hx, hy);
+        const canPlace = tile && Game.canPlaceBuilding(hx, hy, Game.buildMode);
+
+        this.drawIsoDiamond(ctx, sx, sy, tw, th);
+        ctx.fillStyle = canPlace ? 'rgba(46,204,113,0.3)' : 'rgba(231,76,60,0.3)';
+        ctx.fill();
+        ctx.strokeStyle = canPlace ? '#2ecc71' : '#e74c3c';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    },
+
+    renderMinimap() {
+        const mctx = this.minimapCtx;
+        const mw = this.minimapCanvas.width;
+        const mh = this.minimapCanvas.height;
+        mctx.clearRect(0, 0, mw, mh);
+        mctx.fillStyle = '#0a0e14';
+        mctx.fillRect(0, 0, mw, mh);
+
+        const scaleX = mw / CONFIG.MAP_WIDTH;
+        const scaleY = mh / CONFIG.MAP_HEIGHT;
+
+        for (let y = 0; y < CONFIG.MAP_HEIGHT; y++) {
+            for (let x = 0; x < CONFIG.MAP_WIDTH; x++) {
+                const tile = GameMap.tiles[y][x];
+                if (!tile.explored) continue;
+
+                if (tile.owner >= 0) {
+                    const region = GameMap.getRegion(tile.owner);
+                    mctx.fillStyle = region ? region.color : '#333';
+                } else {
+                    mctx.fillStyle = CONFIG.TERRAIN_COLORS[tile.terrain].top;
+                }
+                mctx.fillRect(x * scaleX, y * scaleY, scaleX + 0.5, scaleY + 0.5);
+            }
+        }
+
+        // Draw camera viewport rectangle
+        const topLeft = Camera.screenToTile(0, 0);
+        const bottomRight = Camera.screenToTile(this.canvas.width, this.canvas.height);
+        mctx.strokeStyle = '#fff';
+        mctx.lineWidth = 1;
+        mctx.strokeRect(
+            topLeft.x * scaleX, topLeft.y * scaleY,
+            (bottomRight.x - topLeft.x) * scaleX,
+            (bottomRight.y - topLeft.y) * scaleY
+        );
+    }
+};
+
+
+// === js/camera.js ===
+// Camera / viewport management for isometric view
+const Camera = {
+    x: 0,
+    y: 0,
+    zoom: 1,
+    minZoom: 0.3,
+    maxZoom: 2.5,
+    dragging: false,
+    dragStartX: 0,
+    dragStartY: 0,
+    camStartX: 0,
+    camStartY: 0,
+
+    init(canvas) {
+        this.canvas = canvas;
+        this.centerOnTile(Math.floor(CONFIG.MAP_WIDTH / 2), Math.floor(CONFIG.MAP_HEIGHT / 2));
+
+        canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+        canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+        canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
+        canvas.addEventListener('mouseleave', () => this.dragging = false);
+        canvas.addEventListener('wheel', (e) => this.onWheel(e));
+
+        // Touch support
+        canvas.addEventListener('touchstart', (e) => this.onTouchStart(e));
+        canvas.addEventListener('touchmove', (e) => this.onTouchMove(e));
+        canvas.addEventListener('touchend', () => this.dragging = false);
+
+        // Keyboard
+        this._keys = {};
+        window.addEventListener('keydown', (e) => this._keys[e.key] = true);
+        window.addEventListener('keyup', (e) => this._keys[e.key] = false);
+    },
+
+    update() {
+        const speed = 8 / this.zoom;
+        if (this._keys['ArrowLeft'] || this._keys['a']) this.x -= speed;
+        if (this._keys['ArrowRight'] || this._keys['d']) this.x += speed;
+        if (this._keys['ArrowUp'] || this._keys['w']) this.y -= speed;
+        if (this._keys['ArrowDown'] || this._keys['s']) this.y += speed;
+    },
+
+    centerOnTile(tx, ty) {
+        const iso = this.tileToScreen(tx, ty);
+        this.x = iso.x - this.canvas.width / 2;
+        this.y = iso.y - this.canvas.height / 2;
+    },
+
+    tileToScreen(tx, ty) {
+        const tw = CONFIG.TILE_WIDTH * this.zoom;
+        const th = CONFIG.TILE_HEIGHT * this.zoom;
+        return {
+            x: (tx - ty) * (tw / 2),
+            y: (tx + ty) * (th / 2)
+        };
+    },
+
+    screenToTile(sx, sy) {
+        const px = sx + this.x;
+        const py = sy + this.y;
+        const tw = CONFIG.TILE_WIDTH * this.zoom;
+        const th = CONFIG.TILE_HEIGHT * this.zoom;
+        const tx = Math.floor((px / (tw / 2) + py / (th / 2)) / 2);
+        const ty = Math.floor((py / (th / 2) - px / (tw / 2)) / 2);
+        return { x: tx, y: ty };
+    },
+
+    onMouseDown(e) {
+        if (e.button === 0 || e.button === 2) {
+            this.dragging = true;
+            this.dragStartX = e.clientX;
+            this.dragStartY = e.clientY;
+            this.camStartX = this.x;
+            this.camStartY = this.y;
+            this._dragDist = 0;
+        }
+    },
+
+    onMouseMove(e) {
+        if (this.dragging) {
+            const dx = e.clientX - this.dragStartX;
+            const dy = e.clientY - this.dragStartY;
+            this._dragDist = Math.abs(dx) + Math.abs(dy);
+            this.x = this.camStartX - dx;
+            this.y = this.camStartY - dy;
+        }
+    },
+
+    onMouseUp(e) {
+        const wasDrag = this._dragDist > 5;
+        this.dragging = false;
+        if (!wasDrag && e.button === 0) {
+            const rect = this.canvas.getBoundingClientRect();
+            const sx = e.clientX - rect.left;
+            const sy = e.clientY - rect.top;
+            const tile = this.screenToTile(sx, sy);
+            if (typeof Game !== 'undefined') {
+                Game.onTileClick(tile.x, tile.y);
+            }
+        }
+    },
+
+    onWheel(e) {
+        e.preventDefault();
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        const oldZoom = this.zoom;
+        this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom * zoomFactor));
+
+        // Zoom toward mouse position
+        const rect = this.canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        // Adjust camera so the world point under the mouse stays fixed
+        const worldXBefore = mx + this.x;
+        const worldYBefore = my + this.y;
+        const scale = this.zoom / oldZoom;
+        this.x = worldXBefore * scale - mx;
+        this.y = worldYBefore * scale - my;
+    },
+
+    onTouchStart(e) {
+        if (e.touches.length === 1) {
+            this.dragging = true;
+            this.dragStartX = e.touches[0].clientX;
+            this.dragStartY = e.touches[0].clientY;
+            this.camStartX = this.x;
+            this.camStartY = this.y;
+        }
+    },
+
+    onTouchMove(e) {
+        e.preventDefault();
+        if (this.dragging && e.touches.length === 1) {
+            const dx = e.touches[0].clientX - this.dragStartX;
+            const dy = e.touches[0].clientY - this.dragStartY;
+            this.x = this.camStartX - dx;
+            this.y = this.camStartY - dy;
+        }
+    },
+
+    getVisibleBounds() {
+        const topLeft = this.screenToTile(0, 0);
+        const topRight = this.screenToTile(this.canvas.width, 0);
+        const bottomLeft = this.screenToTile(0, this.canvas.height);
+        const bottomRight = this.screenToTile(this.canvas.width, this.canvas.height);
+
+        return {
+            minX: Math.max(0, Math.min(topLeft.x, bottomLeft.x) - 2),
+            maxX: Math.min(CONFIG.MAP_WIDTH - 1, Math.max(topRight.x, bottomRight.x) + 2),
+            minY: Math.max(0, Math.min(topLeft.y, topRight.y) - 2),
+            maxY: Math.min(CONFIG.MAP_HEIGHT - 1, Math.max(bottomLeft.y, bottomRight.y) + 2)
+        };
+    }
+};
+
+
+// === js/resources.js ===
+// Resource management
+const Resources = {
+    wood: 0,
+    stone: 0,
+    food: 0,
+    gold: 0,
+    rates: { wood: 0, stone: 0, food: 0, gold: 0 },
+
+    init() {
+        this.wood = CONFIG.START_RESOURCES.wood;
+        this.stone = CONFIG.START_RESOURCES.stone;
+        this.food = CONFIG.START_RESOURCES.food;
+        this.gold = CONFIG.START_RESOURCES.gold;
+        this.updateRates();
+    },
+
+    canAfford(cost) {
+        return (!cost.wood || this.wood >= cost.wood) &&
+               (!cost.stone || this.stone >= cost.stone) &&
+               (!cost.food || this.food >= cost.food) &&
+               (!cost.gold || this.gold >= cost.gold);
+    },
+
+    spend(cost) {
+        if (!this.canAfford(cost)) return false;
+        if (cost.wood) this.wood -= cost.wood;
+        if (cost.stone) this.stone -= cost.stone;
+        if (cost.food) this.food -= cost.food;
+        if (cost.gold) this.gold -= cost.gold;
+        return true;
+    },
+
+    add(type, amount) {
+        this[type] = Math.max(0, (this[type] || 0) + amount);
+    },
+
+    updateRates() {
+        const rates = { wood: 0, stone: 0, food: 0, gold: 0 };
+
+        // Production from buildings
+        for (let y = 0; y < CONFIG.MAP_HEIGHT; y++) {
+            for (let x = 0; x < CONFIG.MAP_WIDTH; x++) {
+                const tile = GameMap.tiles[y][x];
+                if (tile.owner !== 0 || !tile.building) continue;
+                const bType = tile.building.type.toUpperCase();
+                const bDef = CONFIG.BUILDINGS[bType];
+                if (bDef && bDef.production) {
+                    for (const [res, amt] of Object.entries(bDef.production)) {
+                        rates[res] += amt;
+                    }
+                }
+            }
+        }
+
+        // Food consumption
+        const popCount = Population.villagers.length;
+        rates.food -= popCount * CONFIG.FOOD_PER_POP;
+
+        // Tax income from population (small gold per 5 people)
+        rates.gold += Math.floor(popCount / 5);
+
+        // Tech bonuses
+        if (TechTree.isResearched('better_farms')) rates.food += 4;
+        if (TechTree.isResearched('advanced_commerce')) rates.gold += 5;
+        if (TechTree.isResearched('forestry')) rates.wood += 3;
+        if (TechTree.isResearched('masonry')) rates.stone += 3;
+
+        this.rates = rates;
+    },
+
+    processCycle() {
+        this.updateRates();
+        this.wood = Math.max(0, this.wood + this.rates.wood);
+        this.stone = Math.max(0, this.stone + this.rates.stone);
+        this.food = Math.max(0, this.food + this.rates.food);
+        this.gold = Math.max(0, this.gold + this.rates.gold);
+
+        // Starvation check
+        if (this.food <= 0 && this.rates.food < 0) {
+            Population.adjustMoral(-15);
+            Notifications.add('Famine ! La population souffre de la faim.', 'alert');
+        }
+    },
+
+    updateUI() {
+        document.getElementById('wood-count').textContent = Math.floor(this.wood);
+        document.getElementById('stone-count').textContent = Math.floor(this.stone);
+        document.getElementById('food-count').textContent = Math.floor(this.food);
+        document.getElementById('gold-count').textContent = Math.floor(this.gold);
+
+        const formatRate = (r) => (r >= 0 ? '+' : '') + r;
+        document.getElementById('wood-rate').textContent = formatRate(this.rates.wood);
+        document.getElementById('stone-rate').textContent = formatRate(this.rates.stone);
+        document.getElementById('food-rate').textContent = formatRate(this.rates.food);
+        document.getElementById('gold-rate').textContent = formatRate(this.rates.gold);
+    },
+
+    serialize() {
+        return { wood: this.wood, stone: this.stone, food: this.food, gold: this.gold };
+    },
+
+    deserialize(data) {
+        this.wood = data.wood;
+        this.stone = data.stone;
+        this.food = data.food;
+        this.gold = data.gold;
+        this.updateRates();
+    }
+};
+
+
+// === js/buildings.js ===
+// Building placement and management
+const Buildings = {
+    playerBuildings: [],
+
+    getTownHallLevel() {
+        for (const b of this.playerBuildings) {
+            if (b.type === 'town_hall') return b.level || 1;
+        }
+        return 0;
+    },
+
+    canBuild(buildingId) {
+        const bKey = buildingId.toUpperCase();
+        const bDef = CONFIG.BUILDINGS[bKey];
+        if (!bDef) return false;
+
+        // Check town hall requirement
+        if (bDef.requiresTownHall && this.getTownHallLevel() < bDef.requiresTownHall) {
+            return false;
+        }
+
+        // Check resources
+        return Resources.canAfford(bDef.cost);
+    },
+
+    getAvailableBuildings() {
+        const available = [];
+        const thLevel = this.getTownHallLevel();
+
+        for (const [key, bDef] of Object.entries(CONFIG.BUILDINGS)) {
+            if (key === 'TOWN_HALL') continue; // only placed once at start
+            if (bDef.requiresTownHall && thLevel < bDef.requiresTownHall) continue;
+            available.push({ key: key.toLowerCase(), ...bDef });
+        }
+        return available;
+    },
+
+    placeBuilding(x, y, buildingId) {
+        const bKey = buildingId.toUpperCase();
+        const bDef = CONFIG.BUILDINGS[bKey];
+        if (!bDef) return false;
+
+        const tile = GameMap.getTile(x, y);
+        if (!tile) return false;
+
+        // Validate terrain
+        if (bDef.validTerrain && !bDef.validTerrain.includes(tile.terrain)) {
+            Notifications.add(`${bDef.name} ne peut pas etre place sur ce terrain.`, 'alert');
+            return false;
+        }
+
+        // Can't build on water or existing building
+        if (tile.terrain === CONFIG.TERRAIN.WATER) return false;
+        if (tile.building) {
+            Notifications.add('Il y a deja un batiment ici.', 'alert');
+            return false;
+        }
+
+        // Must be player territory
+        if (tile.owner !== 0) {
+            Notifications.add('Vous ne pouvez construire que sur votre territoire.', 'alert');
+            return false;
+        }
+
+        // Spend resources
+        if (!Resources.spend(bDef.cost)) {
+            Notifications.add('Ressources insuffisantes !', 'alert');
+            return false;
+        }
+
+        const building = {
+            type: buildingId.toLowerCase(),
+            x, y,
+            level: 1,
+            built: true
+        };
+
+        tile.building = building;
+        this.playerBuildings.push(building);
+
+        // Increase pop cap for houses
+        if (bDef.popIncrease) {
+            Population.maxPop += bDef.popIncrease;
+        }
+
+        // Vision for watchtower
+        if (buildingId === 'watchtower') {
+            GameMap.revealArea(x, y, bDef.visionRange + 3);
+        }
+
+        Resources.updateRates();
+        Notifications.add(`${bDef.name} construit !`, 'success');
+        return true;
+    },
+
+    placeTownHall(x, y) {
+        const tile = GameMap.getTile(x, y);
+        if (!tile) return;
+        const building = {
+            type: 'town_hall',
+            x, y,
+            level: 1,
+            built: true
+        };
+        tile.building = building;
+        this.playerBuildings.push(building);
+        GameMap.revealArea(x, y, CONFIG.VISION_RADIUS);
+    },
+
+    upgradeTownHall() {
+        const th = this.playerBuildings.find(b => b.type === 'town_hall');
+        if (!th || th.level >= 5) return false;
+
+        const cost = {
+            wood: 50 * th.level,
+            stone: 50 * th.level,
+            food: 20 * th.level,
+            gold: 30 * th.level
+        };
+
+        if (!Resources.spend(cost)) {
+            Notifications.add('Ressources insuffisantes pour ameliorer !', 'alert');
+            return false;
+        }
+
+        th.level++;
+        Notifications.add(`Hotel de ville ameliore au niveau ${th.level} !`, 'success');
+        return true;
+    },
+
+    getDefenseBonus() {
+        let defense = 0;
+        for (const b of this.playerBuildings) {
+            if (b.type === 'wall') defense += CONFIG.BUILDINGS.WALL.defense;
+        }
+        if (TechTree.isResearched('fortifications')) defense += 15;
+        return defense;
+    },
+
+    hasBuilding(type) {
+        return this.playerBuildings.some(b => b.type === type);
+    },
+
+    countBuilding(type) {
+        return this.playerBuildings.filter(b => b.type === type).length;
+    },
+
+    serialize() {
+        return this.playerBuildings.map(b => ({
+            type: b.type, x: b.x, y: b.y, level: b.level
+        }));
+    },
+
+    deserialize(data) {
+        this.playerBuildings = [];
+        for (const bd of data) {
+            const tile = GameMap.getTile(bd.x, bd.y);
+            if (tile) {
+                const building = { type: bd.type, x: bd.x, y: bd.y, level: bd.level || 1, built: true };
+                tile.building = building;
+                this.playerBuildings.push(building);
+            }
+        }
+    }
+};
+
+
+// === js/population.js ===
+// Population and villager management
+const Population = {
+    villagers: [],
+    maxPop: 5,
+    moral: 100,
+    nextId: 1,
+
+    init() {
+        this.villagers = [];
+        this.maxPop = 5;
+        this.moral = 100;
+        this.nextId = 1;
+        // Start with 3 villagers
+        for (let i = 0; i < 3; i++) {
+            this.addVillager();
+        }
+    },
+
+    addVillager(role) {
+        if (this.villagers.length >= this.maxPop) return null;
+
+        const name = CONFIG.FIRST_NAMES[Math.floor(Perlin.random() * CONFIG.FIRST_NAMES.length)];
+        const villager = {
+            id: this.nextId++,
+            name: name,
+            role: role || 'Paysan',
+            moral: 80 + Math.floor(Perlin.random() * 20)
+        };
+        this.villagers.push(villager);
+        return villager;
+    },
+
+    removeVillager(id) {
+        this.villagers = this.villagers.filter(v => v.id !== id);
+    },
+
+    setRole(id, role) {
+        const v = this.villagers.find(v => v.id === id);
+        if (v) v.role = role;
+    },
+
+    getCountByRole(role) {
+        return this.villagers.filter(v => v.role === role).length;
+    },
+
+    adjustMoral(amount) {
+        this.moral = Math.max(0, Math.min(100, this.moral + amount));
+    },
+
+    processCycle() {
+        // Check housing
+        if (this.villagers.length > this.maxPop) {
+            // Some leave
+            const excess = this.villagers.length - this.maxPop;
+            for (let i = 0; i < excess; i++) {
+                this.villagers.pop();
+            }
+            Notifications.add('Des villageois partent faute de logement !', 'alert');
+        }
+
+        // Moral adjustments
+        if (Resources.food > 0) {
+            this.adjustMoral(2); // fed
+        }
+        if (this.villagers.length < this.maxPop * 0.5) {
+            this.adjustMoral(1); // plenty of room
+        }
+
+        // Growth: chance to gain a villager if moral is good and there's room
+        if (this.villagers.length < this.maxPop && this.moral > 60 && Perlin.random() < 0.25) {
+            const v = this.addVillager();
+            if (v) Notifications.add(`${v.name} a rejoint votre village !`, 'success');
+        }
+
+        // Rebellion at 0 moral
+        if (this.moral <= 0) {
+            const deserters = Math.ceil(this.villagers.length * 0.3);
+            for (let i = 0; i < deserters && this.villagers.length > 0; i++) {
+                this.villagers.pop();
+            }
+            this.moral = 20;
+            Notifications.add('Rebellion ! Des villageois desertent !', 'alert');
+        }
+
+        // Apply role-based bonuses (workers boost production beyond base building rate)
+        // Farmers
+        const farmers = this.getCountByRole('Fermier');
+        if (farmers > 0) Resources.add('food', farmers * 2);
+        // Woodcutters
+        const woodcutters = this.getCountByRole('Bucheron');
+        if (woodcutters > 0) Resources.add('wood', woodcutters * 2);
+        // Miners
+        const miners = this.getCountByRole('Mineur');
+        if (miners > 0) Resources.add('stone', miners * 2);
+        // Merchants
+        const merchants = this.getCountByRole('Marchand');
+        if (merchants > 0) Resources.add('gold', merchants * 2);
+    },
+
+    updateUI() {
+        document.getElementById('pop-count').textContent = this.villagers.length;
+        document.getElementById('pop-max').textContent = this.maxPop;
+        document.getElementById('moral-value').textContent = this.moral;
+    },
+
+    serialize() {
+        return {
+            villagers: this.villagers,
+            maxPop: this.maxPop,
+            moral: this.moral,
+            nextId: this.nextId
+        };
+    },
+
+    deserialize(data) {
+        this.villagers = data.villagers;
+        this.maxPop = data.maxPop;
+        this.moral = data.moral;
+        this.nextId = data.nextId;
+    }
+};
+
+
+// === js/military.js ===
+// Military unit management
+const Military = {
+    units: { warrior: 0, archer: 0, cavalry: 0, siege: 0 },
+
+    canRecruit(unitId) {
+        const uDef = CONFIG.UNITS[unitId.toUpperCase()];
+        if (!uDef) return false;
+
+        // Check building requirement
+        if (!Buildings.hasBuilding(uDef.building)) return false;
+
+        // Check resources
+        return Resources.canAfford(uDef.cost);
+    },
+
+    recruit(unitId) {
+        const uDef = CONFIG.UNITS[unitId.toUpperCase()];
+        if (!uDef) return false;
+
+        if (!Buildings.hasBuilding(uDef.building)) {
+            Notifications.add(`Construisez d'abord : ${uDef.building}`, 'alert');
+            return false;
+        }
+
+        if (!Resources.spend(uDef.cost)) {
+            Notifications.add('Ressources insuffisantes !', 'alert');
+            return false;
+        }
+
+        this.units[unitId.toLowerCase()]++;
+        Notifications.add(`${uDef.name} recrute !`, 'success');
+        return true;
+    },
+
+    getTotalUnits() {
+        return Object.values(this.units).reduce((a, b) => a + b, 0);
+    },
+
+    getArmyStrength(army) {
+        let attack = 0, defense = 0, hp = 0;
+        for (const [type, count] of Object.entries(army)) {
+            const uDef = CONFIG.UNITS[type.toUpperCase()];
+            if (!uDef || count <= 0) continue;
+            attack += uDef.attack * count;
+            defense += uDef.defense * count;
+            hp += uDef.hp * count;
+        }
+
+        // Tech bonuses
+        if (TechTree.isResearched('steel_weapons')) attack = Math.floor(attack * 1.2);
+        if (TechTree.isResearched('armor_plating')) defense = Math.floor(defense * 1.2);
+        if (TechTree.isResearched('battle_tactics')) {
+            attack = Math.floor(attack * 1.1);
+            defense = Math.floor(defense * 1.1);
+        }
+
+        // Moral bonus
+        const moralMod = Population.moral / 100;
+        attack = Math.floor(attack * (0.5 + moralMod * 0.5));
+
+        return { attack, defense, hp };
+    },
+
+    removeUnits(losses) {
+        for (const [type, count] of Object.entries(losses)) {
+            this.units[type] = Math.max(0, (this.units[type] || 0) - count);
+        }
+    },
+
+    serialize() {
+        return { ...this.units };
+    },
+
+    deserialize(data) {
+        this.units = { warrior: 0, archer: 0, cavalry: 0, siege: 0, ...data };
+    }
+};
+
+
+// === js/combat.js ===
+// Combat system - abstract strategic battles
+const Combat = {
+    currentBattle: null,
+
+    initBattle(targetRegion, army) {
+        // Calculate defender strength
+        const defenderStrength = this.getDefenderStrength(targetRegion);
+        const attackerStrength = Military.getArmyStrength(army);
+
+        this.currentBattle = {
+            targetRegion,
+            army: { ...army },
+            attackerStrength,
+            defenderStrength,
+            result: null
+        };
+
+        this.showBattleSetup();
+    },
+
+    getDefenderStrength(region) {
+        // Base strength based on region type and size
+        let base = region.tiles.length * 2;
+
+        if (region.type === 'bandit') {
+            base = 30 + region.tiles.length * 3;
+        } else if (region.type === 'empire') {
+            base = 100 + region.tiles.length * 5;
+        } else {
+            // Rival kingdom - scales with game time
+            base = 50 + region.tiles.length * 4 + (typeof Game !== 'undefined' ? Game.year * 5 : 0);
+        }
+
+        return {
+            attack: Math.floor(base * 0.8),
+            defense: Math.floor(base),
+            hp: Math.floor(base * 3)
+        };
+    },
+
+    resolveBattle() {
+        if (!this.currentBattle) return null;
+
+        const { attackerStrength, defenderStrength, army, targetRegion } = this.currentBattle;
+
+        // Combat resolution with random modifier
+        const attackRoll = (attackerStrength.attack + attackerStrength.hp * 0.3) *
+                          (0.85 + Perlin.random() * 0.3);
+        const defendRoll = (defenderStrength.defense + defenderStrength.hp * 0.3) *
+                          (0.85 + Perlin.random() * 0.3);
+
+        // Siege bonus against fortified regions
+        if (army.siege > 0) {
+            // Siege units are very effective
+        }
+
+        const attackerScore = attackRoll;
+        const defenderScore = defendRoll;
+
+        const victory = attackerScore > defenderScore;
+        const dominance = victory ?
+            attackerScore / Math.max(1, defenderScore) :
+            defenderScore / Math.max(1, attackerScore);
+
+        // Calculate losses
+        const lossFactor = victory ? Math.max(0.1, 1 - dominance * 0.3) : Math.min(0.9, 0.3 + dominance * 0.2);
+        const losses = {};
+        for (const [type, count] of Object.entries(army)) {
+            if (count > 0) {
+                losses[type] = Math.max(1, Math.floor(count * lossFactor));
+                if (victory && dominance > 2) losses[type] = Math.max(0, Math.floor(count * 0.1));
+            }
+        }
+
+        this.currentBattle.result = {
+            victory,
+            losses,
+            attackerScore: Math.floor(attackerScore),
+            defenderScore: Math.floor(defenderScore)
+        };
+
+        // Apply losses
+        Military.removeUnits(losses);
+
+        // Apply result
+        if (victory) {
+            GameMap.annexRegion(targetRegion.id, 0);
+            Population.adjustMoral(10);
+            Notifications.add(`Victoire ! ${targetRegion.name} conquis !`, 'success');
+        } else {
+            Population.adjustMoral(-10);
+            Notifications.add(`Defaite contre ${targetRegion.name}...`, 'alert');
+        }
+
+        this.showBattleResult();
+        return this.currentBattle.result;
+    },
+
+    showBattleSetup() {
+        const screen = document.getElementById('battle-screen');
+        const content = document.getElementById('battle-content');
+        const setup = document.getElementById('battle-setup');
+        const result = document.getElementById('battle-result');
+
+        const battle = this.currentBattle;
+
+        content.innerHTML = `
+            <h3>Attaque de : ${battle.targetRegion.name}</h3>
+            <div class="battle-forces">
+                <div class="battle-side">
+                    <h4>Votre Armee</h4>
+                    ${this.formatArmy(battle.army)}
+                    <div class="unit-line"><strong>Force: ${battle.attackerStrength.attack + battle.attackerStrength.defense}</strong></div>
+                </div>
+                <div class="battle-side">
+                    <h4>Defenseurs</h4>
+                    <div class="unit-line">Force estimee: ~${battle.defenderStrength.attack + battle.defenderStrength.defense}</div>
+                    <div class="unit-line">Type: ${battle.targetRegion.type || 'rival'}</div>
+                </div>
+            </div>
+        `;
+
+        setup.style.display = 'block';
+        result.style.display = 'none';
+        screen.classList.add('active');
+    },
+
+    showBattleResult() {
+        const setup = document.getElementById('battle-setup');
+        const result = document.getElementById('battle-result');
+        const report = document.getElementById('battle-report');
+
+        const battle = this.currentBattle;
+        const r = battle.result;
+
+        let lossText = '';
+        for (const [type, count] of Object.entries(r.losses)) {
+            if (count > 0) {
+                const uDef = CONFIG.UNITS[type.toUpperCase()];
+                lossText += `<div>${uDef ? uDef.name : type}: -${count}</div>`;
+            }
+        }
+
+        report.innerHTML = `
+            <h3 style="color:${r.victory ? '#2ecc71' : '#e74c3c'}">${r.victory ? 'VICTOIRE !' : 'DEFAITE...'}</h3>
+            <div>Score attaque: ${r.attackerScore} vs Defense: ${r.defenderScore}</div>
+            <div style="margin-top:8px"><strong>Pertes:</strong></div>
+            ${lossText || '<div>Aucune perte !</div>'}
+            ${r.victory ? '<div style="margin-top:8px;color:#2ecc71">Territoire annexe !</div>' : ''}
+        `;
+
+        setup.style.display = 'none';
+        result.style.display = 'block';
+    },
+
+    formatArmy(army) {
+        let html = '';
+        for (const [type, count] of Object.entries(army)) {
+            if (count > 0) {
+                const uDef = CONFIG.UNITS[type.toUpperCase()];
+                html += `<div class="unit-line">${uDef ? uDef.icon : ''} ${uDef ? uDef.name : type}: ${count}</div>`;
+            }
+        }
+        return html || '<div class="unit-line">Aucune unite</div>';
+    },
+
+    closeBattle() {
+        document.getElementById('battle-screen').classList.remove('active');
+        this.currentBattle = null;
+    }
+};
+
+
+// === js/factions.js ===
+// AI Factions - rival kingdoms, bandits, and empires
+const Factions = {
+    factionData: {},
+
+    init() {
+        this.factionData = {};
+        for (const region of GameMap.regions) {
+            if (region.isPlayer) continue;
+            if (region.faction === -99) continue;
+
+            this.factionData[region.id] = {
+                regionId: region.id,
+                type: region.type || 'rival',
+                strength: this.getInitialStrength(region),
+                aggression: region.type === 'bandit' ? 0.6 : (region.type === 'empire' ? 0.3 : 0.4),
+                lastAttack: -10,
+                growthRate: region.type === 'empire' ? 8 : (region.type === 'bandit' ? 2 : 5)
+            };
+        }
+    },
+
+    getInitialStrength(region) {
+        if (region.type === 'bandit') return 20 + Math.floor(Perlin.random() * 30);
+        if (region.type === 'empire') return 80 + Math.floor(Perlin.random() * 60);
+        return 40 + Math.floor(Perlin.random() * 40);
+    },
+
+    processCycle(year, season) {
+        for (const [id, data] of Object.entries(this.factionData)) {
+            const region = GameMap.getRegion(parseInt(id));
+            if (!region || region.faction === -99 || region.tiles.length === 0) continue;
+
+            // Growth
+            data.strength += data.growthRate;
+
+            // Expansion: AI tries to claim adjacent unclaimed tiles
+            if (Perlin.random() < 0.3) {
+                this.expandTerritory(region);
+            }
+
+            // Attack player?
+            if (this.shouldAttackPlayer(data, year)) {
+                this.attackPlayer(region, data);
+            }
+        }
+    },
+
+    expandTerritory(region) {
+        // Grab some adjacent unclaimed tiles
+        const newTiles = [];
+        for (const t of region.tiles) {
+            const neighbors = [
+                { x: t.x - 1, y: t.y }, { x: t.x + 1, y: t.y },
+                { x: t.x, y: t.y - 1 }, { x: t.x, y: t.y + 1 }
+            ];
+            for (const n of neighbors) {
+                const tile = GameMap.getTile(n.x, n.y);
+                if (tile && tile.owner === -1 && tile.terrain !== CONFIG.TERRAIN.WATER) {
+                    if (Perlin.random() < 0.15) {
+                        tile.owner = region.id;
+                        newTiles.push({ x: n.x, y: n.y });
+                    }
+                }
+            }
+        }
+        region.tiles.push(...newTiles);
+    },
+
+    shouldAttackPlayer(data, year) {
+        if (year < 2) return false; // grace period
+        if (year - data.lastAttack < 3) return false; // cooldown
+        if (data.strength < 30) return false;
+
+        // Check adjacency with player
+        const region = GameMap.getRegion(data.regionId);
+        if (!region) return false;
+
+        const playerRegion = GameMap.getPlayerRegion();
+        if (!playerRegion) return false;
+
+        // Check if actually adjacent
+        let adjacent = false;
+        for (const t of region.tiles) {
+            const neighbors = [
+                { x: t.x - 1, y: t.y }, { x: t.x + 1, y: t.y },
+                { x: t.x, y: t.y - 1 }, { x: t.x, y: t.y + 1 }
+            ];
+            for (const n of neighbors) {
+                const tile = GameMap.getTile(n.x, n.y);
+                if (tile && tile.owner === playerRegion.id) {
+                    adjacent = true;
+                    break;
+                }
+            }
+            if (adjacent) break;
+        }
+
+        if (!adjacent) return false;
+
+        return Perlin.random() < data.aggression * 0.15;
+    },
+
+    attackPlayer(region, data) {
+        data.lastAttack = typeof Game !== 'undefined' ? Game.year : 0;
+
+        const attackPower = Math.floor(data.strength * 0.6);
+        const playerDefense = Buildings.getDefenseBonus() + Military.getTotalUnits() * 8;
+
+        const roll = (0.85 + Perlin.random() * 0.3);
+        const attackScore = attackPower * roll;
+        const defendScore = playerDefense * (0.85 + Perlin.random() * 0.3);
+
+        if (attackScore > defendScore) {
+            // Enemy wins - steal some border tiles
+            const playerRegion = GameMap.getPlayerRegion();
+            let stolen = 0;
+            const maxSteal = Math.min(5, Math.floor(region.tiles.length * 0.3));
+
+            // Find player border tiles adjacent to this region
+            for (const t of [...playerRegion.tiles]) {
+                if (stolen >= maxSteal) break;
+                const neighbors = [
+                    { x: t.x - 1, y: t.y }, { x: t.x + 1, y: t.y },
+                    { x: t.x, y: t.y - 1 }, { x: t.x, y: t.y + 1 }
+                ];
+                for (const n of neighbors) {
+                    const tile = GameMap.getTile(n.x, n.y);
+                    if (tile && tile.owner === region.id) {
+                        // This player tile borders enemy - steal it
+                        const pt = GameMap.getTile(t.x, t.y);
+                        if (pt && !pt.building) {
+                            pt.owner = region.id;
+                            region.tiles.push({ x: t.x, y: t.y });
+                            playerRegion.tiles = playerRegion.tiles.filter(
+                                tt => !(tt.x === t.x && tt.y === t.y)
+                            );
+                            stolen++;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            Population.adjustMoral(-8);
+            data.strength -= Math.floor(attackPower * 0.3);
+            Notifications.add(`${region.name} attaque et prend du territoire !`, 'alert');
+        } else {
+            // Player defends
+            data.strength -= Math.floor(attackPower * 0.5);
+            Population.adjustMoral(5);
+            Notifications.add(`Attaque de ${region.name} repoussee !`, 'success');
+        }
+    },
+
+    serialize() {
+        return this.factionData;
+    },
+
+    deserialize(data) {
+        this.factionData = data;
+    }
+};
+
+
+// === js/tech.js ===
+// Technology tree
+const TechTree = {
+    researched: {},
+    currentResearch: null,
+    researchProgress: 0,
+
+    techs: {
+        // Economy branch
+        better_farms: {
+            id: 'better_farms', name: 'Agriculture amelioree', branch: 'economy',
+            desc: 'Les fermes produisent +4 nourriture/cycle.',
+            cost: { gold: 30 }, cycles: 3, requires: []
+        },
+        forestry: {
+            id: 'forestry', name: 'Sylviculture', branch: 'economy',
+            desc: 'Les scieries produisent +3 bois/cycle.',
+            cost: { gold: 30 }, cycles: 3, requires: []
+        },
+        masonry: {
+            id: 'masonry', name: 'Maconnerie', branch: 'economy',
+            desc: 'Les mines produisent +3 pierre/cycle.',
+            cost: { gold: 35 }, cycles: 3, requires: []
+        },
+        advanced_commerce: {
+            id: 'advanced_commerce', name: 'Commerce avance', branch: 'economy',
+            desc: 'Les marches generent +5 or/cycle.',
+            cost: { gold: 60, stone: 20 }, cycles: 5, requires: ['better_farms']
+        },
+        trade_routes: {
+            id: 'trade_routes', name: 'Routes commerciales', branch: 'economy',
+            desc: 'Or +8/cycle supplementaire.',
+            cost: { gold: 100, wood: 50 }, cycles: 8, requires: ['advanced_commerce']
+        },
+
+        // Military branch
+        steel_weapons: {
+            id: 'steel_weapons', name: 'Armes en acier', branch: 'military',
+            desc: 'Attaque de toutes les unites +20%.',
+            cost: { gold: 40, stone: 20 }, cycles: 4, requires: []
+        },
+        armor_plating: {
+            id: 'armor_plating', name: 'Armures renforcees', branch: 'military',
+            desc: 'Defense de toutes les unites +20%.',
+            cost: { gold: 40, stone: 30 }, cycles: 4, requires: []
+        },
+        battle_tactics: {
+            id: 'battle_tactics', name: 'Tactiques de combat', branch: 'military',
+            desc: 'Attaque et defense +10%.',
+            cost: { gold: 80 }, cycles: 6, requires: ['steel_weapons']
+        },
+        fortifications: {
+            id: 'fortifications', name: 'Fortifications', branch: 'military',
+            desc: 'Defense passive +15.',
+            cost: { gold: 50, stone: 40 }, cycles: 5, requires: ['armor_plating']
+        },
+        elite_training: {
+            id: 'elite_training', name: 'Entrainement d\'elite', branch: 'military',
+            desc: 'Unites recrutees avec +30% de stats.',
+            cost: { gold: 120 }, cycles: 8, requires: ['battle_tactics']
+        },
+
+        // Civilization branch
+        housing_reform: {
+            id: 'housing_reform', name: 'Reforme du logement', branch: 'civilization',
+            desc: 'Les maisons logent +3 personnes.',
+            cost: { gold: 25, wood: 20 }, cycles: 3, requires: []
+        },
+        festivals: {
+            id: 'festivals', name: 'Festivites', branch: 'civilization',
+            desc: 'Moral +5 chaque saison.',
+            cost: { gold: 30, food: 20 }, cycles: 3, requires: []
+        },
+        diplomacy: {
+            id: 'diplomacy', name: 'Diplomatie', branch: 'civilization',
+            desc: 'Reduit l\'agressivite des factions rivales.',
+            cost: { gold: 60 }, cycles: 5, requires: ['festivals']
+        },
+        great_library: {
+            id: 'great_library', name: 'Grande bibliotheque', branch: 'civilization',
+            desc: 'Recherche 30% plus rapide.',
+            cost: { gold: 100, stone: 50 }, cycles: 8, requires: ['diplomacy']
+        },
+        golden_age: {
+            id: 'golden_age', name: 'Age d\'or', branch: 'civilization',
+            desc: 'Toute la production +25%.',
+            cost: { gold: 200, food: 100 }, cycles: 12, requires: ['great_library']
+        }
+    },
+
+    isResearched(techId) {
+        return !!this.researched[techId];
+    },
+
+    canResearch(techId) {
+        const tech = this.techs[techId];
+        if (!tech) return false;
+        if (this.researched[techId]) return false;
+        if (this.currentResearch) return false;
+
+        // Check prerequisites
+        for (const req of tech.requires) {
+            if (!this.researched[req]) return false;
+        }
+
+        return Resources.canAfford(tech.cost);
+    },
+
+    startResearch(techId) {
+        if (!this.canResearch(techId)) return false;
+
+        const tech = this.techs[techId];
+        if (!Resources.spend(tech.cost)) return false;
+
+        this.currentResearch = techId;
+        this.researchProgress = 0;
+        Notifications.add(`Recherche commencee: ${tech.name}`, 'success');
+        return true;
+    },
+
+    processCycle() {
+        if (!this.currentResearch) return;
+
+        const tech = this.techs[this.currentResearch];
+        let progressInc = 1;
+        if (this.isResearched('great_library')) progressInc = 1.3;
+
+        this.researchProgress += progressInc;
+
+        if (this.researchProgress >= tech.cycles) {
+            this.researched[this.currentResearch] = true;
+            Notifications.add(`Recherche terminee: ${tech.name} !`, 'success');
+
+            // Apply immediate effects
+            if (this.currentResearch === 'housing_reform') {
+                // Each existing house gets +3 pop
+                const houseCount = Buildings.countBuilding('house');
+                Population.maxPop += houseCount * 3;
+            }
+            if (this.currentResearch === 'diplomacy') {
+                for (const data of Object.values(Factions.factionData)) {
+                    data.aggression *= 0.6;
+                }
+            }
+
+            this.currentResearch = null;
+            this.researchProgress = 0;
+        }
+    },
+
+    renderTechTree() {
+        const branches = {
+            economy: document.getElementById('eco-nodes'),
+            military: document.getElementById('mil-nodes'),
+            civilization: document.getElementById('civ-nodes')
+        };
+
+        for (const el of Object.values(branches)) {
+            el.innerHTML = '';
+        }
+
+        for (const tech of Object.values(this.techs)) {
+            const container = branches[tech.branch];
+            if (!container) continue;
+
+            const node = document.createElement('div');
+            node.className = 'tech-node';
+
+            if (this.researched[tech.id]) {
+                node.classList.add('researched');
+            } else if (this.currentResearch === tech.id) {
+                node.classList.add('researching');
+            } else if (!this.canResearch(tech.id) && !this.currentResearch) {
+                // Check if it's just locked due to prereqs
+                const prereqsMet = tech.requires.every(r => this.researched[r]);
+                if (!prereqsMet) node.classList.add('locked');
+            }
+
+            let costText = Object.entries(tech.cost)
+                .map(([r, a]) => `${a} ${r}`)
+                .join(', ');
+
+            let statusText = '';
+            if (this.researched[tech.id]) statusText = ' [Complete]';
+            else if (this.currentResearch === tech.id) {
+                statusText = ` [${Math.floor(this.researchProgress)}/${tech.cycles} cycles]`;
+            }
+
+            node.innerHTML = `
+                <div class="tech-name">${tech.name}${statusText}</div>
+                <div class="tech-desc">${tech.desc}</div>
+                <div class="tech-cost">Cout: ${costText} | ${tech.cycles} cycles</div>
+            `;
+
+            if (!this.researched[tech.id] && this.currentResearch !== tech.id) {
+                node.addEventListener('click', () => {
+                    if (this.canResearch(tech.id)) {
+                        this.startResearch(tech.id);
+                        this.renderTechTree(); // refresh
+                    }
+                });
+            }
+
+            container.appendChild(node);
+        }
+    },
+
+    serialize() {
+        return {
+            researched: this.researched,
+            currentResearch: this.currentResearch,
+            researchProgress: this.researchProgress
+        };
+    },
+
+    deserialize(data) {
+        this.researched = data.researched || {};
+        this.currentResearch = data.currentResearch;
+        this.researchProgress = data.researchProgress || 0;
+    }
+};
+
+
+// === js/ui.js ===
+// UI management
+const UI = {
+    init() {
+        this.setupBuildButtons();
+        this.setupRecruitButtons();
+        this.setupEventListeners();
+        this.setupMinimapClick();
+        this.setupCanvasHover();
+    },
+
+    setupBuildButtons() {
+        const container = document.getElementById('build-buttons');
+        // Keep the label
+        const label = container.querySelector('.group-label');
+        container.innerHTML = '';
+        container.appendChild(label);
+
+        const buildings = Buildings.getAvailableBuildings();
+        for (const b of buildings) {
+            const btn = document.createElement('button');
+            btn.className = 'action-btn';
+            btn.title = `${b.name}\n${b.desc}\nCout: ${this.formatCost(b.cost)}`;
+            btn.textContent = `${b.icon || ''} ${b.name}`;
+            btn.dataset.building = b.key;
+            btn.addEventListener('click', () => {
+                if (Game.buildMode === b.key) {
+                    Game.buildMode = null;
+                    this.clearBuildSelection();
+                } else {
+                    Game.buildMode = b.key;
+                    this.clearBuildSelection();
+                    btn.classList.add('selected');
+                }
+            });
+            container.appendChild(btn);
+        }
+
+        // Town hall upgrade button
+        const thLevel = Buildings.getTownHallLevel();
+        if (thLevel > 0 && thLevel < 5) {
+            const btn = document.createElement('button');
+            btn.className = 'action-btn';
+            const cost = { wood: 50 * thLevel, stone: 50 * thLevel, food: 20 * thLevel, gold: 30 * thLevel };
+            btn.title = `Ameliorer Hotel de ville (Nv.${thLevel + 1})\nCout: ${this.formatCost(cost)}`;
+            btn.textContent = '\u{1F3DB} Ameliorer HdV';
+            btn.addEventListener('click', () => {
+                Buildings.upgradeTownHall();
+                this.setupBuildButtons(); // refresh
+            });
+            container.appendChild(btn);
+        }
+    },
+
+    setupRecruitButtons() {
+        const container = document.getElementById('recruit-buttons');
+        const label = container.querySelector('.group-label');
+        container.innerHTML = '';
+        container.appendChild(label);
+
+        for (const [key, uDef] of Object.entries(CONFIG.UNITS)) {
+            const btn = document.createElement('button');
+            btn.className = 'action-btn';
+            btn.title = `${uDef.name}\nPV:${uDef.hp} ATK:${uDef.attack} DEF:${uDef.defense}\nCout: ${this.formatCost(uDef.cost)}`;
+            btn.textContent = `${uDef.icon} ${uDef.name} (${Military.units[key.toLowerCase()] || 0})`;
+            btn.disabled = !Military.canRecruit(key.toLowerCase());
+            btn.addEventListener('click', () => {
+                Military.recruit(key.toLowerCase());
+                this.setupRecruitButtons(); // refresh counts
+            });
+            container.appendChild(btn);
+        }
+
+        // Attack button if we have units and adjacent enemies
+        if (Military.getTotalUnits() > 0) {
+            const enemies = GameMap.getAdjacentEnemyRegions(0);
+            if (enemies.length > 0) {
+                const btn = document.createElement('button');
+                btn.className = 'action-btn';
+                btn.style.background = '#5a1a1a';
+                btn.textContent = '\u{2694} Attaquer';
+                btn.addEventListener('click', () => this.showAttackMenu(enemies));
+                container.appendChild(btn);
+            }
+        }
+    },
+
+    showAttackMenu(enemies) {
+        // Use battle screen to select target and army composition
+        const content = document.getElementById('battle-content');
+        const selector = document.getElementById('army-selector');
+        const screen = document.getElementById('battle-screen');
+        const setup = document.getElementById('battle-setup');
+        const result = document.getElementById('battle-result');
+
+        content.innerHTML = '<h3>Choisissez une cible</h3>';
+
+        // Target selection
+        let targetHtml = '';
+        for (const enemy of enemies) {
+            targetHtml += `
+                <div class="army-row">
+                    <span style="color:${enemy.color}">${enemy.name}</span>
+                    <span>(${enemy.tiles.length} tuiles)</span>
+                    <button class="action-btn target-btn" data-region="${enemy.id}">Cibler</button>
+                </div>
+            `;
+        }
+        content.innerHTML += targetHtml;
+
+        // Army composition
+        let armyHtml = '<h4 style="margin-top:12px">Composition de l\'armee</h4>';
+        for (const [key, uDef] of Object.entries(CONFIG.UNITS)) {
+            const available = Military.units[key.toLowerCase()] || 0;
+            if (available > 0) {
+                armyHtml += `
+                    <div class="army-row">
+                        <span>${uDef.icon} ${uDef.name} (${available})</span>
+                        <input type="number" min="0" max="${available}" value="${available}" id="send-${key.toLowerCase()}">
+                    </div>
+                `;
+            }
+        }
+        selector.innerHTML = armyHtml;
+
+        setup.style.display = 'block';
+        result.style.display = 'none';
+        screen.classList.add('active');
+
+        // Target button handlers
+        document.querySelectorAll('.target-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.target-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                Game._selectedTarget = parseInt(btn.dataset.region);
+            });
+        });
+
+        // Attack button handler
+        document.getElementById('btn-attack').onclick = () => {
+            if (!Game._selectedTarget && Game._selectedTarget !== 0) {
+                Notifications.add('Selectionnez une cible !', 'alert');
+                return;
+            }
+            const army = {};
+            for (const key of Object.keys(CONFIG.UNITS)) {
+                const input = document.getElementById('send-' + key.toLowerCase());
+                if (input) army[key.toLowerCase()] = parseInt(input.value) || 0;
+            }
+            const totalSent = Object.values(army).reduce((a, b) => a + b, 0);
+            if (totalSent === 0) {
+                Notifications.add('Envoyez au moins une unite !', 'alert');
+                return;
+            }
+            const targetRegion = GameMap.getRegion(Game._selectedTarget);
+            if (targetRegion) {
+                Combat.initBattle(targetRegion, army);
+                Combat.resolveBattle();
+            }
+        };
+
+        // Retreat button
+        document.getElementById('btn-retreat').onclick = () => {
+            Combat.closeBattle();
+        };
+    },
+
+    setupEventListeners() {
+        // Time controls
+        document.getElementById('btn-pause').addEventListener('click', () => {
+            Game.setSpeed('PAUSED');
+            this.updateTimeButtons('btn-pause');
+        });
+        document.getElementById('btn-normal').addEventListener('click', () => {
+            Game.setSpeed('NORMAL');
+            this.updateTimeButtons('btn-normal');
+        });
+        document.getElementById('btn-fast').addEventListener('click', () => {
+            Game.setSpeed('FAST');
+            this.updateTimeButtons('btn-fast');
+        });
+
+        // Tech tree
+        document.getElementById('btn-tech-tree').addEventListener('click', () => {
+            TechTree.renderTechTree();
+            document.getElementById('tech-screen').classList.add('active');
+        });
+        document.getElementById('btn-tech-close').addEventListener('click', () => {
+            document.getElementById('tech-screen').classList.remove('active');
+        });
+
+        // Villager management
+        document.getElementById('btn-villagers').addEventListener('click', () => {
+            this.showVillagerManagement();
+        });
+        document.getElementById('btn-villager-close').addEventListener('click', () => {
+            document.getElementById('villager-overlay').classList.remove('active');
+        });
+
+        // Pause menu
+        document.getElementById('btn-menu-pause').addEventListener('click', () => {
+            Game.setSpeed('PAUSED');
+            this.updateTimeButtons('btn-pause');
+            document.getElementById('pause-overlay').classList.add('active');
+        });
+        document.getElementById('btn-resume').addEventListener('click', () => {
+            document.getElementById('pause-overlay').classList.remove('active');
+            Game.setSpeed('NORMAL');
+            this.updateTimeButtons('btn-normal');
+        });
+        document.getElementById('btn-save').addEventListener('click', () => {
+            SaveManager.save();
+            Notifications.add('Partie sauvegardee !', 'success');
+        });
+        document.getElementById('btn-quit').addEventListener('click', () => {
+            document.getElementById('pause-overlay').classList.remove('active');
+            Game.showScreen('menu-screen');
+        });
+
+        // Battle close
+        document.getElementById('btn-battle-close').addEventListener('click', () => {
+            Combat.closeBattle();
+            this.setupRecruitButtons();
+            // Check victory
+            Game.checkVictory();
+        });
+
+        // Victory/Defeat return
+        document.getElementById('btn-victory-menu').addEventListener('click', () => {
+            Game.showScreen('menu-screen');
+        });
+        document.getElementById('btn-defeat-menu').addEventListener('click', () => {
+            Game.showScreen('menu-screen');
+        });
+    },
+
+    setupMinimapClick() {
+        const minimap = document.getElementById('minimap-canvas');
+        minimap.addEventListener('click', (e) => {
+            const rect = minimap.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            const tileX = Math.floor((mx / minimap.width) * CONFIG.MAP_WIDTH);
+            const tileY = Math.floor((my / minimap.height) * CONFIG.MAP_HEIGHT);
+            Camera.centerOnTile(tileX, tileY);
+        });
+    },
+
+    setupCanvasHover() {
+        const canvas = document.getElementById('game-canvas');
+        canvas.addEventListener('mousemove', (e) => {
+            if (Camera.dragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const sx = e.clientX - rect.left;
+            const sy = e.clientY - rect.top;
+            Game._hoverTile = Camera.screenToTile(sx, sy);
+        });
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    },
+
+    showVillagerManagement() {
+        const container = document.getElementById('villager-manage-list');
+        container.innerHTML = '';
+
+        if (Population.villagers.length === 0) {
+            container.innerHTML = '<p>Aucun villageois.</p>';
+        }
+
+        for (const v of Population.villagers) {
+            const row = document.createElement('div');
+            row.className = 'villager-row';
+
+            const name = document.createElement('span');
+            name.className = 'v-name';
+            name.textContent = `${v.name} (Moral: ${v.moral})`;
+
+            const select = document.createElement('select');
+            for (const role of CONFIG.ROLES) {
+                const opt = document.createElement('option');
+                opt.value = role;
+                opt.textContent = role;
+                if (v.role === role) opt.selected = true;
+                select.appendChild(opt);
+            }
+            select.addEventListener('change', () => {
+                Population.setRole(v.id, select.value);
+            });
+
+            row.appendChild(name);
+            row.appendChild(select);
+            container.appendChild(row);
+        }
+
+        document.getElementById('villager-overlay').classList.add('active');
+    },
+
+    updateTimeButtons(activeId) {
+        document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(activeId).classList.add('active');
+    },
+
+    clearBuildSelection() {
+        document.querySelectorAll('#build-buttons .action-btn').forEach(btn => btn.classList.remove('selected'));
+    },
+
+    updateInfoPanel(tile) {
+        const title = document.getElementById('info-title');
+        const content = document.getElementById('info-content');
+
+        if (!tile) {
+            title.textContent = 'Selection';
+            content.innerHTML = 'Cliquez sur une tuile pour voir ses details.';
+            return;
+        }
+
+        const terrainName = CONFIG.TERRAIN_NAMES[tile.terrain] || 'Inconnu';
+        let ownerName = 'Inexplore';
+        if (tile.owner === -1) ownerName = 'Non revendique';
+        else if (tile.owner === 0) ownerName = 'Votre Royaume';
+        else {
+            const region = GameMap.getRegion(tile.owner);
+            ownerName = region ? region.name : 'Inconnu';
+        }
+
+        let html = `
+            <div class="info-row"><span class="info-label">Terrain:</span><span>${terrainName}</span></div>
+            <div class="info-row"><span class="info-label">Position:</span><span>${tile.x}, ${tile.y}</span></div>
+            <div class="info-row"><span class="info-label">Proprietaire:</span><span>${ownerName}</span></div>
+        `;
+
+        if (tile.building) {
+            const bDef = CONFIG.BUILDINGS[tile.building.type.toUpperCase()];
+            html += `<div class="info-row"><span class="info-label">Batiment:</span><span>${bDef ? bDef.name : tile.building.type}</span></div>`;
+            if (tile.building.level > 1) {
+                html += `<div class="info-row"><span class="info-label">Niveau:</span><span>${tile.building.level}</span></div>`;
+            }
+            if (bDef && bDef.production) {
+                html += '<div class="info-row"><span class="info-label">Production:</span><span>';
+                html += Object.entries(bDef.production).map(([r, a]) => `+${a} ${r}`).join(', ');
+                html += '</span></div>';
+            }
+        }
+
+        // Conquest percentage
+        const conquest = GameMap.getConquestPercent(0);
+        html += `<hr style="border-color:#3a506b;margin:8px 0">`;
+        html += `<div class="info-row"><span class="info-label">Conquete:</span><span>${conquest}%</span></div>`;
+        html += `<div class="info-row"><span class="info-label">Armee:</span><span>${Military.getTotalUnits()} unites</span></div>`;
+
+        title.textContent = terrainName + (tile.building ? ' - ' + (CONFIG.BUILDINGS[tile.building.type.toUpperCase()]?.name || '') : '');
+        content.innerHTML = html;
+    },
+
+    formatCost(cost) {
+        return Object.entries(cost)
+            .filter(([, v]) => v > 0)
+            .map(([k, v]) => `${v} ${k}`)
+            .join(', ');
+    },
+
+    refreshAll() {
+        this.setupBuildButtons();
+        this.setupRecruitButtons();
+    }
+};
+
+
+// === js/notifications.js ===
+// Notification system
+const Notifications = {
+    container: null,
+
+    init() {
+        this.container = document.getElementById('notifications');
+    },
+
+    add(message, type) {
+        type = type || '';
+        const notif = document.createElement('div');
+        notif.className = 'notification' + (type ? ' ' + type : '');
+        notif.textContent = message;
+        this.container.appendChild(notif);
+
+        // Auto-remove after 4 seconds
+        setTimeout(() => {
+            notif.style.opacity = '0';
+            notif.style.transition = 'opacity 0.5s';
+            setTimeout(() => {
+                if (notif.parentNode) notif.parentNode.removeChild(notif);
+            }, 500);
+        }, 4000);
+
+        // Keep max 5 notifications
+        while (this.container.children.length > 5) {
+            this.container.removeChild(this.container.firstChild);
+        }
+    }
+};
+
+
+// === js/save.js ===
+// Save and load system using localStorage
+const SaveManager = {
+    SAVE_KEY: 'souvenirs_de_couronne_save',
+    AUTO_SAVE_KEY: 'souvenirs_de_couronne_autosave',
+
+    save(slot) {
+        const key = slot === 'auto' ? this.AUTO_SAVE_KEY : this.SAVE_KEY;
+        const data = {
+            version: 1,
+            seed: Game.seed,
+            year: Game.year,
+            season: Game.season,
+            totalCycles: Game.totalCycles,
+            resources: Resources.serialize(),
+            population: Population.serialize(),
+            military: Military.serialize(),
+            buildings: Buildings.serialize(),
+            tech: TechTree.serialize(),
+            factions: Factions.serialize(),
+            map: this.serializeMap(),
+            timestamp: Date.now()
+        };
+        try {
+            localStorage.setItem(key, JSON.stringify(data));
+            return true;
+        } catch (e) {
+            console.error('Save failed:', e);
+            return false;
+        }
+    },
+
+    load(slot) {
+        const key = slot === 'auto' ? this.AUTO_SAVE_KEY : this.SAVE_KEY;
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return null;
+            return JSON.parse(raw);
+        } catch (e) {
+            console.error('Load failed:', e);
+            return null;
+        }
+    },
+
+    hasSave() {
+        return !!(localStorage.getItem(this.SAVE_KEY) || localStorage.getItem(this.AUTO_SAVE_KEY));
+    },
+
+    serializeMap() {
+        const tiles = [];
+        for (let y = 0; y < CONFIG.MAP_HEIGHT; y++) {
+            tiles[y] = [];
+            for (let x = 0; x < CONFIG.MAP_WIDTH; x++) {
+                const t = GameMap.tiles[y][x];
+                tiles[y][x] = {
+                    terrain: t.terrain,
+                    owner: t.owner,
+                    explored: t.explored,
+                    decoration: t.decoration
+                };
+            }
+        }
+        return {
+            tiles,
+            regions: GameMap.regions.map(r => ({
+                id: r.id,
+                name: r.name,
+                faction: r.faction,
+                color: r.color,
+                capital: r.capital,
+                isPlayer: r.isPlayer,
+                type: r.type,
+                tiles: r.tiles
+            }))
+        };
+    },
+
+    deserializeMap(data) {
+        for (let y = 0; y < CONFIG.MAP_HEIGHT; y++) {
+            for (let x = 0; x < CONFIG.MAP_WIDTH; x++) {
+                const saved = data.tiles[y][x];
+                GameMap.tiles[y][x] = {
+                    x, y,
+                    terrain: saved.terrain,
+                    building: null,
+                    owner: saved.owner,
+                    visible: false,
+                    explored: saved.explored,
+                    decoration: saved.decoration
+                };
+            }
+        }
+        GameMap.regions = data.regions;
+    }
+};
+
+
+// === js/game.js ===
+// Main game controller
+const Game = {
+    seed: '',
+    year: 1,
+    season: 0,
+    totalCycles: 0,
+    speed: 'NORMAL',
+    buildMode: null,
+    selectedTile: null,
+    _hoverTile: null,
+    _selectedTarget: null,
+    _tickTimer: null,
+    _lastTick: 0,
+    _running: false,
+
+    init() {
+        // Menu setup
+        document.getElementById('btn-new-game').addEventListener('click', () => this.newGame());
+        document.getElementById('btn-continue').addEventListener('click', () => this.continueGame());
+
+        // Show continue button if save exists
+        if (SaveManager.hasSave()) {
+            document.getElementById('btn-continue').style.display = 'block';
+        }
+    },
+
+    newGame() {
+        const seedField = document.getElementById('seed-field');
+        this.seed = seedField.value || String(Date.now());
+        this.year = 1;
+        this.season = 0;
+        this.totalCycles = 0;
+        this.buildMode = null;
+        this.selectedTile = null;
+
+        // Generate map
+        GameMap.generate(this.seed);
+
+        // Initialize systems
+        Resources.init();
+        Population.init();
+        Military.units = { warrior: 0, archer: 0, cavalry: 0, siege: 0 };
+        Buildings.playerBuildings = [];
+        TechTree.researched = {};
+        TechTree.currentResearch = null;
+        TechTree.researchProgress = 0;
+
+        // Place initial town hall
+        const playerRegion = GameMap.getPlayerRegion();
+        if (playerRegion) {
+            Buildings.placeTownHall(playerRegion.capital.x, playerRegion.capital.y);
+            GameMap.updateVisibility(0);
+            Camera.centerOnTile(playerRegion.capital.x, playerRegion.capital.y);
+        }
+
+        // Initialize factions
+        Factions.init();
+
+        // Start game
+        this.startGame();
+    },
+
+    continueGame() {
+        const data = SaveManager.load() || SaveManager.load('auto');
+        if (!data) {
+            Notifications.add('Aucune sauvegarde trouvee.', 'alert');
+            return;
+        }
+
+        this.seed = data.seed;
+        this.year = data.year;
+        this.season = data.season;
+        this.totalCycles = data.totalCycles;
+
+        // Regenerate base map then apply saved state
+        GameMap.generate(this.seed);
+        SaveManager.deserializeMap(data.map);
+
+        Resources.deserialize(data.resources);
+        Population.deserialize(data.population);
+        Military.deserialize(data.military);
+        Buildings.deserialize(data.buildings);
+        TechTree.deserialize(data.tech);
+        Factions.deserialize(data.factions);
+
+        GameMap.updateVisibility(0);
+
+        const playerRegion = GameMap.getPlayerRegion();
+        if (playerRegion) {
+            Camera.centerOnTile(playerRegion.capital.x, playerRegion.capital.y);
+        }
+
+        this.startGame();
+    },
+
+    startGame() {
+        this.showScreen('game-screen');
+        Renderer.init();
+        Camera.init(Renderer.canvas);
+        Notifications.init();
+        UI.init();
+
+        this.speed = 'NORMAL';
+        this._running = true;
+        this._lastTick = Date.now();
+
+        this.updateSeasonUI();
+        Resources.updateUI();
+        Population.updateUI();
+
+        // Start game loop
+        this.gameLoop();
+        this.startTickTimer();
+    },
+
+    gameLoop() {
+        if (!this._running) return;
+
+        Camera.update();
+        Renderer.render();
+        Renderer.renderMinimap();
+
+        requestAnimationFrame(() => this.gameLoop());
+    },
+
+    startTickTimer() {
+        if (this._tickTimer) clearInterval(this._tickTimer);
+        this._tickTimer = setInterval(() => this.tick(), 100);
+    },
+
+    tick() {
+        if (this.speed === 'PAUSED') return;
+
+        const now = Date.now();
+        const interval = CONFIG.SPEED[this.speed] || CONFIG.SPEED.NORMAL;
+        if (now - this._lastTick < interval) return;
+
+        this._lastTick = now;
+        this.processCycle();
+    },
+
+    processCycle() {
+        this.totalCycles++;
+
+        // Advance season
+        this.season++;
+        if (this.season >= 4) {
+            this.season = 0;
+            this.year++;
+        }
+
+        // Process all systems
+        Resources.processCycle();
+        Population.processCycle();
+        TechTree.processCycle();
+        Factions.processCycle(this.year, this.season);
+
+        // Random events
+        this.processRandomEvent();
+
+        // Festival moral boost
+        if (TechTree.isResearched('festivals')) {
+            Population.adjustMoral(5);
+        }
+
+        // Update visibility
+        GameMap.updateVisibility(0);
+
+        // Update UI
+        this.updateSeasonUI();
+        Resources.updateUI();
+        Population.updateUI();
+        UI.refreshAll();
+
+        // Auto-save every 4 cycles (1 year)
+        if (this.totalCycles % 4 === 0) {
+            SaveManager.save('auto');
+        }
+
+        // Check defeat
+        this.checkDefeat();
+    },
+
+    processRandomEvent() {
+        if (Perlin.random() > 0.15) return; // 15% chance per cycle
+
+        const events = [
+            {
+                name: 'Bonne recolte !',
+                effect: () => { Resources.add('food', 30); },
+                msg: 'Une recolte exceptionnelle ! +30 nourriture.', type: 'success'
+            },
+            {
+                name: 'Epidemie',
+                effect: () => {
+                    Population.adjustMoral(-10);
+                    if (Population.villagers.length > 1) {
+                        Population.villagers.pop();
+                    }
+                },
+                msg: 'Une epidemie frappe le village !', type: 'alert'
+            },
+            {
+                name: 'Marchands itinerants',
+                effect: () => { Resources.add('gold', 20); },
+                msg: 'Des marchands de passage apportent des richesses ! +20 or.', type: 'success'
+            },
+            {
+                name: 'Tempete',
+                effect: () => { Resources.add('wood', -15); },
+                msg: 'Une tempete endommage vos reserves ! -15 bois.', type: 'alert'
+            },
+            {
+                name: 'Migration',
+                effect: () => {
+                    if (Population.villagers.length < Population.maxPop) {
+                        const v = Population.addVillager();
+                        if (v) Notifications.add(`${v.name} arrive de loin !`, 'success');
+                    }
+                },
+                msg: 'Des migrants cherchent refuge !', type: 'success'
+            },
+            {
+                name: 'Filon d\'or',
+                effect: () => { Resources.add('gold', 15); Resources.add('stone', 10); },
+                msg: 'Un filon d\'or decouvert ! +15 or, +10 pierre.', type: 'success'
+            }
+        ];
+
+        const event = events[Math.floor(Perlin.random() * events.length)];
+        event.effect();
+        Notifications.add(event.msg, event.type);
+    },
+
+    onTileClick(tx, ty) {
+        const tile = GameMap.getTile(tx, ty);
+        if (!tile || !tile.explored) return;
+
+        if (this.buildMode) {
+            // Place building
+            if (this.canPlaceBuilding(tx, ty, this.buildMode)) {
+                Buildings.placeBuilding(tx, ty, this.buildMode);
+                GameMap.updateVisibility(0);
+                UI.refreshAll();
+                // Don't clear build mode so player can place multiple
+            }
+        } else {
+            // Select tile
+            this.selectedTile = { x: tx, y: ty };
+            UI.updateInfoPanel(tile);
+        }
+    },
+
+    canPlaceBuilding(x, y, buildingId) {
+        const tile = GameMap.getTile(x, y);
+        if (!tile) return false;
+        if (tile.terrain === CONFIG.TERRAIN.WATER) return false;
+        if (tile.building) return false;
+        if (tile.owner !== 0) return false;
+
+        const bDef = CONFIG.BUILDINGS[buildingId.toUpperCase()];
+        if (bDef && bDef.validTerrain && !bDef.validTerrain.includes(tile.terrain)) {
+            return false;
+        }
+
+        return true;
+    },
+
+    setSpeed(speed) {
+        this.speed = speed;
+    },
+
+    updateSeasonUI() {
+        const seasonData = CONFIG.SEASONS[this.season];
+        document.getElementById('season-icon').textContent = seasonData.icon;
+        document.getElementById('season-name').textContent = seasonData.name;
+        document.getElementById('year-count').textContent = this.year;
+    },
+
+    checkVictory() {
+        const percent = GameMap.getConquestPercent(0);
+        if (percent >= 100) {
+            this.showVictory();
+        }
+    },
+
+    checkDefeat() {
+        // Defeat if population reaches 0
+        if (Population.villagers.length <= 0) {
+            this.showDefeat('Tous vos villageois ont disparu...');
+            return;
+        }
+        // Defeat if town hall is lost
+        const playerRegion = GameMap.getPlayerRegion();
+        if (playerRegion) {
+            const th = Buildings.playerBuildings.find(b => b.type === 'town_hall');
+            if (th) {
+                const thTile = GameMap.getTile(th.x, th.y);
+                if (thTile && thTile.owner !== 0) {
+                    this.showDefeat('Votre capitale a ete conquise !');
+                }
+            }
+        }
+    },
+
+    showVictory() {
+        this._running = false;
+        const stats = document.getElementById('victory-stats');
+        stats.innerHTML = `
+            <div>Annees ecoulees: ${this.year}</div>
+            <div>Cycles totaux: ${this.totalCycles}</div>
+            <div>Population finale: ${Population.villagers.length}</div>
+            <div>Armee: ${Military.getTotalUnits()} unites</div>
+            <div>Technologies: ${Object.keys(TechTree.researched).length}</div>
+        `;
+        this.showScreen('victory-screen');
+    },
+
+    showDefeat(reason) {
+        this._running = false;
+        document.getElementById('defeat-reason').textContent = reason;
+        const stats = document.getElementById('defeat-stats');
+        stats.innerHTML = `
+            <div>Annees ecoulees: ${this.year}</div>
+            <div>Cycles totaux: ${this.totalCycles}</div>
+            <div>Conquete: ${GameMap.getConquestPercent(0)}%</div>
+        `;
+        this.showScreen('defeat-screen');
+    },
+
+    showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    },
+
+    // Keyboard shortcut: Escape cancels build mode
+    _initKeyShortcuts() {
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (this.buildMode) {
+                    this.buildMode = null;
+                    UI.clearBuildSelection();
+                } else if (document.getElementById('tech-screen').classList.contains('active')) {
+                    document.getElementById('tech-screen').classList.remove('active');
+                } else if (document.getElementById('villager-overlay').classList.contains('active')) {
+                    document.getElementById('villager-overlay').classList.remove('active');
+                } else if (document.getElementById('battle-screen').classList.contains('active')) {
+                    Combat.closeBattle();
+                }
+            }
+            if (e.key === ' ') {
+                e.preventDefault();
+                if (this.speed === 'PAUSED') {
+                    this.setSpeed('NORMAL');
+                    UI.updateTimeButtons('btn-normal');
+                } else {
+                    this.setSpeed('PAUSED');
+                    UI.updateTimeButtons('btn-pause');
+                }
+            }
+        });
+    }
+};
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    Game.init();
+    Game._initKeyShortcuts();
+});
+
+
+    </script>
 </body>
 </html>
