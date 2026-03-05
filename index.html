@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Souvenirs de Couronne</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Main Menu Screen -->
+    <div id="menu-screen" class="screen active">
+        <div class="menu-container">
+            <h1 class="game-title">Souvenirs de Couronne</h1>
+            <p class="subtitle">Un jeu de strategie medievale</p>
+            <div class="menu-buttons">
+                <button id="btn-new-game" class="menu-btn">Nouvelle Partie</button>
+                <button id="btn-continue" class="menu-btn" style="display:none;">Continuer</button>
+                <div class="seed-input">
+                    <label for="seed-field">Seed (optionnel) :</label>
+                    <input type="text" id="seed-field" placeholder="Entrez une seed...">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen">
+        <!-- Resource Bar -->
+        <div id="resource-bar">
+            <div class="resource" id="res-wood"><span class="res-icon">&#x1FAB5;</span> Bois: <span id="wood-count">0</span> (<span id="wood-rate">+0</span>/cycle)</div>
+            <div class="resource" id="res-stone"><span class="res-icon">&#x1FAA8;</span> Pierre: <span id="stone-count">0</span> (<span id="stone-rate">+0</span>/cycle)</div>
+            <div class="resource" id="res-food"><span class="res-icon">&#x1F33E;</span> Nourriture: <span id="food-count">0</span> (<span id="food-rate">+0</span>/cycle)</div>
+            <div class="resource" id="res-gold"><span class="res-icon">&#x1F4B0;</span> Or: <span id="gold-count">0</span> (<span id="gold-rate">+0</span>/cycle)</div>
+            <div class="resource" id="res-pop"><span class="res-icon">&#x1F465;</span> Pop: <span id="pop-count">0</span>/<span id="pop-max">5</span></div>
+            <div class="resource" id="res-moral"><span class="res-icon">&#x1F60A;</span> Moral: <span id="moral-value">100</span>%</div>
+            <div class="resource" id="res-season"><span id="season-icon">&#x1F33F;</span> <span id="season-name">Printemps</span>, An <span id="year-count">1</span></div>
+        </div>
+
+        <!-- Canvas -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- Right Panel -->
+        <div id="right-panel">
+            <div id="info-panel">
+                <h3 id="info-title">Selection</h3>
+                <div id="info-content">Cliquez sur une tuile pour voir ses details.</div>
+            </div>
+            <div id="villager-panel" style="display:none;">
+                <h3>Villageois</h3>
+                <div id="villager-list"></div>
+            </div>
+        </div>
+
+        <!-- Bottom Action Bar -->
+        <div id="action-bar">
+            <div id="build-buttons" class="action-group">
+                <span class="group-label">Construction:</span>
+            </div>
+            <div id="recruit-buttons" class="action-group">
+                <span class="group-label">Recrutement:</span>
+            </div>
+            <div class="action-group">
+                <button class="action-btn" id="btn-tech-tree" title="Arbre de technologies">&#x1F3DB; Tech</button>
+                <button class="action-btn" id="btn-villagers" title="Gerer les villageois">&#x1F465; Villageois</button>
+                <button class="action-btn" id="btn-menu-pause" title="Menu Pause">&#x2699; Menu</button>
+            </div>
+        </div>
+
+        <!-- Time Controls -->
+        <div id="time-controls">
+            <button class="time-btn" id="btn-pause" title="Pause">&#x23F8;</button>
+            <button class="time-btn active" id="btn-normal" title="Normal">&#x25B6;</button>
+            <button class="time-btn" id="btn-fast" title="Rapide">&#x23E9;</button>
+        </div>
+
+        <!-- Minimap -->
+        <div id="minimap-container">
+            <canvas id="minimap-canvas" width="180" height="120"></canvas>
+        </div>
+
+        <!-- Notifications -->
+        <div id="notifications"></div>
+    </div>
+
+    <!-- Battle Screen -->
+    <div id="battle-screen" class="screen">
+        <div class="battle-container">
+            <h2>Bataille</h2>
+            <div id="battle-content"></div>
+            <div id="battle-setup">
+                <div id="army-selector"></div>
+                <button id="btn-attack" class="menu-btn">Attaquer !</button>
+                <button id="btn-retreat" class="menu-btn">Retraite</button>
+            </div>
+            <div id="battle-result" style="display:none;">
+                <div id="battle-report"></div>
+                <button id="btn-battle-close" class="menu-btn">Continuer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tech Tree Screen -->
+    <div id="tech-screen" class="screen">
+        <div class="tech-container">
+            <h2>Arbre de Technologies</h2>
+            <div id="tech-branches">
+                <div class="tech-branch" id="tech-economy">
+                    <h3>&#x1F33E; Economie</h3>
+                    <div class="tech-nodes" id="eco-nodes"></div>
+                </div>
+                <div class="tech-branch" id="tech-military">
+                    <h3>&#x2694; Militaire</h3>
+                    <div class="tech-nodes" id="mil-nodes"></div>
+                </div>
+                <div class="tech-branch" id="tech-civilization">
+                    <h3>&#x1F3DB; Civilisation</h3>
+                    <div class="tech-nodes" id="civ-nodes"></div>
+                </div>
+            </div>
+            <button id="btn-tech-close" class="menu-btn">Fermer</button>
+        </div>
+    </div>
+
+    <!-- Victory Screen -->
+    <div id="victory-screen" class="screen">
+        <div class="victory-container">
+            <h1>Victoire !</h1>
+            <p>Vous avez conquis tout le territoire !</p>
+            <div id="victory-stats"></div>
+            <button id="btn-victory-menu" class="menu-btn">Menu Principal</button>
+        </div>
+    </div>
+
+    <!-- Defeat Screen -->
+    <div id="defeat-screen" class="screen">
+        <div class="defeat-container">
+            <h1>Defaite...</h1>
+            <p id="defeat-reason"></p>
+            <div id="defeat-stats"></div>
+            <button id="btn-defeat-menu" class="menu-btn">Menu Principal</button>
+        </div>
+    </div>
+
+    <!-- Pause Menu Overlay -->
+    <div id="pause-overlay" class="screen">
+        <div class="pause-container">
+            <h2>Pause</h2>
+            <button id="btn-resume" class="menu-btn">Reprendre</button>
+            <button id="btn-save" class="menu-btn">Sauvegarder</button>
+            <button id="btn-quit" class="menu-btn">Quitter</button>
+        </div>
+    </div>
+
+    <!-- Villager Management Overlay -->
+    <div id="villager-overlay" class="screen">
+        <div class="villager-manage-container">
+            <h2>Gestion des Villageois</h2>
+            <div id="villager-manage-list"></div>
+            <button id="btn-villager-close" class="menu-btn">Fermer</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/perlin.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/camera.js"></script>
+    <script src="js/resources.js"></script>
+    <script src="js/buildings.js"></script>
+    <script src="js/population.js"></script>
+    <script src="js/military.js"></script>
+    <script src="js/combat.js"></script>
+    <script src="js/factions.js"></script>
+    <script src="js/tech.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
