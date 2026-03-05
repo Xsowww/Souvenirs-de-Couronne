@@ -50,14 +50,17 @@ const Game = {
         if (playerRegion) {
             Buildings.placeTownHall(playerRegion.capital.x, playerRegion.capital.y);
             GameMap.updateVisibility(0);
-            Camera.centerOnTile(playerRegion.capital.x, playerRegion.capital.y);
         }
 
         // Initialize factions
         Factions.init();
 
-        // Start game
+        // Start game (Camera.init must happen before centerOnTile)
         this.startGame();
+
+        if (playerRegion) {
+            Camera.centerOnTile(playerRegion.capital.x, playerRegion.capital.y);
+        }
     },
 
     continueGame() {
@@ -85,12 +88,13 @@ const Game = {
 
         GameMap.updateVisibility(0);
 
+        // Start game (Camera.init must happen before centerOnTile)
+        this.startGame();
+
         const playerRegion = GameMap.getPlayerRegion();
         if (playerRegion) {
             Camera.centerOnTile(playerRegion.capital.x, playerRegion.capital.y);
         }
-
-        this.startGame();
     },
 
     startGame() {
