@@ -1,4 +1,4 @@
-// Isometric renderer using HTML5 Canvas
+// Isometric renderer using HTML5 Canvas - realistic terrain colors
 const Renderer = {
     canvas: null,
     ctx: null,
@@ -22,7 +22,7 @@ const Renderer = {
     render() {
         const ctx = this.ctx;
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        ctx.fillStyle = '#0a0e14';
+        ctx.fillStyle = '#1a2a3a';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         const bounds = Camera.getVisibleBounds();
@@ -44,13 +44,12 @@ const Renderer = {
                     sy < -th * 3 || sy > this.canvas.height + th) continue;
 
                 if (!tile.explored) {
-                    // Draw fog
                     this.drawFogTile(ctx, sx, sy, tw, th);
                     continue;
                 }
 
-                // Draw terrain
-                this.drawTerrain(ctx, tile, sx, sy, tw, th);
+                // Draw terrain with realistic colors
+                this.drawTerrain(ctx, tile, sx, sy, tw, th, x, y);
 
                 // Draw territory color overlay
                 if (tile.owner >= 0) {
@@ -59,7 +58,7 @@ const Renderer = {
 
                 // Draw decoration
                 if (tile.decoration && tile.visible) {
-                    this.drawDecoration(ctx, tile.decoration, sx, sy, tw, th);
+                    this.drawDecoration(ctx, tile, sx, sy, tw, th, x, y);
                 }
 
                 // Draw building
@@ -98,11 +97,69 @@ const Renderer = {
         ctx.closePath();
     },
 
-    drawTerrain(ctx, tile, sx, sy, tw, th) {
-        const colors = CONFIG.TERRAIN_COLORS[tile.terrain];
-        const depth = tile.terrain === CONFIG.TERRAIN.MOUNTAIN ? 8 * Camera.zoom :
-                      tile.terrain === CONFIG.TERRAIN.HILLS ? 4 * Camera.zoom :
-                      tile.terrain === CONFIG.TERRAIN.WATER ? -2 * Camera.zoom : 2 * Camera.zoom;
+    // Get a subtle color variation based on tile position for natural look
+    _varColor(baseR, baseG, baseB, x, y, range) {
+        // Use a simple hash for deterministic variation
+        const hash = ((x * 7919 + y * 6271) & 0xFFFF) / 0xFFFF;
+        const offset = (hash - 0.5) * range * 2;
+        const r = Math.max(0, Math.min(255, Math.round(baseR + offset)));
+        const g = Math.max(0, Math.min(255, Math.round(baseG + offset)));
+        const b = Math.max(0, Math.min(255, Math.round(baseB + offset)));
+        return `rgb(${r},${g},${b})`;
+    },
+
+    drawTerrain(ctx, tile, sx, sy, tw, th, tileX, tileY) {
+        const terrain = tile.terrain;
+        // Realistic depth per terrain
+        const depth = terrain === CONFIG.TERRAIN.MOUNTAIN ? 10 * Camera.zoom :
+                      terrain === CONFIG.TERRAIN.HILLS ? 5 * Camera.zoom :
+                      terrain === CONFIG.TERRAIN.WATER ? -1 * Camera.zoom : 2 * Camera.zoom;
+
+        // Realistic color palettes
+        let topColor, leftColor, rightColor, borderColor;
+        switch (terrain) {
+            case CONFIG.TERRAIN.WATER:
+                topColor = this._varColor(41, 98, 148, tileX, tileY, 12);
+                leftColor = '#1a4a6e';
+                rightColor = '#245680';
+                borderColor = '#1a3a5a';
+                break;
+            case CONFIG.TERRAIN.PLAINS:
+                topColor = this._varColor(168, 190, 82, tileX, tileY, 15);
+                leftColor = '#7a8a38';
+                rightColor = '#8a9a48';
+                borderColor = '#6a7a30';
+                break;
+            case CONFIG.TERRAIN.GRASS:
+                topColor = this._varColor(98, 160, 58, tileX, tileY, 18);
+                leftColor = '#3a7a22';
+                rightColor = '#4a8a32';
+                borderColor = '#2a6a18';
+                break;
+            case CONFIG.TERRAIN.FOREST:
+                topColor = this._varColor(34, 85, 40, tileX, tileY, 14);
+                leftColor = '#143a18';
+                rightColor = '#1a4a20';
+                borderColor = '#0e2e12';
+                break;
+            case CONFIG.TERRAIN.HILLS:
+                topColor = this._varColor(140, 120, 85, tileX, tileY, 12);
+                leftColor = '#6a5838';
+                rightColor = '#7a6848';
+                borderColor = '#5a4828';
+                break;
+            case CONFIG.TERRAIN.MOUNTAIN:
+                topColor = this._varColor(135, 135, 130, tileX, tileY, 15);
+                leftColor = '#555555';
+                rightColor = '#666666';
+                borderColor = '#444444';
+                break;
+            default:
+                topColor = '#666';
+                leftColor = '#444';
+                rightColor = '#555';
+                borderColor = '#333';
+        }
 
         // Side faces (depth)
         if (depth > 0) {
@@ -113,10 +170,10 @@ const Renderer = {
             ctx.lineTo(sx + tw / 2, sy - depth);
             ctx.lineTo(sx, sy + th / 2 - depth);
             ctx.closePath();
-            ctx.fillStyle = colors.stroke;
+            ctx.fillStyle = rightColor;
             ctx.fill();
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 0.5;
             ctx.stroke();
 
             // Left side
@@ -126,27 +183,38 @@ const Renderer = {
             ctx.lineTo(sx - tw / 2, sy - depth);
             ctx.lineTo(sx, sy + th / 2 - depth);
             ctx.closePath();
-            ctx.fillStyle = colors.fill;
+            ctx.fillStyle = leftColor;
             ctx.fill();
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 0.5;
             ctx.stroke();
         }
 
         // Top face
         const topY = sy - depth;
         this.drawIsoDiamond(ctx, sx, topY, tw, th);
-        ctx.fillStyle = colors.top;
+        ctx.fillStyle = topColor;
         ctx.fill();
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = 0.5;
         ctx.stroke();
 
-        // Water shimmer
-        if (tile.terrain === CONFIG.TERRAIN.WATER) {
+        // Water shimmer effect
+        if (terrain === CONFIG.TERRAIN.WATER) {
             this.drawIsoDiamond(ctx, sx, sy, tw, th);
-            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+            const shimmer = ((tileX + tileY) % 3 === 0) ? 0.06 : 0.03;
+            ctx.fillStyle = `rgba(180,220,255,${shimmer})`;
             ctx.fill();
+        }
+
+        // Snow on mountain peaks
+        if (terrain === CONFIG.TERRAIN.MOUNTAIN) {
+            const hash = ((tileX * 7919 + tileY * 6271) & 0xFFFF) / 0xFFFF;
+            if (hash > 0.4) {
+                this.drawIsoDiamond(ctx, sx, topY, tw * 0.5, th * 0.5);
+                ctx.fillStyle = 'rgba(235,235,240,0.5)';
+                ctx.fill();
+            }
         }
     },
 
@@ -154,59 +222,99 @@ const Renderer = {
         const region = GameMap.getRegion(tile.owner);
         if (!region) return;
         this.drawIsoDiamond(ctx, sx, sy, tw, th);
-        ctx.fillStyle = region.color + '30'; // semi-transparent
+        ctx.fillStyle = region.color + '25';
         ctx.fill();
-        // Territory border
-        ctx.strokeStyle = region.color + '60';
-        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = region.color + '50';
+        ctx.lineWidth = 0.8;
         ctx.stroke();
     },
 
-    drawDecoration(ctx, type, sx, sy, tw, th) {
+    drawDecoration(ctx, tile, sx, sy, tw, th, tileX, tileY) {
+        const type = tile.decoration;
         const z = Camera.zoom;
+        const hash = ((tileX * 3571 + tileY * 2819) & 0xFFFF) / 0xFFFF;
+
         if (type === 'tree') {
-            // Simple cartoon tree
-            const treeH = 18 * z;
-            const trunkH = 6 * z;
-            // Trunk
-            ctx.fillStyle = '#6B4226';
-            ctx.fillRect(sx - 2 * z, sy - th / 2 - trunkH - treeH + trunkH, 4 * z, trunkH);
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(sx - 2 * z, sy - th / 2 - trunkH - treeH + trunkH, 4 * z, trunkH);
-            // Canopy (triangle)
-            ctx.beginPath();
-            ctx.moveTo(sx, sy - th / 2 - treeH);
-            ctx.lineTo(sx + 8 * z, sy - th / 2 - trunkH);
-            ctx.lineTo(sx - 8 * z, sy - th / 2 - trunkH);
-            ctx.closePath();
-            ctx.fillStyle = '#27ae60';
-            ctx.fill();
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
+            // Draw 1-3 trees per tile for forest density
+            const treeCount = tile.terrain === CONFIG.TERRAIN.FOREST ? (hash > 0.5 ? 3 : 2) : 1;
+            const offsets = [
+                { dx: 0, dy: 0 },
+                { dx: -6 * z, dy: -2 * z },
+                { dx: 5 * z, dy: 1 * z }
+            ];
+
+            for (let i = 0; i < treeCount; i++) {
+                const ox = offsets[i].dx;
+                const oy = offsets[i].dy;
+                const treeH = (14 + hash * 6) * z;
+                const trunkH = 4 * z;
+                const trunkW = 2.5 * z;
+                const canopyW = (6 + hash * 3) * z;
+                const baseY = sy - th / 2 + oy;
+
+                // Trunk
+                ctx.fillStyle = '#4a3520';
+                ctx.fillRect(sx + ox - trunkW / 2, baseY - trunkH, trunkW, trunkH);
+
+                // Canopy - rounded look with two triangles
+                const darkGreen = this._varColor(28, 72, 32, tileX + i, tileY, 16);
+                const lightGreen = this._varColor(38, 92, 42, tileX + i * 3, tileY, 16);
+
+                // Lower canopy (wider)
+                ctx.beginPath();
+                ctx.moveTo(sx + ox, baseY - trunkH - treeH * 0.6);
+                ctx.lineTo(sx + ox + canopyW, baseY - trunkH);
+                ctx.lineTo(sx + ox - canopyW, baseY - trunkH);
+                ctx.closePath();
+                ctx.fillStyle = darkGreen;
+                ctx.fill();
+
+                // Upper canopy (narrower)
+                ctx.beginPath();
+                ctx.moveTo(sx + ox, baseY - trunkH - treeH);
+                ctx.lineTo(sx + ox + canopyW * 0.7, baseY - trunkH - treeH * 0.3);
+                ctx.lineTo(sx + ox - canopyW * 0.7, baseY - trunkH - treeH * 0.3);
+                ctx.closePath();
+                ctx.fillStyle = lightGreen;
+                ctx.fill();
+            }
         } else if (type === 'rock') {
-            const rz = 6 * z;
+            // Realistic rocks
+            const rz = (5 + hash * 3) * z;
+            // Main rock
             ctx.beginPath();
             ctx.moveTo(sx - rz, sy - th / 4);
-            ctx.lineTo(sx - rz / 2, sy - th / 4 - rz);
-            ctx.lineTo(sx + rz / 2, sy - th / 4 - rz * 0.8);
-            ctx.lineTo(sx + rz, sy - th / 4);
+            ctx.lineTo(sx - rz * 0.6, sy - th / 4 - rz * 1.1);
+            ctx.lineTo(sx + rz * 0.3, sy - th / 4 - rz * 0.9);
+            ctx.lineTo(sx + rz, sy - th / 4 - rz * 0.2);
+            ctx.lineTo(sx + rz * 0.8, sy - th / 4);
             ctx.closePath();
-            ctx.fillStyle = '#7f8c8d';
+            ctx.fillStyle = this._varColor(110, 105, 100, tileX, tileY, 15);
             ctx.fill();
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 0.5;
             ctx.stroke();
+
+            // Smaller rock beside
+            if (hash > 0.4) {
+                const srz = rz * 0.5;
+                ctx.beginPath();
+                ctx.moveTo(sx + rz * 0.5, sy - th / 4 + 1 * z);
+                ctx.lineTo(sx + rz * 0.6, sy - th / 4 - srz * 0.8);
+                ctx.lineTo(sx + rz * 1.1, sy - th / 4 - srz * 0.3);
+                ctx.lineTo(sx + rz * 1.2, sy - th / 4 + 1 * z);
+                ctx.closePath();
+                ctx.fillStyle = this._varColor(100, 95, 90, tileX + 1, tileY, 10);
+                ctx.fill();
+            }
         }
     },
 
     drawBuilding(ctx, building, sx, sy, tw, th) {
         const z = Camera.zoom;
         const bDef = CONFIG.BUILDINGS[building.type.toUpperCase()] || {};
-        const bh = 20 * z; // building height
+        const bh = 20 * z;
 
-        // Building base (cube-like shape)
         const bw = tw * 0.6;
         const bd = th * 0.6;
 
@@ -219,8 +327,8 @@ const Renderer = {
         ctx.closePath();
         ctx.fillStyle = this.getBuildingColor(building.type, 'left');
         ctx.fill();
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#2a2015';
+        ctx.lineWidth = 1;
         ctx.stroke();
 
         // Right face
@@ -232,11 +340,11 @@ const Renderer = {
         ctx.closePath();
         ctx.fillStyle = this.getBuildingColor(building.type, 'right');
         ctx.fill();
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#2a2015';
+        ctx.lineWidth = 1;
         ctx.stroke();
 
-        // Top face
+        // Top face (roof)
         ctx.beginPath();
         ctx.moveTo(sx, sy - th / 4 - bh);
         ctx.lineTo(sx + bw / 2, sy - th / 4 - bh);
@@ -245,11 +353,11 @@ const Renderer = {
         ctx.closePath();
         ctx.fillStyle = this.getBuildingColor(building.type, 'top');
         ctx.fill();
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#2a2015';
+        ctx.lineWidth = 1;
         ctx.stroke();
 
-        // Building icon/label
+        // Building icon
         const fontSize = Math.max(10, 14 * z);
         ctx.font = `${fontSize}px serif`;
         ctx.textAlign = 'center';
@@ -274,34 +382,34 @@ const Renderer = {
 
     getBuildingColor(type, face) {
         const colors = {
-            town_hall: { left: '#8B7355', right: '#A0855C', top: '#C4A46C' },
-            house: { left: '#8B6914', right: '#A07828', top: '#BFA050' },
-            farm: { left: '#8B8B00', right: '#9A9A20', top: '#C0C040' },
-            sawmill: { left: '#6B4226', right: '#7B5236', top: '#9B7256' },
-            mine: { left: '#555', right: '#666', top: '#888' },
-            market: { left: '#8B4513', right: '#A0552A', top: '#C08050' },
-            barracks: { left: '#4A0E0E', right: '#5A1E1E', top: '#7A3E3E' },
-            stable: { left: '#3A5A1E', right: '#4A6A2E', top: '#6A8A4E' },
+            town_hall: { left: '#6B5540', right: '#7D6550', top: '#A08060' },
+            house: { left: '#7A5828', right: '#8A6838', top: '#A58050' },
+            farm: { left: '#6B6B20', right: '#7A7A30', top: '#9A9A40' },
+            sawmill: { left: '#5A3520', right: '#6A4530', top: '#8A6550' },
+            mine: { left: '#4A4A4A', right: '#5A5A5A', top: '#707070' },
+            market: { left: '#7A3A18', right: '#8A4A28', top: '#AA6A40' },
+            barracks: { left: '#4A1010', right: '#5A2020', top: '#7A3838' },
+            stable: { left: '#3A5020', right: '#4A6030', top: '#6A8048' },
             siege_workshop: { left: '#3A3A3A', right: '#4A4A4A', top: '#6A6A6A' },
-            watchtower: { left: '#5A5A7A', right: '#6A6A8A', top: '#8A8AAA' },
-            wall: { left: '#6A6A6A', right: '#7A7A7A', top: '#9A9A9A' }
+            watchtower: { left: '#5A5A6A', right: '#6A6A7A', top: '#8A8A9A' },
+            wall: { left: '#606060', right: '#707070', top: '#909090' }
         };
-        const c = colors[type] || { left: '#666', right: '#777', top: '#999' };
+        const c = colors[type] || { left: '#555', right: '#666', top: '#888' };
         return c[face];
     },
 
     drawFogTile(ctx, sx, sy, tw, th) {
         this.drawIsoDiamond(ctx, sx, sy, tw, th);
-        ctx.fillStyle = '#0a0e14';
+        ctx.fillStyle = '#0e1820';
         ctx.fill();
-        ctx.strokeStyle = '#151a22';
-        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = '#152030';
+        ctx.lineWidth = 0.3;
         ctx.stroke();
     },
 
     drawDimOverlay(ctx, sx, sy, tw, th) {
         this.drawIsoDiamond(ctx, sx, sy, tw, th);
-        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
         ctx.fill();
     },
 
@@ -339,11 +447,21 @@ const Renderer = {
         const mw = this.minimapCanvas.width;
         const mh = this.minimapCanvas.height;
         mctx.clearRect(0, 0, mw, mh);
-        mctx.fillStyle = '#0a0e14';
+        mctx.fillStyle = '#0e1820';
         mctx.fillRect(0, 0, mw, mh);
 
         const scaleX = mw / CONFIG.MAP_WIDTH;
         const scaleY = mh / CONFIG.MAP_HEIGHT;
+
+        // Minimap terrain colors (flat, realistic)
+        const minimapColors = {
+            0: '#296294',  // water
+            1: '#a8be52',  // plains
+            2: '#62a03a',  // grass
+            3: '#225528',  // forest
+            4: '#8c7855',  // hills
+            5: '#878782',  // mountain
+        };
 
         for (let y = 0; y < CONFIG.MAP_HEIGHT; y++) {
             for (let x = 0; x < CONFIG.MAP_WIDTH; x++) {
@@ -354,7 +472,7 @@ const Renderer = {
                     const region = GameMap.getRegion(tile.owner);
                     mctx.fillStyle = region ? region.color : '#333';
                 } else {
-                    mctx.fillStyle = CONFIG.TERRAIN_COLORS[tile.terrain].top;
+                    mctx.fillStyle = minimapColors[tile.terrain] || '#333';
                 }
                 mctx.fillRect(x * scaleX, y * scaleY, scaleX + 0.5, scaleY + 0.5);
             }

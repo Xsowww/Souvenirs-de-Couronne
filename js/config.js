@@ -25,12 +25,12 @@ const CONFIG = {
     },
 
     TERRAIN_COLORS: {
-        0: { fill: '#2980b9', stroke: '#1a5276', top: '#3498db' },
-        1: { fill: '#a8c256', stroke: '#7d9a1e', top: '#bdd468' },
-        2: { fill: '#68b04a', stroke: '#4a8a32', top: '#7ec860' },
-        3: { fill: '#2d7d3a', stroke: '#1a5226', top: '#3d9a4e' },
-        4: { fill: '#a08060', stroke: '#7a6040', top: '#b89878' },
-        5: { fill: '#888888', stroke: '#666666', top: '#aaaaaa' }
+        0: { fill: '#1a4a6e', stroke: '#1a3a5a', top: '#296294' },
+        1: { fill: '#7a8a38', stroke: '#6a7a30', top: '#a8be52' },
+        2: { fill: '#3a7a22', stroke: '#2a6a18', top: '#62a03a' },
+        3: { fill: '#143a18', stroke: '#0e2e12', top: '#225528' },
+        4: { fill: '#6a5838', stroke: '#5a4828', top: '#8c7855' },
+        5: { fill: '#555555', stroke: '#444444', top: '#878782' }
     },
 
     // Building types
