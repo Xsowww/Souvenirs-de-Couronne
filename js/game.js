@@ -17,11 +17,27 @@ const Game = {
         // Menu setup
         document.getElementById('btn-new-game').addEventListener('click', () => this.newGame());
         document.getElementById('btn-continue').addEventListener('click', () => this.continueGame());
+        document.getElementById('btn-options').addEventListener('click', () => this.showScreen('options-screen'));
+        document.getElementById('btn-options-close').addEventListener('click', () => this.showScreen('menu-screen'));
+        document.getElementById('btn-quit-game').addEventListener('click', () => {
+            if (confirm('Voulez-vous vraiment quitter ?')) {
+                window.close();
+                // Fallback if window.close doesn't work (browser restriction)
+                document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:Cinzel,serif;color:#c8a84a;font-size:1.5rem;background:#0e0a06;text-align:center;"><div>Merci d\'avoir joue !<br><span style="font-size:0.9rem;color:#6a5a3a;">Vous pouvez fermer cet onglet.</span></div></div>';
+            }
+        });
 
         // Show continue button if save exists
         if (SaveManager.hasSave()) {
             document.getElementById('btn-continue').style.display = 'block';
         }
+
+        // Apply options on map size change
+        document.getElementById('opt-map-size').addEventListener('change', (e) => {
+            const size = parseInt(e.target.value);
+            CONFIG.MAP_WIDTH = size;
+            CONFIG.MAP_HEIGHT = size;
+        });
     },
 
     newGame() {
