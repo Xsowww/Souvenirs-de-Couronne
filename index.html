@@ -295,6 +295,206 @@ body {
     cursor: pointer;
 }
 
+/* ===== LOADING SCREEN ===== */
+#loading-screen {
+    background:
+        radial-gradient(ellipse at 50% 40%, rgba(60,40,15,0.15) 0%, transparent 60%),
+        linear-gradient(180deg, #0e0a06 0%, #1a120a 50%, #0e0a06 100%);
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 5;
+}
+
+.loading-container {
+    text-align: center;
+    position: relative;
+}
+
+.loading-container h2 {
+    font-family: 'Cinzel Decorative', serif;
+    color: var(--gold);
+    font-size: 1.8rem;
+    margin-bottom: 2rem;
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px rgba(200,168,74,0.2);
+}
+
+.loading-bar-outer {
+    width: 400px;
+    max-width: 80vw;
+    height: 24px;
+    background: var(--ink);
+    border: 2px solid var(--gold-dark);
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.6);
+}
+
+.loading-bar-fill {
+    height: 100%;
+    width: 0%;
+    background:
+        linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+    transition: width 0.3s ease-out;
+    box-shadow: 0 0 12px rgba(200,168,74,0.4);
+    position: relative;
+}
+.loading-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+        repeating-linear-gradient(
+            -45deg,
+            transparent,
+            transparent 6px,
+            rgba(255,255,255,0.06) 6px,
+            rgba(255,255,255,0.06) 12px
+        );
+    animation: loadStripes 0.8s linear infinite;
+}
+@keyframes loadStripes {
+    from { background-position: 0 0; }
+    to { background-position: 24px 0; }
+}
+
+.loading-message {
+    font-family: 'MedievalSharp', serif;
+    color: #8a7a5a;
+    font-size: 0.95rem;
+    margin-top: 1.2rem;
+    font-style: italic;
+    min-height: 1.5em;
+}
+
+.loading-percent {
+    font-family: 'Cinzel', serif;
+    color: var(--gold-light);
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    letter-spacing: 2px;
+}
+
+/* Crown spinner */
+.loading-crown {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 1rem;
+    animation: crownSpin 2s ease-in-out infinite;
+}
+@keyframes crownSpin {
+    0%, 100% { transform: rotateY(0deg); filter: drop-shadow(0 0 8px rgba(200,168,74,0.3)); }
+    50% { transform: rotateY(180deg); filter: drop-shadow(0 0 16px rgba(200,168,74,0.6)); }
+}
+
+/* ===== PLACEMENT SCREEN ===== */
+#placement-screen {
+    background: linear-gradient(180deg, #0e0a06 0%, #1a120a 50%, #0e0a06 100%);
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 5;
+}
+
+.placement-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 95vw;
+    height: 92vh;
+    max-width: 1200px;
+    gap: 12px;
+}
+
+.placement-header {
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.placement-header h2 {
+    font-family: 'Cinzel Decorative', serif;
+    color: var(--gold);
+    font-size: 1.5rem;
+    letter-spacing: 3px;
+    margin-bottom: 4px;
+}
+
+.placement-header p {
+    font-family: 'MedievalSharp', serif;
+    color: #8a7a5a;
+    font-size: 0.9rem;
+}
+
+#placement-map-area {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    min-height: 0;
+}
+
+#placement-canvas {
+    border: 3px solid var(--gold-dark);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.7), 0 0 40px rgba(200,168,74,0.08);
+    cursor: crosshair;
+    image-rendering: pixelated;
+}
+
+.placement-footer {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+#placement-info {
+    font-family: 'MedievalSharp', serif;
+    font-size: 0.85rem;
+    color: #6a5a3a;
+    min-height: 1.3em;
+    transition: color 0.2s;
+}
+
+#btn-confirm-placement {
+    transition: all 0.3s ease;
+}
+#btn-confirm-placement:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+#btn-confirm-placement.ready {
+    animation: confirmPulse 1.5s ease-in-out infinite;
+}
+@keyframes confirmPulse {
+    0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+    50% { box-shadow: 0 2px 8px rgba(0,0,0,0.5), 0 0 20px rgba(200,168,74,0.3); }
+}
+
+/* Placement legend */
+.placement-legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 4px;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    color: #6a5a3a;
+    font-family: 'Cinzel', serif;
+}
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border: 1px solid rgba(138,106,26,0.3);
+}
+
 /* ===== GAME SCREEN ===== */
 #game-screen {
     flex-direction: column;
@@ -849,6 +1049,44 @@ body {
         </div>
     </div>
 
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="screen">
+        <div class="loading-container">
+            <span class="loading-crown">&#x1F451;</span>
+            <h2>Generation du Monde</h2>
+            <div class="loading-bar-outer">
+                <div class="loading-bar-fill" id="loading-fill"></div>
+            </div>
+            <div class="loading-message" id="loading-message">Preparation...</div>
+            <div class="loading-percent" id="loading-percent">0%</div>
+        </div>
+    </div>
+
+    <!-- Kingdom Placement Screen -->
+    <div id="placement-screen" class="screen">
+        <div class="placement-container">
+            <div class="placement-header">
+                <h2>&#x1F3F0; Choisissez l'emplacement de votre Royaume</h2>
+                <p>Cliquez sur la carte pour placer votre capitale. Les ennemis et bandits s'adapteront a votre choix.</p>
+            </div>
+            <div id="placement-map-area">
+                <canvas id="placement-canvas"></canvas>
+            </div>
+            <div class="placement-footer">
+                <div class="placement-legend">
+                    <div class="legend-item"><div class="legend-color" style="background:#1e5a8a"></div>Eau</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#a8be52"></div>Plaine</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#5a9a32"></div>Herbe</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#1e5528"></div>Foret</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#8c7855"></div>Collines</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#787872"></div>Montagne</div>
+                </div>
+                <div id="placement-info">Survolez la carte pour choisir un emplacement...</div>
+                <button id="btn-confirm-placement" class="menu-btn" disabled>Fonder le Royaume</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Game Screen -->
     <div id="game-screen" class="screen">
         <!-- Resource Bar -->
@@ -1304,13 +1542,16 @@ const GameMap = {
     width: CONFIG.MAP_WIDTH,
     height: CONFIG.MAP_HEIGHT,
 
-    generate(seed) {
+    // Step 1: Generate terrain only (no regions)
+    generateTerrain(seed, onProgress) {
         Perlin.seed(seed);
         Perlin.seedRng(seed);
+        this.width = CONFIG.MAP_WIDTH;
+        this.height = CONFIG.MAP_HEIGHT;
         this.tiles = [];
         this.regions = [];
 
-        // Generate terrain using Perlin noise
+        const totalRows = this.height;
         for (let y = 0; y < this.height; y++) {
             this.tiles[y] = [];
             for (let x = 0; x < this.width; x++) {
@@ -1330,15 +1571,16 @@ const GameMap = {
                     x, y,
                     terrain,
                     building: null,
-                    owner: -1, // -1 = unclaimed
+                    owner: -1,
                     visible: false,
                     explored: false,
                     decoration: null
                 };
             }
+            if (onProgress) onProgress((y + 1) / totalRows * 0.6);
         }
 
-        // Add some decorations
+        // Add decorations
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 if (this.tiles[y][x].terrain === CONFIG.TERRAIN.FOREST && Perlin.random() < 0.6) {
@@ -1348,24 +1590,23 @@ const GameMap = {
                     this.tiles[y][x].decoration = 'rock';
                 }
             }
+            if (onProgress) onProgress(0.6 + ((y + 1) / this.height) * 0.2);
         }
-
-        // Generate regions for factions
-        this.generateRegions();
     },
 
-    generateRegions() {
-        // Divide map into roughly equal regions using a simple grid approach
-        // Player starts near center, rivals at edges
-        const regionSize = 15; // approximate region side
+    // Step 2: Place regions based on player-chosen position
+    generateRegions(playerX, playerY) {
         this.regions = [];
 
-        // Player region - center area
-        const cx = Math.floor(this.width / 2);
-        const cy = Math.floor(this.height / 2);
+        // Reset all owners
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                this.tiles[y][x].owner = -1;
+            }
+        }
 
-        // Find valid starting position for player near center
-        const playerStart = this.findValidSpot(cx, cy, 5);
+        // Player region
+        const playerStart = this.findValidSpot(playerX, playerY, 3);
         this.regions.push({
             id: 0,
             name: 'Votre Royaume',
@@ -1376,19 +1617,12 @@ const GameMap = {
             isPlayer: true
         });
 
-        // Rival kingdoms at corners/edges
-        const rivalPositions = [
-            { x: 10, y: 10 },
-            { x: this.width - 10, y: 10 },
-            { x: 10, y: this.height - 10 },
-            { x: this.width - 10, y: this.height - 10 }
-        ];
-
+        // Find positions for enemy kingdoms - spread far from player
+        const enemyPositions = this._findEnemyPositions(playerStart.x, playerStart.y);
         const factionNames = ['Royaume de Fer', 'Duche de Flamme', 'Comtat des Ombres', 'Empire Dore'];
 
-        for (let i = 0; i < 4; i++) {
-            const pos = this.findValidSpot(rivalPositions[i].x, rivalPositions[i].y, 5);
-            const fType = i < 3 ? 'rival' : 'empire';
+        for (let i = 0; i < enemyPositions.length; i++) {
+            const pos = this.findValidSpot(enemyPositions[i].x, enemyPositions[i].y, 6);
             this.regions.push({
                 id: i + 1,
                 name: factionNames[i],
@@ -1397,19 +1631,18 @@ const GameMap = {
                 tiles: [],
                 capital: pos,
                 isPlayer: false,
-                type: fType
+                type: i < 3 ? 'rival' : 'empire'
             });
         }
 
-        // Add bandit camps scattered around
-        for (let b = 0; b < 6; b++) {
-            const bx = Math.floor(Perlin.random() * (this.width - 10)) + 5;
-            const by = Math.floor(Perlin.random() * (this.height - 10)) + 5;
-            const pos = this.findValidSpot(bx, by, 4);
+        // Place bandit camps in gaps between kingdoms
+        const banditPositions = this._findBanditPositions(playerStart, enemyPositions);
+        for (let b = 0; b < banditPositions.length; b++) {
+            const pos = this.findValidSpot(banditPositions[b].x, banditPositions[b].y, 4);
             this.regions.push({
                 id: 5 + b,
                 name: 'Bandits',
-                faction: -2, // bandit
+                faction: -2,
                 color: '#666',
                 tiles: [],
                 capital: pos,
@@ -1418,7 +1651,7 @@ const GameMap = {
             });
         }
 
-        // Assign initial territory: each faction gets a radius of tiles around capital
+        // Assign initial territory
         for (const region of this.regions) {
             const radius = region.isPlayer ? 4 : (region.type === 'bandit' ? 2 : 3);
             for (let dy = -radius; dy <= radius; dy++) {
@@ -1438,8 +1671,109 @@ const GameMap = {
         }
     },
 
+    _findEnemyPositions(px, py) {
+        // Place 4 enemy kingdoms as far as possible from the player
+        // Use corners and edges, adjusting based on where player is
+        const w = this.width;
+        const h = this.height;
+        const margin = Math.floor(Math.min(w, h) * 0.12);
+        const candidates = [
+            { x: margin, y: margin },
+            { x: w - margin, y: margin },
+            { x: margin, y: h - margin },
+            { x: w - margin, y: h - margin },
+            { x: Math.floor(w / 2), y: margin },
+            { x: Math.floor(w / 2), y: h - margin },
+            { x: margin, y: Math.floor(h / 2) },
+            { x: w - margin, y: Math.floor(h / 2) }
+        ];
+
+        // Sort by distance from player (farthest first)
+        candidates.sort((a, b) => {
+            const da = (a.x - px) ** 2 + (a.y - py) ** 2;
+            const db = (b.x - px) ** 2 + (b.y - py) ** 2;
+            return db - da;
+        });
+
+        // Pick 4, ensuring minimum distance between each
+        const selected = [];
+        const minDist = Math.floor(Math.min(w, h) * 0.25);
+        for (const c of candidates) {
+            if (selected.length >= 4) break;
+            const tooClose = selected.some(s =>
+                Math.sqrt((s.x - c.x) ** 2 + (s.y - c.y) ** 2) < minDist
+            );
+            if (!tooClose) selected.push(c);
+        }
+
+        // Fill remaining if needed
+        while (selected.length < 4) {
+            selected.push(candidates[selected.length]);
+        }
+
+        return selected;
+    },
+
+    _findBanditPositions(playerPos, enemyPositions) {
+        const allKingdoms = [playerPos, ...enemyPositions];
+        const bandits = [];
+        const minDistFromKingdom = Math.floor(Math.min(this.width, this.height) * 0.1);
+        const count = Math.max(4, Math.floor((this.width * this.height) / 800));
+
+        for (let attempt = 0; attempt < count * 10 && bandits.length < count; attempt++) {
+            const bx = Math.floor(Perlin.random() * (this.width - 10)) + 5;
+            const by = Math.floor(Perlin.random() * (this.height - 10)) + 5;
+
+            // Check terrain
+            if (bx >= this.width || by >= this.height) continue;
+            const tile = this.tiles[by][bx];
+            if (tile.terrain === CONFIG.TERRAIN.WATER || tile.terrain === CONFIG.TERRAIN.MOUNTAIN) continue;
+
+            // Check distance from kingdoms
+            const tooClose = allKingdoms.some(k =>
+                Math.sqrt((k.x - bx) ** 2 + (k.y - by) ** 2) < minDistFromKingdom
+            );
+            if (tooClose) continue;
+
+            // Check distance from other bandits
+            const tooCloseBandit = bandits.some(b =>
+                Math.sqrt((b.x - bx) ** 2 + (b.y - by) ** 2) < minDistFromKingdom * 0.6
+            );
+            if (tooCloseBandit) continue;
+
+            bandits.push({ x: bx, y: by });
+        }
+
+        return bandits;
+    },
+
+    // Legacy method for save/load compatibility
+    generate(seed) {
+        this.generateTerrain(seed);
+        this.generateRegions(Math.floor(this.width / 2), Math.floor(this.height / 2));
+    },
+
+    // Check if a position is valid for kingdom placement
+    isValidKingdomSpot(x, y) {
+        const radius = 4;
+        let landCount = 0;
+        for (let dy = -radius; dy <= radius; dy++) {
+            for (let dx = -radius; dx <= radius; dx++) {
+                if (dx * dx + dy * dy > radius * radius) continue;
+                const tx = x + dx;
+                const ty = y + dy;
+                const tile = this.getTile(tx, ty);
+                if (tile && tile.terrain !== CONFIG.TERRAIN.WATER && tile.terrain !== CONFIG.TERRAIN.MOUNTAIN) {
+                    landCount++;
+                }
+            }
+        }
+        // Need at least 60% land around the spot
+        const totalInRadius = Math.PI * radius * radius;
+        return landCount >= totalInRadius * 0.5;
+    },
+
     findValidSpot(cx, cy, radius) {
-        // Find a non-water tile near the given position
         for (let r = 0; r <= radius; r++) {
             for (let dy = -r; dy <= r; dy++) {
                 for (let dx = -r; dx <= r; dx++) {
@@ -1477,13 +1811,11 @@ const GameMap = {
     },
 
     updateVisibility(playerRegionId) {
-        // Reset visibility (explored stays)
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 this.tiles[y][x].visible = false;
             }
         }
-        // Reveal around player buildings and territory
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 const tile = this.tiles[y][x];
@@ -1538,7 +1870,7 @@ const GameMap = {
             newOwner.tiles.push({ x: t.x, y: t.y });
         }
         target.tiles = [];
-        target.faction = -99; // defeated
+        target.faction = -99;
     },
 
     countTotalLandTiles() {
@@ -1565,6 +1897,62 @@ const GameMap = {
         const total = this.countTotalLandTiles();
         const owned = this.countOwnedTiles(regionId);
         return total > 0 ? Math.round((owned / total) * 100) : 0;
+    },
+
+    // Render the full map to a canvas (for placement screen)
+    renderOverviewToCanvas(canvas, highlightX, highlightY, showValidity) {
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const scaleX = w / this.width;
+        const scaleY = h / this.height;
+
+        const terrainColors = {
+            0: '#1e5a8a',
+            1: '#a8be52',
+            2: '#5a9a32',
+            3: '#1e5528',
+            4: '#8c7855',
+            5: '#787872'
+        };
+
+        // Draw terrain
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                const tile = this.tiles[y][x];
+                ctx.fillStyle = terrainColors[tile.terrain] || '#333';
+                ctx.fillRect(x * scaleX, y * scaleY, scaleX + 0.5, scaleY + 0.5);
+            }
+        }
+
+        // Highlight valid/invalid placement zones if showing
+        if (highlightX !== undefined && highlightY !== undefined) {
+            const radius = 5;
+            const valid = this.isValidKingdomSpot(highlightX, highlightY);
+
+            // Draw kingdom preview radius
+            ctx.beginPath();
+            ctx.arc(
+                (highlightX + 0.5) * scaleX,
+                (highlightY + 0.5) * scaleY,
+                radius * scaleX,
+                0, Math.PI * 2
+            );
+            ctx.fillStyle = valid ? 'rgba(60,160,80,0.3)' : 'rgba(180,50,50,0.3)';
+            ctx.fill();
+            ctx.strokeStyle = valid ? '#4a8a3a' : '#8a3a3a';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Castle marker
+            ctx.fillStyle = '#c8a84a';
+            ctx.font = `${Math.max(16, scaleX * 3)}px serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('\u{1F3F0}', (highlightX + 0.5) * scaleX, (highlightY + 0.5) * scaleY);
+        }
     }
 };
 
@@ -3780,6 +4168,7 @@ const Game = {
     _tickTimer: null,
     _lastTick: 0,
     _running: false,
+    _placementHover: null,
 
     init() {
         // Menu setup
@@ -3790,10 +4179,12 @@ const Game = {
         document.getElementById('btn-quit-game').addEventListener('click', () => {
             if (confirm('Voulez-vous vraiment quitter ?')) {
                 window.close();
-                // Fallback if window.close doesn't work (browser restriction)
                 document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:Cinzel,serif;color:#c8a84a;font-size:1.5rem;background:#0e0a06;text-align:center;"><div>Merci d\'avoir joue !<br><span style="font-size:0.9rem;color:#6a5a3a;">Vous pouvez fermer cet onglet.</span></div></div>';
             }
         });
+
+        // Placement screen
+        document.getElementById('btn-confirm-placement').addEventListener('click', () => this.confirmPlacement());
 
         // Show continue button if save exists
         if (SaveManager.hasSave()) {
@@ -3808,6 +4199,8 @@ const Game = {
         });
     },
 
+    // ==================== NEW GAME FLOW ====================
+
     newGame() {
         const seedField = document.getElementById('seed-field');
         this.seed = seedField.value || String(Date.now());
@@ -3817,8 +4210,126 @@ const Game = {
         this.buildMode = null;
         this.selectedTile = null;
 
-        // Generate map
-        GameMap.generate(this.seed);
+        // Show loading screen
+        this.showScreen('loading-screen');
+        this._updateLoadingProgress(0, 'Preparation du parchemin...');
+
+        // Use setTimeout to allow the UI to render
+        setTimeout(() => this._generateMapAsync(), 50);
+    },
+
+    _generateMapAsync() {
+        const messages = [
+            'Les cartographes explorent les terres...',
+            'Les forets prennent racine...',
+            'Les montagnes emergent des brumes...',
+            'Les rivieres tracent leur chemin...',
+            'Les decorateurs plantent les arbres...',
+            'La carte est presque prete...'
+        ];
+
+        let lastMsgIdx = -1;
+
+        // Generate terrain with progress callback
+        const onProgress = (progress) => {
+            const msgIdx = Math.min(messages.length - 1, Math.floor(progress * messages.length));
+            if (msgIdx !== lastMsgIdx) {
+                lastMsgIdx = msgIdx;
+                this._updateLoadingProgress(progress, messages[msgIdx]);
+            }
+        };
+
+        GameMap.generateTerrain(this.seed, onProgress);
+
+        this._updateLoadingProgress(0.85, 'Dernieres touches...');
+
+        setTimeout(() => {
+            this._updateLoadingProgress(1.0, 'La carte est prete !');
+            setTimeout(() => this._showPlacementScreen(), 600);
+        }, 200);
+    },
+
+    _updateLoadingProgress(progress, message) {
+        const fill = document.getElementById('loading-fill');
+        const msg = document.getElementById('loading-message');
+        const pct = document.getElementById('loading-percent');
+        if (fill) fill.style.width = Math.round(progress * 100) + '%';
+        if (msg) msg.textContent = message;
+        if (pct) pct.textContent = Math.round(progress * 100) + '%';
+    },
+
+    // ==================== PLACEMENT SCREEN ====================
+
+    _showPlacementScreen() {
+        this.showScreen('placement-screen');
+        this._placementHover = null;
+        this._placementSelected = null;
+
+        const canvas = document.getElementById('placement-canvas');
+        const container = document.getElementById('placement-map-area');
+
+        // Size canvas to fit container
+        const rect = container.getBoundingClientRect();
+        const size = Math.min(rect.width - 40, rect.height - 20);
+        canvas.width = size;
+        canvas.height = size;
+
+        // Initial render
+        GameMap.renderOverviewToCanvas(canvas);
+
+        // Hover handler
+        canvas.onmousemove = (e) => {
+            const cr = canvas.getBoundingClientRect();
+            const mx = e.clientX - cr.left;
+            const my = e.clientY - cr.top;
+            const tileX = Math.floor((mx / canvas.width) * GameMap.width);
+            const tileY = Math.floor((my / canvas.height) * GameMap.height);
+
+            if (tileX !== this._placementHover?.x || tileY !== this._placementHover?.y) {
+                this._placementHover = { x: tileX, y: tileY };
+                GameMap.renderOverviewToCanvas(canvas, tileX, tileY, true);
+
+                // Update placement info
+                const tile = GameMap.getTile(tileX, tileY);
+                const valid = GameMap.isValidKingdomSpot(tileX, tileY);
+                const info = document.getElementById('placement-info');
+                if (tile) {
+                    const terrainName = CONFIG.TERRAIN_NAMES[tile.terrain] || 'Inconnu';
+                    info.textContent = `${terrainName} (${tileX}, ${tileY}) - ${valid ? 'Emplacement valide' : 'Terrain inadapte'}`;
+                    info.style.color = valid ? '#a8d8a8' : '#d8a8a8';
+                }
+            }
+        };
+
+        // Click handler
+        canvas.onclick = (e) => {
+            const cr = canvas.getBoundingClientRect();
+            const mx = e.clientX - cr.left;
+            const my = e.clientY - cr.top;
+            const tileX = Math.floor((mx / canvas.width) * GameMap.width);
+            const tileY = Math.floor((my / canvas.height) * GameMap.height);
+
+            if (GameMap.isValidKingdomSpot(tileX, tileY)) {
+                this._placementSelected = { x: tileX, y: tileY };
+                GameMap.renderOverviewToCanvas(canvas, tileX, tileY, true);
+                document.getElementById('btn-confirm-placement').disabled = false;
+                document.getElementById('btn-confirm-placement').classList.add('ready');
+            }
+        };
+
+        // Disable confirm until a spot is selected
+        document.getElementById('btn-confirm-placement').disabled = true;
+        document.getElementById('btn-confirm-placement').classList.remove('ready');
+    },
+
+    confirmPlacement() {
+        if (!this._placementSelected) return;
+
+        const px = this._placementSelected.x;
+        const py = this._placementSelected.y;
+
+        // Generate regions based on player position
+        GameMap.generateRegions(px, py);
 
         // Initialize systems
         Resources.init();
@@ -3839,13 +4350,20 @@ const Game = {
         // Initialize factions
         Factions.init();
 
-        // Start game (Camera.init must happen before centerOnTile)
+        // Start game
         this.startGame();
 
         if (playerRegion) {
             Camera.centerOnTile(playerRegion.capital.x, playerRegion.capital.y);
         }
+
+        // Clean up placement listeners
+        const canvas = document.getElementById('placement-canvas');
+        canvas.onmousemove = null;
+        canvas.onclick = null;
     },
+
+    // ==================== CONTINUE ====================
 
     continueGame() {
         const data = SaveManager.load() || SaveManager.load('auto');
@@ -3859,7 +4377,6 @@ const Game = {
         this.season = data.season;
         this.totalCycles = data.totalCycles;
 
-        // Regenerate base map then apply saved state
         GameMap.generate(this.seed);
         SaveManager.deserializeMap(data.map);
 
@@ -3872,7 +4389,6 @@ const Game = {
 
         GameMap.updateVisibility(0);
 
-        // Start game (Camera.init must happen before centerOnTile)
         this.startGame();
 
         const playerRegion = GameMap.getPlayerRegion();
@@ -3880,6 +4396,8 @@ const Game = {
             Camera.centerOnTile(playerRegion.capital.x, playerRegion.capital.y);
         }
     },
+
+    // ==================== GAME LOOP ====================
 
     startGame() {
         this.showScreen('game-screen');
@@ -3896,7 +4414,6 @@ const Game = {
         Resources.updateUI();
         Population.updateUI();
 
-        // Start game loop
         this.gameLoop();
         this.startTickTimer();
     },
@@ -3930,47 +4447,39 @@ const Game = {
     processCycle() {
         this.totalCycles++;
 
-        // Advance season
         this.season++;
         if (this.season >= 4) {
             this.season = 0;
             this.year++;
         }
 
-        // Process all systems
         Resources.processCycle();
         Population.processCycle();
         TechTree.processCycle();
         Factions.processCycle(this.year, this.season);
 
-        // Random events
         this.processRandomEvent();
 
-        // Festival moral boost
         if (TechTree.isResearched('festivals')) {
             Population.adjustMoral(5);
         }
 
-        // Update visibility
         GameMap.updateVisibility(0);
 
-        // Update UI
         this.updateSeasonUI();
         Resources.updateUI();
         Population.updateUI();
         UI.refreshAll();
 
-        // Auto-save every 4 cycles (1 year)
         if (this.totalCycles % 4 === 0) {
             SaveManager.save('auto');
         }
 
-        // Check defeat
         this.checkDefeat();
     },
 
     processRandomEvent() {
-        if (Perlin.random() > 0.15) return; // 15% chance per cycle
+        if (Perlin.random() > 0.15) return;
 
         const events = [
             {
@@ -4025,15 +4534,12 @@ const Game = {
         if (!tile || !tile.explored) return;
 
         if (this.buildMode) {
-            // Place building
             if (this.canPlaceBuilding(tx, ty, this.buildMode)) {
                 Buildings.placeBuilding(tx, ty, this.buildMode);
                 GameMap.updateVisibility(0);
                 UI.refreshAll();
-                // Don't clear build mode so player can place multiple
             }
         } else {
-            // Select tile
             this.selectedTile = { x: tx, y: ty };
             UI.updateInfoPanel(tile);
         }
@@ -4073,12 +4579,10 @@ const Game = {
     },
 
     checkDefeat() {
-        // Defeat if population reaches 0
         if (Population.villagers.length <= 0) {
             this.showDefeat('Tous vos villageois ont disparu...');
             return;
         }
-        // Defeat if town hall is lost
         const playerRegion = GameMap.getPlayerRegion();
         if (playerRegion) {
             const th = Buildings.playerBuildings.find(b => b.type === 'town_hall');
@@ -4121,7 +4625,6 @@ const Game = {
         document.getElementById(screenId).classList.add('active');
     },
 
-    // Keyboard shortcut: Escape cancels build mode
     _initKeyShortcuts() {
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {

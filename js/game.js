@@ -12,6 +12,7 @@ const Game = {
     _tickTimer: null,
     _lastTick: 0,
     _running: false,
+    _placementHover: null,
 
     init() {
         // Menu setup
@@ -22,10 +23,12 @@ const Game = {
         document.getElementById('btn-quit-game').addEventListener('click', () => {
             if (confirm('Voulez-vous vraiment quitter ?')) {
                 window.close();
-                // Fallback if window.close doesn't work (browser restriction)
                 document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:Cinzel,serif;color:#c8a84a;font-size:1.5rem;background:#0e0a06;text-align:center;"><div>Merci d\'avoir joue !<br><span style="font-size:0.9rem;color:#6a5a3a;">Vous pouvez fermer cet onglet.</span></div></div>';
             }
         });
+
+        // Placement screen
+        document.getElementById('btn-confirm-placement').addEventListener('click', () => this.confirmPlacement());
 
         // Show continue button if save exists
         if (SaveManager.hasSave()) {
@@ -40,6 +43,8 @@ const Game = {
         });
     },
 
+    // ==================== NEW GAME FLOW ====================
+
     newGame() {
         const seedField = document.getElementById('seed-field');
         this.seed = seedField.value || String(Date.now());
@@ -49,8 +54,126 @@ const Game = {
         this.buildMode = null;
         this.selectedTile = null;
 
-        // Generate map
-        GameMap.generate(this.seed);
+        // Show loading screen
+        this.showScreen('loading-screen');
+        this._updateLoadingProgress(0, 'Preparation du parchemin...');
+
+        // Use setTimeout to allow the UI to render
+        setTimeout(() => this._generateMapAsync(), 50);
+    },
+
+    _generateMapAsync() {
+        const messages = [
+            'Les cartographes explorent les terres...',
+            'Les forets prennent racine...',
+            'Les montagnes emergent des brumes...',
+            'Les rivieres tracent leur chemin...',
+            'Les decorateurs plantent les arbres...',
+            'La carte est presque prete...'
+        ];
+
+        let lastMsgIdx = -1;
+
+        // Generate terrain with progress callback
+        const onProgress = (progress) => {
+            const msgIdx = Math.min(messages.length - 1, Math.floor(progress * messages.length));
+            if (msgIdx !== lastMsgIdx) {
+                lastMsgIdx = msgIdx;
+                this._updateLoadingProgress(progress, messages[msgIdx]);
+            }
+        };
+
+        GameMap.generateTerrain(this.seed, onProgress);
+
+        this._updateLoadingProgress(0.85, 'Dernieres touches...');
+
+        setTimeout(() => {
+            this._updateLoadingProgress(1.0, 'La carte est prete !');
+            setTimeout(() => this._showPlacementScreen(), 600);
+        }, 200);
+    },
+
+    _updateLoadingProgress(progress, message) {
+        const fill = document.getElementById('loading-fill');
+        const msg = document.getElementById('loading-message');
+        const pct = document.getElementById('loading-percent');
+        if (fill) fill.style.width = Math.round(progress * 100) + '%';
+        if (msg) msg.textContent = message;
+        if (pct) pct.textContent = Math.round(progress * 100) + '%';
+    },
+
+    // ==================== PLACEMENT SCREEN ====================
+
+    _showPlacementScreen() {
+        this.showScreen('placement-screen');
+        this._placementHover = null;
+        this._placementSelected = null;
+
+        const canvas = document.getElementById('placement-canvas');
+        const container = document.getElementById('placement-map-area');
+
+        // Size canvas to fit container
+        const rect = container.getBoundingClientRect();
+        const size = Math.min(rect.width - 40, rect.height - 20);
+        canvas.width = size;
+        canvas.height = size;
+
+        // Initial render
+        GameMap.renderOverviewToCanvas(canvas);
+
+        // Hover handler
+        canvas.onmousemove = (e) => {
+            const cr = canvas.getBoundingClientRect();
+            const mx = e.clientX - cr.left;
+            const my = e.clientY - cr.top;
+            const tileX = Math.floor((mx / canvas.width) * GameMap.width);
+            const tileY = Math.floor((my / canvas.height) * GameMap.height);
+
+            if (tileX !== this._placementHover?.x || tileY !== this._placementHover?.y) {
+                this._placementHover = { x: tileX, y: tileY };
+                GameMap.renderOverviewToCanvas(canvas, tileX, tileY, true);
+
+                // Update placement info
+                const tile = GameMap.getTile(tileX, tileY);
+                const valid = GameMap.isValidKingdomSpot(tileX, tileY);
+                const info = document.getElementById('placement-info');
+                if (tile) {
+                    const terrainName = CONFIG.TERRAIN_NAMES[tile.terrain] || 'Inconnu';
+                    info.textContent = `${terrainName} (${tileX}, ${tileY}) - ${valid ? 'Emplacement valide' : 'Terrain inadapte'}`;
+                    info.style.color = valid ? '#a8d8a8' : '#d8a8a8';
+                }
+            }
+        };
+
+        // Click handler
+        canvas.onclick = (e) => {
+            const cr = canvas.getBoundingClientRect();
+            const mx = e.clientX - cr.left;
+            const my = e.clientY - cr.top;
+            const tileX = Math.floor((mx / canvas.width) * GameMap.width);
+            const tileY = Math.floor((my / canvas.height) * GameMap.height);
+
+            if (GameMap.isValidKingdomSpot(tileX, tileY)) {
+                this._placementSelected = { x: tileX, y: tileY };
+                GameMap.renderOverviewToCanvas(canvas, tileX, tileY, true);
+                document.getElementById('btn-confirm-placement').disabled = false;
+                document.getElementById('btn-confirm-placement').classList.add('ready');
+            }
+        };
+
+        // Disable confirm until a spot is selected
+        document.getElementById('btn-confirm-placement').disabled = true;
+        document.getElementById('btn-confirm-placement').classList.remove('ready');
+    },
+
+    confirmPlacement() {
+        if (!this._placementSelected) return;
+
+        const px = this._placementSelected.x;
+        const py = this._placementSelected.y;
+
+        // Generate regions based on player position
+        GameMap.generateRegions(px, py);
 
         // Initialize systems
         Resources.init();
@@ -71,13 +194,20 @@ const Game = {
         // Initialize factions
         Factions.init();
 
-        // Start game (Camera.init must happen before centerOnTile)
+        // Start game
         this.startGame();
 
         if (playerRegion) {
             Camera.centerOnTile(playerRegion.capital.x, playerRegion.capital.y);
         }
+
+        // Clean up placement listeners
+        const canvas = document.getElementById('placement-canvas');
+        canvas.onmousemove = null;
+        canvas.onclick = null;
     },
+
+    // ==================== CONTINUE ====================
 
     continueGame() {
         const data = SaveManager.load() || SaveManager.load('auto');
@@ -91,7 +221,6 @@ const Game = {
         this.season = data.season;
         this.totalCycles = data.totalCycles;
 
-        // Regenerate base map then apply saved state
         GameMap.generate(this.seed);
         SaveManager.deserializeMap(data.map);
 
@@ -104,7 +233,6 @@ const Game = {
 
         GameMap.updateVisibility(0);
 
-        // Start game (Camera.init must happen before centerOnTile)
         this.startGame();
 
         const playerRegion = GameMap.getPlayerRegion();
@@ -112,6 +240,8 @@ const Game = {
             Camera.centerOnTile(playerRegion.capital.x, playerRegion.capital.y);
         }
     },
+
+    // ==================== GAME LOOP ====================
 
     startGame() {
         this.showScreen('game-screen');
@@ -128,7 +258,6 @@ const Game = {
         Resources.updateUI();
         Population.updateUI();
 
-        // Start game loop
         this.gameLoop();
         this.startTickTimer();
     },
@@ -162,47 +291,39 @@ const Game = {
     processCycle() {
         this.totalCycles++;
 
-        // Advance season
         this.season++;
         if (this.season >= 4) {
             this.season = 0;
             this.year++;
         }
 
-        // Process all systems
         Resources.processCycle();
         Population.processCycle();
         TechTree.processCycle();
         Factions.processCycle(this.year, this.season);
 
-        // Random events
         this.processRandomEvent();
 
-        // Festival moral boost
         if (TechTree.isResearched('festivals')) {
             Population.adjustMoral(5);
         }
 
-        // Update visibility
         GameMap.updateVisibility(0);
 
-        // Update UI
         this.updateSeasonUI();
         Resources.updateUI();
         Population.updateUI();
         UI.refreshAll();
 
-        // Auto-save every 4 cycles (1 year)
         if (this.totalCycles % 4 === 0) {
             SaveManager.save('auto');
         }
 
-        // Check defeat
         this.checkDefeat();
     },
 
     processRandomEvent() {
-        if (Perlin.random() > 0.15) return; // 15% chance per cycle
+        if (Perlin.random() > 0.15) return;
 
         const events = [
             {
@@ -257,15 +378,12 @@ const Game = {
         if (!tile || !tile.explored) return;
 
         if (this.buildMode) {
-            // Place building
             if (this.canPlaceBuilding(tx, ty, this.buildMode)) {
                 Buildings.placeBuilding(tx, ty, this.buildMode);
                 GameMap.updateVisibility(0);
                 UI.refreshAll();
-                // Don't clear build mode so player can place multiple
             }
         } else {
-            // Select tile
             this.selectedTile = { x: tx, y: ty };
             UI.updateInfoPanel(tile);
         }
@@ -305,12 +423,10 @@ const Game = {
     },
 
     checkDefeat() {
-        // Defeat if population reaches 0
         if (Population.villagers.length <= 0) {
             this.showDefeat('Tous vos villageois ont disparu...');
             return;
         }
-        // Defeat if town hall is lost
         const playerRegion = GameMap.getPlayerRegion();
         if (playerRegion) {
             const th = Buildings.playerBuildings.find(b => b.type === 'town_hall');
@@ -353,7 +469,6 @@ const Game = {
         document.getElementById(screenId).classList.add('active');
     },
 
-    // Keyboard shortcut: Escape cancels build mode
     _initKeyShortcuts() {
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
