@@ -186,6 +186,7 @@ const Game = {
             const tile = GameMap.getTile(tileX, tileY);
             if (!tile || tile.terrain <= CONFIG.TERRAIN.WATER) return;
             if (!GameMap.isValidKingdomSpot(tileX, tileY)) return;
+            if (GameMap.isCenterZone(tileX, tileY)) return;
 
             this._castlePlaced = { x: tileX, y: tileY };
             GameMap.renderOverviewToCanvas(canvas, tileX, tileY);
@@ -205,9 +206,13 @@ const Game = {
 
         const terrainName = CONFIG.TERRAIN_NAMES[tile.terrain] || 'Inconnu';
         const valid = GameMap.isValidKingdomSpot(tileX, tileY);
+        const isCenter = GameMap.isCenterZone(tileX, tileY);
 
         if (tile.terrain <= CONFIG.TERRAIN.WATER) {
             info.textContent = `${terrainName} - Impossible de fonder ici`;
+            info.style.color = '#d8a8a8';
+        } else if (isCenter) {
+            info.textContent = `${terrainName} (${tileX}, ${tileY}) - Trop au centre, les ennemis n'auraient pas assez d'espace`;
             info.style.color = '#d8a8a8';
         } else if (!valid) {
             info.textContent = `${terrainName} (${tileX}, ${tileY}) - Pas assez de terre cultivable`;
@@ -275,6 +280,10 @@ const Game = {
             Renderer.init();
         }
         Camera.init(Renderer.canvas);
+
+        // Switch to isometric mode
+        Renderer.setIsoMode(true);
+        Camera.zoom = 2.0; // Start zoomed in for iso view
 
         this._running = true;
         this._worldMapOpen = false;

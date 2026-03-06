@@ -41,10 +41,10 @@ const Camera = {
 
     update() {
         const speed = 6 / this.zoom;
-        if (this._keys['ArrowLeft'] || this._keys['a']) this.x -= speed;
-        if (this._keys['ArrowRight'] || this._keys['d']) this.x += speed;
-        if (this._keys['ArrowUp'] || this._keys['w']) this.y -= speed;
-        if (this._keys['ArrowDown'] || this._keys['s']) this.y += speed;
+        if (this._keys['ArrowLeft'] || this._keys['q'] || this._keys['Q']) this.x -= speed;
+        if (this._keys['ArrowRight'] || this._keys['d'] || this._keys['D']) this.x += speed;
+        if (this._keys['ArrowUp'] || this._keys['z'] || this._keys['Z']) this.y -= speed;
+        if (this._keys['ArrowDown'] || this._keys['s'] || this._keys['S']) this.y += speed;
 
         this._clamp();
     },

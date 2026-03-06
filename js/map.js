@@ -173,7 +173,15 @@ const GameMap = {
         return landCount >= 60;
     },
 
-    // Place kingdoms based on player position
+    // Check if position is too close to map center (forbidden zone)
+    isCenterZone(x, y) {
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+        const radius = Math.min(this.width, this.height) * 0.12;
+        return Math.sqrt((x - cx) ** 2 + (y - cy) ** 2) < radius;
+    },
+
+    // Place kingdoms based on player position - evenly distributed
     placeKingdoms(playerX, playerY) {
         // Find player's region
         const playerTile = this.getTile(playerX, playerY);
@@ -189,40 +197,81 @@ const GameMap = {
             this.tiles[t.y][t.x].owner = 0;
         }
 
-        // Find spots for 4 enemy kingdoms - far from player
+        // Place 4 enemy kingdoms at roughly equal angular intervals around the player
+        const numEnemies = 4;
+        const enemyNames = ['Royaume de Fer', 'Duche de Flamme', 'Comtat des Ombres', 'Empire Dore'];
+        const idealDist = Math.min(this.width, this.height) * 0.28;
+        const minDistBetweenEnemies = Math.min(this.width, this.height) * 0.18;
+        const minDistFromPlayer = Math.min(this.width, this.height) * 0.15;
+
+        // Compute ideal target positions at equal angles around the player
+        const baseAngle = Perlin.random() * Math.PI * 2; // random start angle
+        const targets = [];
+        for (let i = 0; i < numEnemies; i++) {
+            const angle = baseAngle + (i * Math.PI * 2) / numEnemies;
+            targets.push({
+                x: playerX + Math.cos(angle) * idealDist,
+                y: playerY + Math.sin(angle) * idealDist
+            });
+        }
+
+        // For each target, find the best candidate region
         const candidates = this.regions.filter(r =>
-            r.tiles.length >= 40 && r.owner === -1
+            r.tiles.length >= 40 && r.owner === -1 &&
+            r.center.x > 5 && r.center.x < this.width - 5 &&
+            r.center.y > 5 && r.center.y < this.height - 5
         );
 
-        candidates.sort((a, b) => {
-            const da = (a.center.x - playerX) ** 2 + (a.center.y - playerY) ** 2;
-            const db = (b.center.x - playerX) ** 2 + (b.center.y - playerY) ** 2;
-            return db - da;
-        });
+        const usedRegions = new Set();
+        for (let i = 0; i < numEnemies; i++) {
+            const target = targets[i];
+            let bestRegion = null;
+            let bestScore = Infinity;
 
-        const enemyNames = ['Royaume de Fer', 'Duche de Flamme', 'Comtat des Ombres', 'Empire Dore'];
-        let placed = 0;
-        const minDistBetweenEnemies = Math.floor(Math.min(this.width, this.height) * 0.15);
+            for (const region of candidates) {
+                if (usedRegions.has(region.id)) continue;
 
-        for (const region of candidates) {
-            if (placed >= 4) break;
+                // Distance from player
+                const distFromPlayer = Math.sqrt(
+                    (region.center.x - playerX) ** 2 +
+                    (region.center.y - playerY) ** 2
+                );
+                if (distFromPlayer < minDistFromPlayer) continue;
 
-            // Check distance from already placed enemies
-            const tooClose = this.regions.some(r =>
-                r.owner > 0 && Math.sqrt(
-                    (r.center.x - region.center.x) ** 2 +
-                    (r.center.y - region.center.y) ** 2
-                ) < minDistBetweenEnemies
-            );
-            if (tooClose) continue;
+                // Distance from other placed enemies
+                let tooClose = false;
+                for (const usedId of usedRegions) {
+                    const usedRegion = this.regions[usedId];
+                    const d = Math.sqrt(
+                        (usedRegion.center.x - region.center.x) ** 2 +
+                        (usedRegion.center.y - region.center.y) ** 2
+                    );
+                    if (d < minDistBetweenEnemies) { tooClose = true; break; }
+                }
+                if (tooClose) continue;
 
-            placed++;
-            region.owner = placed;
-            region.name = enemyNames[placed - 1];
-            region.color = CONFIG.FACTION_COLORS[placed];
+                // Score: distance from ideal target position
+                const score = Math.sqrt(
+                    (region.center.x - target.x) ** 2 +
+                    (region.center.y - target.y) ** 2
+                );
 
-            for (const t of region.tiles) {
-                this.tiles[t.y][t.x].owner = placed;
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestRegion = region;
+                }
+            }
+
+            if (bestRegion) {
+                const ownerIdx = i + 1;
+                bestRegion.owner = ownerIdx;
+                bestRegion.name = enemyNames[i];
+                bestRegion.color = CONFIG.FACTION_COLORS[ownerIdx];
+                usedRegions.add(bestRegion.id);
+
+                for (const t of bestRegion.tiles) {
+                    this.tiles[t.y][t.x].owner = ownerIdx;
+                }
             }
         }
     },
@@ -301,9 +350,22 @@ const GameMap = {
             }
         }
 
+        // Draw center forbidden zone
+        const centerRadius = Math.min(this.width, this.height) * 0.12;
+        const centerPx = (this.width / 2) * scaleX;
+        const centerPy = (this.height / 2) * scaleY;
+        const centerRadPx = centerRadius * scaleX;
+        ctx.beginPath();
+        ctx.arc(centerPx, centerPy, centerRadPx, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(180,50,50,0.12)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(180,50,50,0.3)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
         // Draw castle if placed
         if (castleX !== undefined && castleY !== undefined) {
-            const valid = this.isValidKingdomSpot(castleX, castleY);
+            const valid = this.isValidKingdomSpot(castleX, castleY) && !this.isCenterZone(castleX, castleY);
 
             // Highlight kingdom region
             const tile = this.getTile(castleX, castleY);
