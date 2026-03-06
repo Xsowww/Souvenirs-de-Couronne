@@ -1,68 +1,75 @@
-// Camera / viewport management for isometric view
+// Camera for top-down 2D view
 const Camera = {
     x: 0,
     y: 0,
     zoom: 1,
     minZoom: 0.3,
-    maxZoom: 2.5,
+    maxZoom: 4,
     dragging: false,
     dragStartX: 0,
     dragStartY: 0,
     camStartX: 0,
     camStartY: 0,
+    _dragDist: 0,
+    _keys: {},
 
     init(canvas) {
         this.canvas = canvas;
-        this.centerOnTile(Math.floor(CONFIG.MAP_WIDTH / 2), Math.floor(CONFIG.MAP_HEIGHT / 2));
+
+        // Center on map middle
+        const mapPixelW = GameMap.width * CONFIG.CELL_SIZE * this.zoom;
+        const mapPixelH = GameMap.height * CONFIG.CELL_SIZE * this.zoom;
+        this.x = mapPixelW / 2 - canvas.width / 2;
+        this.y = mapPixelH / 2 - canvas.height / 2;
 
         canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
         canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
         canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
         canvas.addEventListener('mouseleave', () => this.dragging = false);
-        canvas.addEventListener('wheel', (e) => this.onWheel(e));
+        canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-        // Touch support
+        // Touch
         canvas.addEventListener('touchstart', (e) => this.onTouchStart(e));
-        canvas.addEventListener('touchmove', (e) => this.onTouchMove(e));
+        canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
         canvas.addEventListener('touchend', () => this.dragging = false);
 
         // Keyboard
-        this._keys = {};
         window.addEventListener('keydown', (e) => this._keys[e.key] = true);
         window.addEventListener('keyup', (e) => this._keys[e.key] = false);
     },
 
     update() {
-        const speed = 8 / this.zoom;
+        const speed = 6 / this.zoom;
         if (this._keys['ArrowLeft'] || this._keys['a']) this.x -= speed;
         if (this._keys['ArrowRight'] || this._keys['d']) this.x += speed;
         if (this._keys['ArrowUp'] || this._keys['w']) this.y -= speed;
         if (this._keys['ArrowDown'] || this._keys['s']) this.y += speed;
+
+        this._clamp();
     },
 
-    centerOnTile(tx, ty) {
-        const iso = this.tileToScreen(tx, ty);
-        this.x = iso.x - this.canvas.width / 2;
-        this.y = iso.y - this.canvas.height / 2;
+    _clamp() {
+        const mapW = GameMap.width * CONFIG.CELL_SIZE * this.zoom;
+        const mapH = GameMap.height * CONFIG.CELL_SIZE * this.zoom;
+        this.x = Math.max(-this.canvas.width / 2, Math.min(mapW - this.canvas.width / 2, this.x));
+        this.y = Math.max(-this.canvas.height / 2, Math.min(mapH - this.canvas.height / 2, this.y));
     },
 
-    tileToScreen(tx, ty) {
-        const tw = CONFIG.TILE_WIDTH * this.zoom;
-        const th = CONFIG.TILE_HEIGHT * this.zoom;
+    centerOnCell(cx, cy) {
+        const cellSize = CONFIG.CELL_SIZE * this.zoom;
+        this.x = (cx + 0.5) * cellSize - this.canvas.width / 2;
+        this.y = (cy + 0.5) * cellSize - this.canvas.height / 2;
+        this._clamp();
+    },
+
+    screenToCell(sx, sy) {
+        const worldX = (sx + this.x) / (CONFIG.CELL_SIZE * this.zoom);
+        const worldY = (sy + this.y) / (CONFIG.CELL_SIZE * this.zoom);
         return {
-            x: (tx - ty) * (tw / 2),
-            y: (tx + ty) * (th / 2)
+            x: Math.floor(worldX),
+            y: Math.floor(worldY)
         };
-    },
-
-    screenToTile(sx, sy) {
-        const px = sx + this.x;
-        const py = sy + this.y;
-        const tw = CONFIG.TILE_WIDTH * this.zoom;
-        const th = CONFIG.TILE_HEIGHT * this.zoom;
-        const tx = Math.floor((px / (tw / 2) + py / (th / 2)) / 2);
-        const ty = Math.floor((py / (th / 2) - px / (tw / 2)) / 2);
-        return { x: tx, y: ty };
     },
 
     onMouseDown(e) {
@@ -83,6 +90,7 @@ const Camera = {
             this._dragDist = Math.abs(dx) + Math.abs(dy);
             this.x = this.camStartX - dx;
             this.y = this.camStartY - dy;
+            this._clamp();
         }
     },
 
@@ -93,9 +101,9 @@ const Camera = {
             const rect = this.canvas.getBoundingClientRect();
             const sx = e.clientX - rect.left;
             const sy = e.clientY - rect.top;
-            const tile = this.screenToTile(sx, sy);
-            if (typeof Game !== 'undefined') {
-                Game.onTileClick(tile.x, tile.y);
+            const cell = this.screenToCell(sx, sy);
+            if (typeof Game !== 'undefined' && Game.onMapClick) {
+                Game.onMapClick(cell.x, cell.y);
             }
         }
     },
@@ -111,12 +119,11 @@ const Camera = {
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
 
-        // Adjust camera so the world point under the mouse stays fixed
-        const worldXBefore = mx + this.x;
-        const worldYBefore = my + this.y;
-        const scale = this.zoom / oldZoom;
-        this.x = worldXBefore * scale - mx;
-        this.y = worldYBefore * scale - my;
+        const worldXBefore = (mx + this.x) / oldZoom;
+        const worldYBefore = (my + this.y) / oldZoom;
+        this.x = worldXBefore * this.zoom - mx;
+        this.y = worldYBefore * this.zoom - my;
+        this._clamp();
     },
 
     onTouchStart(e) {
@@ -136,20 +143,7 @@ const Camera = {
             const dy = e.touches[0].clientY - this.dragStartY;
             this.x = this.camStartX - dx;
             this.y = this.camStartY - dy;
+            this._clamp();
         }
-    },
-
-    getVisibleBounds() {
-        const topLeft = this.screenToTile(0, 0);
-        const topRight = this.screenToTile(this.canvas.width, 0);
-        const bottomLeft = this.screenToTile(0, this.canvas.height);
-        const bottomRight = this.screenToTile(this.canvas.width, this.canvas.height);
-
-        return {
-            minX: Math.max(0, Math.min(topLeft.x, bottomLeft.x) - 2),
-            maxX: Math.min(CONFIG.MAP_WIDTH - 1, Math.max(topRight.x, bottomRight.x) + 2),
-            minY: Math.max(0, Math.min(topLeft.y, topRight.y) - 2),
-            maxY: Math.min(CONFIG.MAP_HEIGHT - 1, Math.max(bottomLeft.y, bottomRight.y) + 2)
-        };
     }
 };

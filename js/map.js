@@ -5,7 +5,7 @@ const GameMap = {
     width: CONFIG.MAP_WIDTH,
     height: CONFIG.MAP_HEIGHT,
 
-    // Step 1: Generate terrain only (no regions)
+    // Generate terrain only (no kingdoms)
     generateTerrain(seed, onProgress) {
         Perlin.seed(seed);
         Perlin.seedRng(seed);
@@ -14,244 +14,222 @@ const GameMap = {
         this.tiles = [];
         this.regions = [];
 
-        const totalRows = this.height;
         for (let y = 0; y < this.height; y++) {
             this.tiles[y] = [];
             for (let x = 0; x < this.width; x++) {
-                const elevation = Perlin.octave(x * 0.06, y * 0.06, 4, 0.5);
-                const moisture = Perlin.octave(x * 0.05 + 100, y * 0.05 + 100, 3, 0.5);
+                const nx = x / this.width;
+                const ny = y / this.height;
 
-                let terrain;
-                if (elevation < -0.25) terrain = CONFIG.TERRAIN.WATER;
-                else if (elevation < -0.05) terrain = CONFIG.TERRAIN.PLAINS;
-                else if (elevation < 0.15) {
-                    terrain = moisture > 0.1 ? CONFIG.TERRAIN.FOREST : CONFIG.TERRAIN.GRASS;
-                }
-                else if (elevation < 0.35) terrain = CONFIG.TERRAIN.HILLS;
-                else terrain = CONFIG.TERRAIN.MOUNTAIN;
+                // Multi-octave elevation
+                const elevation = Perlin.octave(x * 0.035, y * 0.035, 6, 0.5);
+                const moisture = Perlin.octave(x * 0.04 + 200, y * 0.04 + 200, 4, 0.5);
+
+                // Island falloff - edges tend toward water
+                const dx = (nx - 0.5) * 2;
+                const dy = (ny - 0.5) * 2;
+                const distFromCenter = Math.sqrt(dx * dx + dy * dy);
+                const falloff = Math.max(0, 1 - distFromCenter * 1.1);
+                const finalElev = elevation * 0.7 + falloff * 0.3;
+
+                const terrain = this._elevToTerrain(finalElev, moisture);
 
                 this.tiles[y][x] = {
                     x, y,
                     terrain,
+                    elevation: finalElev,
+                    moisture,
                     building: null,
-                    owner: -1,
-                    visible: false,
-                    explored: false,
-                    decoration: null
+                    owner: -1, // -1 = unclaimed
+                    regionId: -1,
+                    visible: true,
+                    explored: true,
                 };
             }
-            if (onProgress) onProgress((y + 1) / totalRows * 0.6);
+            if (onProgress) onProgress((y + 1) / this.height * 0.7);
         }
 
-        // Add decorations
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                if (this.tiles[y][x].terrain === CONFIG.TERRAIN.FOREST && Perlin.random() < 0.6) {
-                    this.tiles[y][x].decoration = 'tree';
-                }
-                if (this.tiles[y][x].terrain === CONFIG.TERRAIN.MOUNTAIN && Perlin.random() < 0.3) {
-                    this.tiles[y][x].decoration = 'rock';
-                }
-            }
-            if (onProgress) onProgress(0.6 + ((y + 1) / this.height) * 0.2);
-        }
+        // Generate natural regions via Voronoi
+        this._generateNaturalRegions();
+        if (onProgress) onProgress(0.9);
+
+        // Done
+        if (onProgress) onProgress(1.0);
     },
 
-    // Step 2: Place regions based on player-chosen position
-    generateRegions(playerX, playerY) {
+    _elevToTerrain(elev, moisture) {
+        if (elev < -0.30) return CONFIG.TERRAIN.DEEP_WATER;
+        if (elev < -0.15) return CONFIG.TERRAIN.WATER;
+        if (elev < -0.08) return CONFIG.TERRAIN.SAND;
+        if (elev < 0.02) return CONFIG.TERRAIN.PLAINS;
+        if (elev < 0.15) {
+            return moisture > 0.15 ? CONFIG.TERRAIN.FOREST :
+                   moisture > -0.05 ? CONFIG.TERRAIN.GRASS : CONFIG.TERRAIN.PLAINS;
+        }
+        if (elev < 0.25) {
+            return moisture > 0.2 ? CONFIG.TERRAIN.DENSE_FOREST : CONFIG.TERRAIN.FOREST;
+        }
+        if (elev < 0.38) return CONFIG.TERRAIN.HILLS;
+        if (elev < 0.50) return CONFIG.TERRAIN.MOUNTAIN;
+        return CONFIG.TERRAIN.SNOW_PEAK;
+    },
+
+    _generateNaturalRegions() {
+        // Voronoi-style: place seed points, assign each land tile to nearest
         this.regions = [];
+        const numRegions = Math.floor((this.width * this.height) / 900);
+        const seeds = [];
 
-        // Reset all owners
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                this.tiles[y][x].owner = -1;
-            }
-        }
-
-        // Player region
-        const playerStart = this.findValidSpot(playerX, playerY, 3);
-        this.regions.push({
-            id: 0,
-            name: 'Votre Royaume',
-            faction: 0,
-            color: CONFIG.FACTION_COLORS[0],
-            tiles: [],
-            capital: playerStart,
-            isPlayer: true
-        });
-
-        // Find positions for enemy kingdoms - spread far from player
-        const enemyPositions = this._findEnemyPositions(playerStart.x, playerStart.y);
-        const factionNames = ['Royaume de Fer', 'Duche de Flamme', 'Comtat des Ombres', 'Empire Dore'];
-
-        for (let i = 0; i < enemyPositions.length; i++) {
-            const pos = this.findValidSpot(enemyPositions[i].x, enemyPositions[i].y, 6);
-            this.regions.push({
-                id: i + 1,
-                name: factionNames[i],
-                faction: i + 1,
-                color: CONFIG.FACTION_COLORS[i + 1],
-                tiles: [],
-                capital: pos,
-                isPlayer: false,
-                type: i < 3 ? 'rival' : 'empire'
-            });
-        }
-
-        // Place bandit camps in gaps between kingdoms
-        const banditPositions = this._findBanditPositions(playerStart, enemyPositions);
-        for (let b = 0; b < banditPositions.length; b++) {
-            const pos = this.findValidSpot(banditPositions[b].x, banditPositions[b].y, 4);
-            this.regions.push({
-                id: 5 + b,
-                name: 'Bandits',
-                faction: -2,
-                color: '#666',
-                tiles: [],
-                capital: pos,
-                isPlayer: false,
-                type: 'bandit'
-            });
-        }
-
-        // Assign initial territory
-        for (const region of this.regions) {
-            const radius = region.isPlayer ? 4 : (region.type === 'bandit' ? 2 : 3);
-            for (let dy = -radius; dy <= radius; dy++) {
-                for (let dx = -radius; dx <= radius; dx++) {
-                    const tx = region.capital.x + dx;
-                    const ty = region.capital.y + dy;
-                    if (tx < 0 || ty < 0 || tx >= this.width || ty >= this.height) continue;
-                    if (this.tiles[ty][tx].terrain === CONFIG.TERRAIN.WATER) continue;
-                    if (dx * dx + dy * dy <= radius * radius) {
-                        if (this.tiles[ty][tx].owner === -1) {
-                            this.tiles[ty][tx].owner = region.id;
-                            region.tiles.push({ x: tx, y: ty });
-                        }
-                    }
-                }
-            }
-        }
-    },
-
-    _findEnemyPositions(px, py) {
-        // Place 4 enemy kingdoms as far as possible from the player
-        // Use corners and edges, adjusting based on where player is
-        const w = this.width;
-        const h = this.height;
-        const margin = Math.floor(Math.min(w, h) * 0.12);
-        const candidates = [
-            { x: margin, y: margin },
-            { x: w - margin, y: margin },
-            { x: margin, y: h - margin },
-            { x: w - margin, y: h - margin },
-            { x: Math.floor(w / 2), y: margin },
-            { x: Math.floor(w / 2), y: h - margin },
-            { x: margin, y: Math.floor(h / 2) },
-            { x: w - margin, y: Math.floor(h / 2) }
-        ];
-
-        // Sort by distance from player (farthest first)
-        candidates.sort((a, b) => {
-            const da = (a.x - px) ** 2 + (a.y - py) ** 2;
-            const db = (b.x - px) ** 2 + (b.y - py) ** 2;
-            return db - da;
-        });
-
-        // Pick 4, ensuring minimum distance between each
-        const selected = [];
-        const minDist = Math.floor(Math.min(w, h) * 0.25);
-        for (const c of candidates) {
-            if (selected.length >= 4) break;
-            const tooClose = selected.some(s =>
-                Math.sqrt((s.x - c.x) ** 2 + (s.y - c.y) ** 2) < minDist
-            );
-            if (!tooClose) selected.push(c);
-        }
-
-        // Fill remaining if needed
-        while (selected.length < 4) {
-            selected.push(candidates[selected.length]);
-        }
-
-        return selected;
-    },
-
-    _findBanditPositions(playerPos, enemyPositions) {
-        const allKingdoms = [playerPos, ...enemyPositions];
-        const bandits = [];
-        const minDistFromKingdom = Math.floor(Math.min(this.width, this.height) * 0.1);
-        const count = Math.max(4, Math.floor((this.width * this.height) / 800));
-
-        for (let attempt = 0; attempt < count * 10 && bandits.length < count; attempt++) {
-            const bx = Math.floor(Perlin.random() * (this.width - 10)) + 5;
-            const by = Math.floor(Perlin.random() * (this.height - 10)) + 5;
-
-            // Check terrain
-            if (bx >= this.width || by >= this.height) continue;
-            const tile = this.tiles[by][bx];
-            if (tile.terrain === CONFIG.TERRAIN.WATER || tile.terrain === CONFIG.TERRAIN.MOUNTAIN) continue;
-
-            // Check distance from kingdoms
-            const tooClose = allKingdoms.some(k =>
-                Math.sqrt((k.x - bx) ** 2 + (k.y - by) ** 2) < minDistFromKingdom
+        // Place region seeds on land tiles
+        for (let attempt = 0; attempt < numRegions * 20 && seeds.length < numRegions; attempt++) {
+            const rx = Math.floor(Perlin.random() * this.width);
+            const ry = Math.floor(Perlin.random() * this.height);
+            const tile = this.tiles[ry][rx];
+            if (tile.terrain <= CONFIG.TERRAIN.WATER) continue;
+            // Min distance from other seeds
+            const tooClose = seeds.some(s =>
+                Math.sqrt((s.x - rx) ** 2 + (s.y - ry) ** 2) < 12
             );
             if (tooClose) continue;
-
-            // Check distance from other bandits
-            const tooCloseBandit = bandits.some(b =>
-                Math.sqrt((b.x - bx) ** 2 + (b.y - by) ** 2) < minDistFromKingdom * 0.6
-            );
-            if (tooCloseBandit) continue;
-
-            bandits.push({ x: bx, y: by });
+            seeds.push({ x: rx, y: ry });
         }
 
-        return bandits;
+        // Create region objects
+        for (let i = 0; i < seeds.length; i++) {
+            this.regions.push({
+                id: i,
+                center: seeds[i],
+                tiles: [],
+                owner: -1, // no kingdom yet
+                name: '',
+                color: null
+            });
+        }
+
+        // Assign each land tile to nearest seed
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                const tile = this.tiles[y][x];
+                if (tile.terrain <= CONFIG.TERRAIN.WATER) continue;
+
+                let minDist = Infinity;
+                let closestRegion = -1;
+                for (let i = 0; i < seeds.length; i++) {
+                    const d = (seeds[i].x - x) ** 2 + (seeds[i].y - y) ** 2;
+                    if (d < minDist) {
+                        minDist = d;
+                        closestRegion = i;
+                    }
+                }
+
+                if (closestRegion >= 0) {
+                    tile.regionId = closestRegion;
+                    this.regions[closestRegion].tiles.push({ x, y });
+                }
+            }
+        }
+
+        // Remove tiny regions (< 20 tiles)
+        for (let i = this.regions.length - 1; i >= 0; i--) {
+            if (this.regions[i].tiles.length < 20) {
+                // Merge into nearest valid region
+                for (const t of this.regions[i].tiles) {
+                    const neighbors = this._getNeighborRegions(t.x, t.y, i);
+                    if (neighbors.length > 0) {
+                        const newRegion = neighbors[0];
+                        this.tiles[t.y][t.x].regionId = newRegion;
+                        this.regions[newRegion].tiles.push(t);
+                    }
+                }
+                this.regions[i].tiles = [];
+            }
+        }
     },
 
-    // Legacy method for save/load compatibility
-    generate(seed) {
-        this.generateTerrain(seed);
-        this.generateRegions(Math.floor(this.width / 2), Math.floor(this.height / 2));
+    _getNeighborRegions(x, y, excludeId) {
+        const found = [];
+        const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+        for (const [dx, dy] of dirs) {
+            const t = this.getTile(x + dx, y + dy);
+            if (t && t.regionId >= 0 && t.regionId !== excludeId && !found.includes(t.regionId)) {
+                found.push(t.regionId);
+            }
+        }
+        return found;
     },
 
-    // Check if a position is valid for kingdom placement
+    // Check if an area is suitable for a kingdom
     isValidKingdomSpot(x, y) {
-        const radius = 4;
+        const radius = 6;
         let landCount = 0;
         for (let dy = -radius; dy <= radius; dy++) {
             for (let dx = -radius; dx <= radius; dx++) {
                 if (dx * dx + dy * dy > radius * radius) continue;
-                const tx = x + dx;
-                const ty = y + dy;
-                const tile = this.getTile(tx, ty);
-                if (tile && tile.terrain !== CONFIG.TERRAIN.WATER && tile.terrain !== CONFIG.TERRAIN.MOUNTAIN) {
+                const tile = this.getTile(x + dx, y + dy);
+                if (tile && tile.terrain > CONFIG.TERRAIN.WATER && tile.terrain < CONFIG.TERRAIN.MOUNTAIN) {
                     landCount++;
                 }
             }
         }
-        // Need at least 60% land around the spot
-        const totalInRadius = Math.PI * radius * radius;
-        return landCount >= totalInRadius * 0.5;
+        return landCount >= 60;
     },
 
-    findValidSpot(cx, cy, radius) {
-        for (let r = 0; r <= radius; r++) {
-            for (let dy = -r; dy <= r; dy++) {
-                for (let dx = -r; dx <= r; dx++) {
-                    const x = cx + dx;
-                    const y = cy + dy;
-                    if (x >= 0 && y >= 0 && x < this.width && y < this.height) {
-                        if (this.tiles[y][x].terrain !== CONFIG.TERRAIN.WATER &&
-                            this.tiles[y][x].terrain !== CONFIG.TERRAIN.MOUNTAIN) {
-                            return { x, y };
-                        }
-                    }
-                }
+    // Place kingdoms based on player position
+    placeKingdoms(playerX, playerY) {
+        // Find player's region
+        const playerTile = this.getTile(playerX, playerY);
+        if (!playerTile || playerTile.regionId < 0) return;
+
+        const playerRegion = this.regions[playerTile.regionId];
+        playerRegion.owner = 0;
+        playerRegion.name = 'Votre Royaume';
+        playerRegion.color = CONFIG.FACTION_COLORS[0];
+
+        // Claim the player's region tiles
+        for (const t of playerRegion.tiles) {
+            this.tiles[t.y][t.x].owner = 0;
+        }
+
+        // Find spots for 4 enemy kingdoms - far from player
+        const candidates = this.regions.filter(r =>
+            r.tiles.length >= 40 && r.owner === -1
+        );
+
+        candidates.sort((a, b) => {
+            const da = (a.center.x - playerX) ** 2 + (a.center.y - playerY) ** 2;
+            const db = (b.center.x - playerX) ** 2 + (b.center.y - playerY) ** 2;
+            return db - da;
+        });
+
+        const enemyNames = ['Royaume de Fer', 'Duche de Flamme', 'Comtat des Ombres', 'Empire Dore'];
+        let placed = 0;
+        const minDistBetweenEnemies = 30;
+
+        for (const region of candidates) {
+            if (placed >= 4) break;
+
+            // Check distance from already placed enemies
+            const tooClose = this.regions.some(r =>
+                r.owner > 0 && Math.sqrt(
+                    (r.center.x - region.center.x) ** 2 +
+                    (r.center.y - region.center.y) ** 2
+                ) < minDistBetweenEnemies
+            );
+            if (tooClose) continue;
+
+            placed++;
+            region.owner = placed;
+            region.name = enemyNames[placed - 1];
+            region.color = CONFIG.FACTION_COLORS[placed];
+
+            for (const t of region.tiles) {
+                this.tiles[t.y][t.x].owner = placed;
             }
         }
-        return { x: cx, y: cy };
+    },
+
+    // Legacy compat
+    generate(seed) {
+        this.generateTerrain(seed);
     },
 
     getTile(x, y) {
@@ -259,162 +237,115 @@ const GameMap = {
         return this.tiles[y][x];
     },
 
-    revealArea(cx, cy, radius) {
-        for (let dy = -radius; dy <= radius; dy++) {
-            for (let dx = -radius; dx <= radius; dx++) {
-                if (dx * dx + dy * dy > radius * radius) continue;
-                const tx = cx + dx;
-                const ty = cy + dy;
-                if (tx >= 0 && ty >= 0 && tx < this.width && ty < this.height) {
-                    this.tiles[ty][tx].visible = true;
-                    this.tiles[ty][tx].explored = true;
-                }
-            }
-        }
-    },
-
-    updateVisibility(playerRegionId) {
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                this.tiles[y][x].visible = false;
-            }
-        }
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                const tile = this.tiles[y][x];
-                if (tile.owner === playerRegionId) {
-                    let radius = 3;
-                    if (tile.building) {
-                        if (tile.building.type === 'watchtower') radius = CONFIG.BUILDINGS.WATCHTOWER.visionRange + 3;
-                        else if (tile.building.type === 'town_hall') radius = CONFIG.VISION_RADIUS;
-                        else radius = 4;
-                    }
-                    this.revealArea(x, y, radius);
-                }
-            }
-        }
-    },
-
     getRegion(id) {
-        return this.regions.find(r => r.id === id);
+        return this.regions[id] || null;
     },
 
     getPlayerRegion() {
-        return this.regions.find(r => r.isPlayer);
+        return this.regions.find(r => r.owner === 0);
     },
 
-    getAdjacentEnemyRegions(playerRegionId) {
-        const adjacent = new Set();
-        const playerRegion = this.getRegion(playerRegionId);
-        if (!playerRegion) return [];
-
-        for (const t of playerRegion.tiles) {
-            const neighbors = [
-                { x: t.x - 1, y: t.y }, { x: t.x + 1, y: t.y },
-                { x: t.x, y: t.y - 1 }, { x: t.x, y: t.y + 1 }
-            ];
-            for (const n of neighbors) {
-                const tile = this.getTile(n.x, n.y);
-                if (tile && tile.owner !== -1 && tile.owner !== playerRegionId) {
-                    adjacent.add(tile.owner);
-                }
-            }
-        }
-        return [...adjacent].map(id => this.getRegion(id)).filter(Boolean);
-    },
-
-    annexRegion(targetId, newOwnerId) {
-        const target = this.getRegion(targetId);
-        const newOwner = this.getRegion(newOwnerId);
-        if (!target || !newOwner) return;
-
-        for (const t of target.tiles) {
-            this.tiles[t.y][t.x].owner = newOwnerId;
-            newOwner.tiles.push({ x: t.x, y: t.y });
-        }
-        target.tiles = [];
-        target.faction = -99;
-    },
-
-    countTotalLandTiles() {
-        let count = 0;
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                if (this.tiles[y][x].terrain !== CONFIG.TERRAIN.WATER) count++;
-            }
-        }
-        return count;
-    },
-
-    countOwnedTiles(regionId) {
-        let count = 0;
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                if (this.tiles[y][x].owner === regionId) count++;
-            }
-        }
-        return count;
-    },
-
-    getConquestPercent(regionId) {
-        const total = this.countTotalLandTiles();
-        const owned = this.countOwnedTiles(regionId);
-        return total > 0 ? Math.round((owned / total) * 100) : 0;
-    },
-
-    // Render the full map to a canvas (for placement screen)
-    renderOverviewToCanvas(canvas, highlightX, highlightY, showValidity) {
+    // Render full overview for placement screen
+    renderOverviewToCanvas(canvas, castleX, castleY) {
         const ctx = canvas.getContext('2d');
         const w = canvas.width;
         const h = canvas.height;
-        ctx.clearRect(0, 0, w, h);
 
         const scaleX = w / this.width;
         const scaleY = h / this.height;
 
-        const terrainColors = {
-            0: '#1e5a8a',
-            1: '#a8be52',
-            2: '#5a9a32',
-            3: '#1e5528',
-            4: '#8c7855',
-            5: '#787872'
-        };
+        // Create imagedata for fast pixel rendering
+        const imageData = ctx.createImageData(w, h);
+        const data = imageData.data;
 
-        // Draw terrain
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                const tile = this.tiles[y][x];
-                ctx.fillStyle = terrainColors[tile.terrain] || '#333';
-                ctx.fillRect(x * scaleX, y * scaleY, scaleX + 0.5, scaleY + 0.5);
+        for (let py = 0; py < h; py++) {
+            const ty = Math.floor((py / h) * this.height);
+            for (let px = 0; px < w; px++) {
+                const tx = Math.floor((px / w) * this.width);
+                const tile = this.tiles[ty][tx];
+                const c = this._terrainRGB(tile.terrain, tx, ty);
+                const idx = (py * w + px) * 4;
+                data[idx] = c[0];
+                data[idx + 1] = c[1];
+                data[idx + 2] = c[2];
+                data[idx + 3] = 255;
             }
         }
 
-        // Highlight valid/invalid placement zones if showing
-        if (highlightX !== undefined && highlightY !== undefined) {
-            const radius = 5;
-            const valid = this.isValidKingdomSpot(highlightX, highlightY);
+        ctx.putImageData(imageData, 0, 0);
 
-            // Draw kingdom preview radius
-            ctx.beginPath();
-            ctx.arc(
-                (highlightX + 0.5) * scaleX,
-                (highlightY + 0.5) * scaleY,
-                radius * scaleX,
-                0, Math.PI * 2
-            );
-            ctx.fillStyle = valid ? 'rgba(60,160,80,0.3)' : 'rgba(180,50,50,0.3)';
-            ctx.fill();
-            ctx.strokeStyle = valid ? '#4a8a3a' : '#8a3a3a';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+        // Draw region borders (subtle)
+        ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+        ctx.lineWidth = 0.5;
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                const tile = this.tiles[y][x];
+                if (tile.regionId < 0) continue;
+                // Check right and bottom neighbors
+                const right = this.getTile(x + 1, y);
+                const bottom = this.getTile(x, y + 1);
+                if (right && right.regionId >= 0 && right.regionId !== tile.regionId) {
+                    const px = (x + 1) * scaleX;
+                    ctx.beginPath();
+                    ctx.moveTo(px, y * scaleY);
+                    ctx.lineTo(px, (y + 1) * scaleY);
+                    ctx.stroke();
+                }
+                if (bottom && bottom.regionId >= 0 && bottom.regionId !== tile.regionId) {
+                    const py2 = (y + 1) * scaleY;
+                    ctx.beginPath();
+                    ctx.moveTo(x * scaleX, py2);
+                    ctx.lineTo((x + 1) * scaleX, py2);
+                    ctx.stroke();
+                }
+            }
+        }
 
-            // Castle marker
-            ctx.fillStyle = '#c8a84a';
-            ctx.font = `${Math.max(16, scaleX * 3)}px serif`;
+        // Draw castle if placed
+        if (castleX !== undefined && castleY !== undefined) {
+            const valid = this.isValidKingdomSpot(castleX, castleY);
+
+            // Highlight kingdom region
+            const tile = this.getTile(castleX, castleY);
+            if (tile && tile.regionId >= 0) {
+                const region = this.regions[tile.regionId];
+                ctx.fillStyle = valid ? 'rgba(58,122,213,0.25)' : 'rgba(180,50,50,0.25)';
+                for (const t of region.tiles) {
+                    ctx.fillRect(t.x * scaleX, t.y * scaleY, scaleX + 0.5, scaleY + 0.5);
+                }
+            }
+
+            // Castle icon
+            const cx = (castleX + 0.5) * scaleX;
+            const cy = (castleY + 0.5) * scaleY;
+            const iconSize = Math.max(18, scaleX * 4);
+            ctx.font = `${iconSize}px serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('\u{1F3F0}', (highlightX + 0.5) * scaleX, (highlightY + 0.5) * scaleY);
+            ctx.shadowColor = 'rgba(0,0,0,0.7)';
+            ctx.shadowBlur = 4;
+            ctx.fillText('\u{1F3F0}', cx, cy);
+            ctx.shadowBlur = 0;
+        }
+    },
+
+    _terrainRGB(terrain, x, y) {
+        // Subtle per-tile variation
+        const hash = ((x * 7919 + y * 6271) & 0xFFFF) / 0xFFFF;
+        const v = (hash - 0.5) * 12;
+
+        switch (terrain) {
+            case CONFIG.TERRAIN.DEEP_WATER:  return [22 + v, 62 + v, 110 + v];
+            case CONFIG.TERRAIN.WATER:       return [38 + v, 88 + v, 140 + v];
+            case CONFIG.TERRAIN.SAND:        return [194 + v, 178 + v, 128 + v];
+            case CONFIG.TERRAIN.PLAINS:      return [148 + v, 176 + v, 72 + v];
+            case CONFIG.TERRAIN.GRASS:       return [88 + v, 148 + v, 52 + v];
+            case CONFIG.TERRAIN.FOREST:      return [42 + v, 92 + v, 38 + v];
+            case CONFIG.TERRAIN.DENSE_FOREST:return [24 + v, 62 + v, 26 + v];
+            case CONFIG.TERRAIN.HILLS:       return [132 + v, 112 + v, 78 + v];
+            case CONFIG.TERRAIN.MOUNTAIN:    return [108 + v, 104 + v, 98 + v];
+            case CONFIG.TERRAIN.SNOW_PEAK:   return [210 + v, 215 + v, 220 + v];
+            default:                         return [40, 40, 40];
         }
     }
 };

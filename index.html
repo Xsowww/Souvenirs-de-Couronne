@@ -7,11 +7,7 @@
     <style>
 @import url('https://fonts.googleapis.com/css2?family=MedievalSharp&family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@700;900&display=swap');
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
     --gold: #c8a84a;
@@ -22,13 +18,7 @@
     --wood: #3a2510;
     --wood-light: #5a3d1e;
     --wood-mid: #4a2e14;
-    --leather: #6b4226;
-    --leather-dark: #4a2e18;
     --ink: #1a1008;
-    --ink-light: #2a1a0e;
-    --blood: #8b1a1a;
-    --blood-light: #a83232;
-    --forest-green: #2a4a1a;
 }
 
 body {
@@ -58,24 +48,16 @@ body {
     align-items: center;
     flex-direction: column;
 }
-
-/* Background texture overlay */
 #menu-screen::before {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    background:
-        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
     pointer-events: none;
 }
 
-.menu-container {
-    text-align: center;
-    position: relative;
-    z-index: 2;
-}
+.menu-container { text-align: center; position: relative; z-index: 2; }
 
-/* Crown decoration above title */
 .crown-deco {
     font-size: 3rem;
     display: block;
@@ -93,10 +75,7 @@ body {
     font-size: 3.2rem;
     font-weight: 900;
     color: var(--gold);
-    text-shadow:
-        0 0 20px rgba(200,168,74,0.3),
-        0 2px 4px rgba(0,0,0,0.8),
-        0 0 60px rgba(200,168,74,0.1);
+    text-shadow: 0 0 20px rgba(200,168,74,0.3), 0 2px 4px rgba(0,0,0,0.8);
     margin-bottom: 0.3rem;
     letter-spacing: 4px;
     line-height: 1.2;
@@ -110,10 +89,8 @@ body {
     font-style: italic;
     letter-spacing: 6px;
     text-transform: uppercase;
-    font-weight: 400;
 }
 
-/* Ornamental divider */
 .ornament {
     display: block;
     color: var(--gold-dark);
@@ -132,8 +109,7 @@ body {
 
 .menu-btn {
     font-family: 'Cinzel', serif;
-    background:
-        linear-gradient(180deg, var(--wood-light) 0%, var(--wood) 50%, var(--wood-mid) 100%);
+    background: linear-gradient(180deg, var(--wood-light) 0%, var(--wood) 50%, var(--wood-mid) 100%);
     color: var(--gold-light);
     border: 2px solid var(--gold-dark);
     padding: 14px 50px;
@@ -145,14 +121,10 @@ body {
     letter-spacing: 2px;
     text-transform: uppercase;
     text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-    box-shadow:
-        0 2px 8px rgba(0,0,0,0.5),
-        inset 0 1px 0 rgba(255,255,255,0.05),
-        inset 0 -1px 0 rgba(0,0,0,0.3);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
     position: relative;
     overflow: hidden;
 }
-
 .menu-btn::before {
     content: '';
     position: absolute;
@@ -162,27 +134,14 @@ body {
     transition: left 0.5s ease;
 }
 .menu-btn:hover::before { left: 100%; }
-
 .menu-btn:hover {
     border-color: var(--gold);
     color: #fff;
-    box-shadow:
-        0 4px 16px rgba(200,168,74,0.25),
-        0 2px 8px rgba(0,0,0,0.5),
-        inset 0 1px 0 rgba(255,255,255,0.1);
+    box-shadow: 0 4px 16px rgba(200,168,74,0.25);
     transform: translateY(-1px);
 }
-.menu-btn:active {
-    transform: translateY(1px);
-    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
-}
-
-/* Small variant for overlays */
-.menu-btn.small {
-    padding: 10px 30px;
-    font-size: 0.85rem;
-    min-width: 180px;
-}
+.menu-btn:active { transform: translateY(1px); }
+.menu-btn.small { padding: 10px 30px; font-size: 0.85rem; min-width: 180px; }
 
 .seed-input {
     margin-top: 1.5rem;
@@ -207,16 +166,10 @@ body {
     font-size: 1rem;
     text-align: center;
     width: 260px;
-    transition: border-color 0.2s;
 }
-.seed-input input:focus {
-    outline: none;
-    border-color: var(--gold);
-    box-shadow: 0 0 8px rgba(200,168,74,0.2);
-}
+.seed-input input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 8px rgba(200,168,74,0.2); }
 .seed-input input::placeholder { color: #4a3a2a; }
 
-/* Footer credit */
 .menu-footer {
     position: absolute;
     bottom: 20px;
@@ -233,18 +186,15 @@ body {
     align-items: center;
     z-index: 20;
 }
-
 .options-container {
-    background:
-        linear-gradient(180deg, #1e1408 0%, #16100a 100%);
+    background: linear-gradient(180deg, #1e1408 0%, #16100a 100%);
     border: 2px solid var(--gold-dark);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.8), inset 0 1px 0 rgba(200,168,74,0.1);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.8);
     padding: 36px 48px;
     min-width: 400px;
     max-width: 500px;
     text-align: center;
 }
-
 .options-container h2 {
     font-family: 'Cinzel Decorative', serif;
     color: var(--gold);
@@ -252,7 +202,6 @@ body {
     font-size: 1.5rem;
     letter-spacing: 4px;
 }
-
 .option-row {
     display: flex;
     align-items: center;
@@ -264,13 +213,7 @@ body {
     color: var(--parchment-dark);
 }
 .option-row:last-of-type { border-bottom: none; }
-
-.option-row label {
-    letter-spacing: 1px;
-}
-
-.option-row select,
-.option-row input[type="range"] {
+.option-row select, .option-row input[type="range"] {
     background: var(--ink);
     border: 1px solid var(--gold-dark);
     color: var(--parchment);
@@ -281,11 +224,9 @@ body {
 }
 .option-row input[type="range"] {
     -webkit-appearance: none;
-    width: 120px;
-    height: 6px;
+    width: 120px; height: 6px;
     background: var(--wood);
     border: 1px solid var(--gold-dark);
-    border-radius: 0;
 }
 .option-row input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
@@ -297,86 +238,19 @@ body {
 
 /* ===== LOADING SCREEN ===== */
 #loading-screen {
-    background:
-        radial-gradient(ellipse at 50% 40%, rgba(60,40,15,0.15) 0%, transparent 60%),
-        linear-gradient(180deg, #0e0a06 0%, #1a120a 50%, #0e0a06 100%);
+    background: linear-gradient(180deg, #0e0a06 0%, #1a120a 50%, #0e0a06 100%);
     justify-content: center;
     align-items: center;
     flex-direction: column;
-    z-index: 5;
 }
-
-.loading-container {
-    text-align: center;
-    position: relative;
-}
-
+.loading-container { text-align: center; }
 .loading-container h2 {
     font-family: 'Cinzel Decorative', serif;
     color: var(--gold);
     font-size: 1.8rem;
     margin-bottom: 2rem;
     letter-spacing: 4px;
-    text-shadow: 0 0 20px rgba(200,168,74,0.2);
 }
-
-.loading-bar-outer {
-    width: 400px;
-    max-width: 80vw;
-    height: 24px;
-    background: var(--ink);
-    border: 2px solid var(--gold-dark);
-    position: relative;
-    overflow: hidden;
-    box-shadow: inset 0 2px 6px rgba(0,0,0,0.6);
-}
-
-.loading-bar-fill {
-    height: 100%;
-    width: 0%;
-    background:
-        linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
-    transition: width 0.3s ease-out;
-    box-shadow: 0 0 12px rgba(200,168,74,0.4);
-    position: relative;
-}
-.loading-bar-fill::after {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background:
-        repeating-linear-gradient(
-            -45deg,
-            transparent,
-            transparent 6px,
-            rgba(255,255,255,0.06) 6px,
-            rgba(255,255,255,0.06) 12px
-        );
-    animation: loadStripes 0.8s linear infinite;
-}
-@keyframes loadStripes {
-    from { background-position: 0 0; }
-    to { background-position: 24px 0; }
-}
-
-.loading-message {
-    font-family: 'MedievalSharp', serif;
-    color: #8a7a5a;
-    font-size: 0.95rem;
-    margin-top: 1.2rem;
-    font-style: italic;
-    min-height: 1.5em;
-}
-
-.loading-percent {
-    font-family: 'Cinzel', serif;
-    color: var(--gold-light);
-    font-size: 0.85rem;
-    margin-top: 0.5rem;
-    letter-spacing: 2px;
-}
-
-/* Crown spinner */
 .loading-crown {
     font-size: 2.5rem;
     display: block;
@@ -387,6 +261,45 @@ body {
     0%, 100% { transform: rotateY(0deg); filter: drop-shadow(0 0 8px rgba(200,168,74,0.3)); }
     50% { transform: rotateY(180deg); filter: drop-shadow(0 0 16px rgba(200,168,74,0.6)); }
 }
+.loading-bar-outer {
+    width: 400px;
+    max-width: 80vw;
+    height: 24px;
+    background: var(--ink);
+    border: 2px solid var(--gold-dark);
+    overflow: hidden;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.6);
+}
+.loading-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+    transition: width 0.3s ease-out;
+    box-shadow: 0 0 12px rgba(200,168,74,0.4);
+    position: relative;
+}
+.loading-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(-45deg, transparent, transparent 6px, rgba(255,255,255,0.06) 6px, rgba(255,255,255,0.06) 12px);
+    animation: loadStripes 0.8s linear infinite;
+}
+@keyframes loadStripes { from { background-position: 0 0; } to { background-position: 24px 0; } }
+.loading-message {
+    font-family: 'MedievalSharp', serif;
+    color: #8a7a5a;
+    font-size: 0.95rem;
+    margin-top: 1.2rem;
+    font-style: italic;
+}
+.loading-percent {
+    font-family: 'Cinzel', serif;
+    color: var(--gold-light);
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    letter-spacing: 2px;
+}
 
 /* ===== PLACEMENT SCREEN ===== */
 #placement-screen {
@@ -394,9 +307,7 @@ body {
     justify-content: center;
     align-items: center;
     flex-direction: column;
-    z-index: 5;
 }
-
 .placement-container {
     display: flex;
     flex-direction: column;
@@ -406,26 +317,19 @@ body {
     max-width: 1200px;
     gap: 12px;
 }
-
-.placement-header {
-    text-align: center;
-    flex-shrink: 0;
-}
-
+.placement-header { text-align: center; flex-shrink: 0; }
 .placement-header h2 {
     font-family: 'Cinzel Decorative', serif;
     color: var(--gold);
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     letter-spacing: 3px;
     margin-bottom: 4px;
 }
-
 .placement-header p {
     font-family: 'MedievalSharp', serif;
     color: #8a7a5a;
     font-size: 0.9rem;
 }
-
 #placement-map-area {
     flex: 1;
     display: flex;
@@ -434,14 +338,12 @@ body {
     width: 100%;
     min-height: 0;
 }
-
 #placement-canvas {
     border: 3px solid var(--gold-dark);
     box-shadow: 0 4px 20px rgba(0,0,0,0.7), 0 0 40px rgba(200,168,74,0.08);
     cursor: crosshair;
     image-rendering: pixelated;
 }
-
 .placement-footer {
     flex-shrink: 0;
     display: flex;
@@ -449,37 +351,17 @@ body {
     align-items: center;
     gap: 8px;
 }
-
 #placement-info {
     font-family: 'MedievalSharp', serif;
     font-size: 0.85rem;
     color: #6a5a3a;
     min-height: 1.3em;
-    transition: color 0.2s;
 }
-
-#btn-confirm-placement {
-    transition: all 0.3s ease;
-}
-#btn-confirm-placement:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-}
-#btn-confirm-placement.ready {
-    animation: confirmPulse 1.5s ease-in-out infinite;
-}
-@keyframes confirmPulse {
-    0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
-    50% { box-shadow: 0 2px 8px rgba(0,0,0,0.5), 0 0 20px rgba(200,168,74,0.3); }
-}
-
-/* Placement legend */
 .placement-legend {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
     justify-content: center;
-    margin-top: 4px;
 }
 .legend-item {
     display: flex;
@@ -494,507 +376,32 @@ body {
     height: 12px;
     border: 1px solid rgba(138,106,26,0.3);
 }
+#btn-confirm-placement:disabled { opacity: 0.35; cursor: not-allowed; }
+#btn-confirm-placement.ready {
+    animation: confirmPulse 1.5s ease-in-out infinite;
+}
+@keyframes confirmPulse {
+    0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+    50% { box-shadow: 0 2px 8px rgba(0,0,0,0.5), 0 0 20px rgba(200,168,74,0.3); }
+}
 
 /* ===== GAME SCREEN ===== */
 #game-screen {
     flex-direction: column;
-    background: #0e0a06;
+    background: #0a1520;
 }
-
 #game-canvas {
     position: absolute;
     top: 0; left: 0;
     width: 100%; height: 100%;
     z-index: 0;
+    cursor: grab;
 }
-
-/* ===== RESOURCE BAR (medieval plank) ===== */
-#resource-bar {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 52px;
-    background:
-        linear-gradient(180deg, #2e1c0c 0%, #241608 40%, #1a1008 80%, #140c04 100%);
-    border-bottom: 3px solid var(--gold-dark);
-    box-shadow:
-        0 3px 12px rgba(0,0,0,0.7),
-        inset 0 1px 0 rgba(255,255,255,0.04),
-        inset 0 -2px 0 rgba(0,0,0,0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 24px;
-    gap: 4px;
-    z-index: 10;
-    font-family: 'MedievalSharp', serif;
-    font-size: 0.9rem;
-}
-
-/* Decorative rivets */
-#resource-bar::before,
-#resource-bar::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 12px; height: 12px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, var(--gold-light), var(--gold-dark));
-    box-shadow: 0 1px 3px rgba(0,0,0,0.6), inset 0 -1px 1px rgba(0,0,0,0.3);
-}
-#resource-bar::before { left: 12px; }
-#resource-bar::after { right: 12px; }
-
-.resource {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
-    padding: 5px 12px;
-    background: linear-gradient(180deg, rgba(60,40,15,0.5) 0%, rgba(20,14,6,0.5) 100%);
-    border: 1px solid rgba(138,106,26,0.35);
-    color: var(--parchment);
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-}
-
-.resource .res-icon {
-    font-size: 1.2rem;
-    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
-}
-
-.resource .res-count {
-    font-weight: bold;
-    font-size: 1rem;
-    color: var(--gold-light);
-    min-width: 24px;
-    text-align: right;
-}
-
-.resource .res-rate {
-    font-size: 0.7rem;
-    color: #7a6a4a;
-}
-
-.res-separator {
-    width: 1px;
-    height: 26px;
-    background: linear-gradient(180deg, transparent, rgba(138,106,26,0.3), transparent);
-}
-
-/* ===== RIGHT PANEL (leather scroll) ===== */
-#right-panel {
-    position: absolute;
-    top: 56px; right: 0;
-    width: 250px;
-    bottom: 64px;
-    background:
-        linear-gradient(180deg, #1a120a 0%, #16100a 100%);
-    border-left: 3px solid var(--gold-dark);
-    box-shadow: -3px 0 12px rgba(0,0,0,0.5);
-    z-index: 10;
-    overflow-y: auto;
-    padding: 14px;
-}
-
-#info-panel h3 {
-    font-family: 'Cinzel', serif;
-    color: var(--gold);
-    border-bottom: 1px solid rgba(138,106,26,0.3);
-    padding-bottom: 6px;
-    margin-bottom: 10px;
-    font-size: 0.95rem;
-    letter-spacing: 1px;
-}
-
-#info-content { font-size: 0.82rem; line-height: 1.6; }
-#info-content .info-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 3px 0;
-}
-#info-content .info-label { color: #8a7a5a; }
-#info-content button {
-    margin-top: 8px;
-    width: 100%;
-    padding: 8px;
-    background: var(--wood);
-    color: var(--gold-light);
-    border: 1px solid var(--gold-dark);
-    cursor: pointer;
-    font-family: 'Cinzel', serif;
-    font-size: 0.78rem;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    transition: all 0.2s;
-}
-#info-content button:hover {
-    background: var(--wood-light);
-    border-color: var(--gold);
-}
-
-/* ===== ACTION BAR (bottom wooden bar) ===== */
-#action-bar {
-    position: absolute;
-    bottom: 0; left: 0;
-    right: 250px;
-    height: 64px;
-    background:
-        linear-gradient(0deg, #1a1008 0%, #241608 60%, #2e1c0c 100%);
-    border-top: 3px solid var(--gold-dark);
-    box-shadow: 0 -3px 12px rgba(0,0,0,0.5);
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    padding: 0 12px;
-    gap: 6px;
-    overflow-x: auto;
-}
-
-.action-group {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding-right: 8px;
-    border-right: 1px solid rgba(138,106,26,0.2);
-}
-.action-group:last-child { border-right: none; }
-.group-label {
-    font-family: 'Cinzel', serif;
-    font-size: 0.65rem;
-    color: #6a5a3a;
-    margin-right: 4px;
-    white-space: nowrap;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-}
-
-.action-btn {
-    background: linear-gradient(180deg, var(--wood-light) 0%, var(--wood) 100%);
-    color: var(--parchment-dark);
-    border: 1px solid rgba(138,106,26,0.4);
-    padding: 6px 10px;
-    font-family: 'MedievalSharp', serif;
-    font-size: 0.75rem;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s;
-}
-.action-btn:hover {
-    background: linear-gradient(180deg, #6a4a28 0%, var(--wood-light) 100%);
-    color: var(--gold-light);
-    border-color: var(--gold-dark);
-}
-.action-btn.selected {
-    background: linear-gradient(180deg, #6a4a28 0%, var(--wood-light) 100%);
-    color: var(--gold);
-    border-color: var(--gold);
-    box-shadow: 0 0 8px rgba(200,168,74,0.2);
-}
-.action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
-/* ===== TIME CONTROLS ===== */
-#time-controls {
-    position: absolute;
-    bottom: 72px; left: 50%;
-    transform: translateX(-50%);
-    z-index: 11;
-    display: flex;
-    gap: 2px;
-    background: var(--ink);
-    border: 2px solid var(--gold-dark);
-    padding: 3px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-}
-.time-btn {
-    background: var(--wood);
-    color: #8a7a5a;
-    border: 1px solid rgba(138,106,26,0.3);
-    padding: 6px 16px;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.time-btn.active {
-    background: var(--wood-light);
-    color: var(--gold);
-    border-color: var(--gold-dark);
-}
-.time-btn:hover { background: var(--wood-light); color: var(--gold-light); }
-
-/* ===== MINIMAP ===== */
-#minimap-container {
-    position: absolute;
-    bottom: 68px; right: 8px;
-    z-index: 11;
-    border: 2px solid var(--gold-dark);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-    background: #0a0806;
-}
-#minimap-canvas { display: block; }
-
-/* ===== NOTIFICATIONS ===== */
-#notifications {
-    position: absolute;
-    top: 58px; right: 260px;
-    z-index: 15;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    pointer-events: none;
-}
-.notification {
-    background: rgba(20,14,6,0.95);
-    border: 1px solid var(--gold-dark);
-    padding: 8px 16px;
-    font-size: 0.8rem;
-    color: var(--parchment);
-    animation: notifSlide 0.3s ease-out;
-    max-width: 300px;
-    font-family: 'MedievalSharp', serif;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-}
-.notification.alert { border-color: var(--blood); color: #e8a8a8; }
-.notification.success { border-color: var(--forest-green); color: #a8d8a8; }
-@keyframes notifSlide {
-    from { transform: translateX(100px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
-
-/* ===== BATTLE SCREEN ===== */
-#battle-screen {
-    background: rgba(10,8,4,0.9);
-    justify-content: center;
-    align-items: center;
-    z-index: 20;
-}
-.battle-container {
-    background: linear-gradient(180deg, #1e1408 0%, #16100a 100%);
-    border: 2px solid var(--gold-dark);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.8);
-    padding: 30px;
-    max-width: 620px;
-    width: 90%;
-    text-align: center;
-}
-.battle-container h2 {
-    font-family: 'Cinzel Decorative', serif;
-    color: var(--gold);
-    margin-bottom: 16px;
-    letter-spacing: 3px;
-}
-#battle-content { margin-bottom: 16px; }
-.battle-forces { display: flex; justify-content: space-around; margin: 16px 0; gap: 20px; }
-.battle-side {
-    flex: 1;
-    padding: 14px;
-    background: rgba(60,40,15,0.2);
-    border: 1px solid rgba(138,106,26,0.2);
-}
-.battle-side h4 { margin-bottom: 8px; color: var(--gold); font-family: 'Cinzel', serif; }
-.battle-side .unit-line { font-size: 0.85rem; padding: 2px 0; }
-#army-selector { margin: 12px 0; text-align: left; }
-.army-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 10px;
-    background: rgba(60,40,15,0.15);
-    margin: 4px 0;
-    border: 1px solid rgba(138,106,26,0.1);
-}
-.army-row input {
-    width: 60px;
-    background: var(--ink);
-    border: 1px solid var(--gold-dark);
-    color: var(--parchment);
-    padding: 4px 8px;
-    text-align: center;
-    font-family: 'MedievalSharp', serif;
-}
-#battle-report { text-align: left; font-size: 0.9rem; line-height: 1.6; margin: 12px 0; }
-
-/* ===== TECH SCREEN ===== */
-#tech-screen {
-    background: rgba(10,8,4,0.9);
-    justify-content: center;
-    align-items: center;
-    z-index: 20;
-}
-.tech-container {
-    background: linear-gradient(180deg, #1e1408 0%, #16100a 100%);
-    border: 2px solid var(--gold-dark);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.8);
-    padding: 28px;
-    max-width: 920px;
-    width: 95%;
-    max-height: 85vh;
-    overflow-y: auto;
-}
-.tech-container h2 {
-    font-family: 'Cinzel Decorative', serif;
-    color: var(--gold);
-    text-align: center;
-    margin-bottom: 20px;
-    letter-spacing: 3px;
-}
-#tech-branches { display: flex; gap: 16px; }
-.tech-branch {
-    flex: 1;
-    background: rgba(60,40,15,0.15);
-    border: 1px solid rgba(138,106,26,0.15);
-    padding: 14px;
-}
-.tech-branch h3 {
-    font-family: 'Cinzel', serif;
-    color: var(--gold);
-    text-align: center;
-    margin-bottom: 12px;
-    font-size: 0.95rem;
-    letter-spacing: 1px;
-}
-.tech-node {
-    background: var(--wood);
-    border: 1px solid rgba(138,106,26,0.3);
-    padding: 10px;
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.tech-node:hover { border-color: var(--gold); }
-.tech-node.researched {
-    background: var(--forest-green);
-    border-color: #4a8a2a;
-}
-.tech-node.researching {
-    background: #3a2a0a;
-    border-color: var(--gold);
-    animation: pulse 1.5s infinite;
-}
-.tech-node.locked { opacity: 0.35; cursor: not-allowed; }
-.tech-node .tech-name {
-    font-family: 'Cinzel', serif;
-    font-weight: bold;
-    font-size: 0.82rem;
-    margin-bottom: 3px;
-    color: var(--parchment);
-}
-.tech-node .tech-desc { font-size: 0.72rem; color: #8a7a5a; }
-.tech-node .tech-cost { font-size: 0.72rem; color: var(--gold); margin-top: 3px; }
-@keyframes pulse {
-    0%, 100% { box-shadow: 0 0 4px rgba(200,168,74,0.2); }
-    50% { box-shadow: 0 0 16px rgba(200,168,74,0.5); }
-}
-
-/* ===== VICTORY / DEFEAT ===== */
-#victory-screen, #defeat-screen {
-    justify-content: center;
-    align-items: center;
-    z-index: 25;
-}
-#victory-screen { background: rgba(20,40,10,0.92); }
-#defeat-screen { background: rgba(40,10,10,0.92); }
-.victory-container, .defeat-container {
-    text-align: center;
-    padding: 48px;
-}
-.victory-container h1 {
-    font-family: 'Cinzel Decorative', serif;
-    color: var(--gold);
-    font-size: 3rem;
-    margin-bottom: 16px;
-    text-shadow: 0 0 30px rgba(200,168,74,0.4);
-}
-.defeat-container h1 {
-    font-family: 'Cinzel Decorative', serif;
-    color: var(--blood-light);
-    font-size: 3rem;
-    margin-bottom: 16px;
-}
-#victory-stats, #defeat-stats {
-    margin: 24px 0;
-    font-size: 1rem;
-    line-height: 2.2;
-    font-family: 'MedievalSharp', serif;
-}
-
-/* ===== PAUSE OVERLAY ===== */
-#pause-overlay {
-    background: rgba(10,8,4,0.8);
-    justify-content: center;
-    align-items: center;
-    z-index: 20;
-}
-.pause-container {
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-.pause-container h2 {
-    font-family: 'Cinzel Decorative', serif;
-    color: var(--gold);
-    margin-bottom: 12px;
-    letter-spacing: 4px;
-}
-
-/* ===== VILLAGER OVERLAY ===== */
-#villager-overlay {
-    background: rgba(10,8,4,0.85);
-    justify-content: center;
-    align-items: center;
-    z-index: 20;
-}
-.villager-manage-container {
-    background: linear-gradient(180deg, #1e1408 0%, #16100a 100%);
-    border: 2px solid var(--gold-dark);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.8);
-    padding: 28px;
-    max-width: 600px;
-    width: 90%;
-    max-height: 80vh;
-    overflow-y: auto;
-}
-.villager-manage-container h2 {
-    font-family: 'Cinzel Decorative', serif;
-    color: var(--gold);
-    text-align: center;
-    margin-bottom: 16px;
-    letter-spacing: 2px;
-}
-.villager-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 10px;
-    margin: 4px 0;
-    background: rgba(60,40,15,0.15);
-    border: 1px solid rgba(138,106,26,0.1);
-}
-.villager-row .v-name {
-    flex: 1;
-    font-size: 0.85rem;
-}
-.villager-row select {
-    background: var(--ink);
-    color: var(--parchment);
-    border: 1px solid var(--gold-dark);
-    padding: 4px 8px;
-    font-family: 'MedievalSharp', serif;
-    font-size: 0.8rem;
-}
-
-/* ===== SCROLLBAR ===== */
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: var(--ink); }
-::-webkit-scrollbar-thumb {
-    background: var(--wood-light);
-    border: 1px solid var(--gold-dark);
-}
-::-webkit-scrollbar-thumb:hover { background: var(--leather); }
+#game-canvas:active { cursor: grabbing; }
     </style>
 </head>
 <body>
-    <!-- Main Menu Screen -->
+    <!-- Main Menu -->
     <div id="menu-screen" class="screen active">
         <div class="menu-container">
             <span class="crown-deco">&#x1F451;</span>
@@ -1015,24 +422,16 @@ body {
         <div class="menu-footer">SOUVENIRS DE COURONNE</div>
     </div>
 
-    <!-- Options Screen -->
+    <!-- Options -->
     <div id="options-screen" class="screen">
         <div class="options-container">
             <h2>Options</h2>
             <div class="option-row">
-                <label>Vitesse de jeu</label>
-                <select id="opt-speed">
-                    <option value="SLOW">Lent</option>
-                    <option value="NORMAL" selected>Normal</option>
-                    <option value="FAST">Rapide</option>
-                </select>
-            </div>
-            <div class="option-row">
                 <label>Taille de la carte</label>
                 <select id="opt-map-size">
-                    <option value="40">Petite (40x40)</option>
-                    <option value="60" selected>Moyenne (60x60)</option>
-                    <option value="80">Grande (80x80)</option>
+                    <option value="120">Petite (120x120)</option>
+                    <option value="200" selected>Moyenne (200x200)</option>
+                    <option value="300">Grande (300x300)</option>
                 </select>
             </div>
             <div class="option-row">
@@ -1049,7 +448,7 @@ body {
         </div>
     </div>
 
-    <!-- Loading Screen -->
+    <!-- Loading -->
     <div id="loading-screen" class="screen">
         <div class="loading-container">
             <span class="loading-crown">&#x1F451;</span>
@@ -1062,24 +461,27 @@ body {
         </div>
     </div>
 
-    <!-- Kingdom Placement Screen -->
+    <!-- Kingdom Placement -->
     <div id="placement-screen" class="screen">
         <div class="placement-container">
             <div class="placement-header">
                 <h2>&#x1F3F0; Choisissez l'emplacement de votre Royaume</h2>
-                <p>Cliquez sur la carte pour placer votre capitale. Les ennemis et bandits s'adapteront a votre choix.</p>
+                <p>Cliquez sur la carte pour placer votre chateau. Les royaumes ennemis se placeront en consequence.</p>
             </div>
             <div id="placement-map-area">
                 <canvas id="placement-canvas"></canvas>
             </div>
             <div class="placement-footer">
                 <div class="placement-legend">
-                    <div class="legend-item"><div class="legend-color" style="background:#1e5a8a"></div>Eau</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#a8be52"></div>Plaine</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#5a9a32"></div>Herbe</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#1e5528"></div>Foret</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#8c7855"></div>Collines</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#787872"></div>Montagne</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#164270"></div>Eau</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#c2b280"></div>Sable</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#94b048"></div>Plaine</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#589434"></div>Prairie</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#2a5c26"></div>Foret</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#183e1a"></div>Foret dense</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#84704e"></div>Collines</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#6c6862"></div>Montagne</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#d2d7dc"></div>Sommet</div>
                 </div>
                 <div id="placement-info">Survolez la carte pour choisir un emplacement...</div>
                 <button id="btn-confirm-placement" class="menu-btn" disabled>Fonder le Royaume</button>
@@ -1087,173 +489,9 @@ body {
         </div>
     </div>
 
-    <!-- Game Screen -->
+    <!-- Game Screen (just the map) -->
     <div id="game-screen" class="screen">
-        <!-- Resource Bar -->
-        <div id="resource-bar">
-            <div class="resource" id="res-wood">
-                <span class="res-icon">&#x1FAB5;</span>
-                <span class="res-count" id="wood-count">0</span>
-                <span class="res-rate">(<span id="wood-rate">+0</span>)</span>
-            </div>
-            <div class="res-separator"></div>
-            <div class="resource" id="res-stone">
-                <span class="res-icon">&#x1FAA8;</span>
-                <span class="res-count" id="stone-count">0</span>
-                <span class="res-rate">(<span id="stone-rate">+0</span>)</span>
-            </div>
-            <div class="res-separator"></div>
-            <div class="resource" id="res-food">
-                <span class="res-icon">&#x1F33E;</span>
-                <span class="res-count" id="food-count">0</span>
-                <span class="res-rate">(<span id="food-rate">+0</span>)</span>
-            </div>
-            <div class="res-separator"></div>
-            <div class="resource" id="res-gold">
-                <span class="res-icon">&#x1F4B0;</span>
-                <span class="res-count" id="gold-count">0</span>
-                <span class="res-rate">(<span id="gold-rate">+0</span>)</span>
-            </div>
-            <div class="res-separator"></div>
-            <div class="resource" id="res-pop">
-                <span class="res-icon">&#x1F465;</span>
-                <span class="res-count"><span id="pop-count">0</span>/<span id="pop-max">5</span></span>
-            </div>
-            <div class="res-separator"></div>
-            <div class="resource" id="res-moral">
-                <span class="res-icon">&#x1F60A;</span>
-                <span class="res-count"><span id="moral-value">100</span>%</span>
-            </div>
-            <div class="res-separator"></div>
-            <div class="resource" id="res-season">
-                <span id="season-icon">&#x1F33F;</span>
-                <span class="res-count"><span id="season-name">Printemps</span></span>
-                <span class="res-rate">An <span id="year-count">1</span></span>
-            </div>
-        </div>
-
-        <!-- Canvas -->
         <canvas id="game-canvas"></canvas>
-
-        <!-- Right Panel -->
-        <div id="right-panel">
-            <div id="info-panel">
-                <h3 id="info-title">Selection</h3>
-                <div id="info-content">Cliquez sur une tuile pour voir ses details.</div>
-            </div>
-            <div id="villager-panel" style="display:none;">
-                <h3>Villageois</h3>
-                <div id="villager-list"></div>
-            </div>
-        </div>
-
-        <!-- Bottom Action Bar -->
-        <div id="action-bar">
-            <div id="build-buttons" class="action-group">
-                <span class="group-label">Construction:</span>
-            </div>
-            <div id="recruit-buttons" class="action-group">
-                <span class="group-label">Recrutement:</span>
-            </div>
-            <div class="action-group">
-                <button class="action-btn" id="btn-tech-tree" title="Arbre de technologies">&#x1F3DB; Tech</button>
-                <button class="action-btn" id="btn-villagers" title="Gerer les villageois">&#x1F465; Villageois</button>
-                <button class="action-btn" id="btn-menu-pause" title="Menu Pause">&#x2699; Menu</button>
-            </div>
-        </div>
-
-        <!-- Time Controls -->
-        <div id="time-controls">
-            <button class="time-btn" id="btn-pause" title="Pause">&#x23F8;</button>
-            <button class="time-btn active" id="btn-normal" title="Normal">&#x25B6;</button>
-            <button class="time-btn" id="btn-fast" title="Rapide">&#x23E9;</button>
-        </div>
-
-        <!-- Minimap -->
-        <div id="minimap-container">
-            <canvas id="minimap-canvas" width="180" height="120"></canvas>
-        </div>
-
-        <!-- Notifications -->
-        <div id="notifications"></div>
-    </div>
-
-    <!-- Battle Screen -->
-    <div id="battle-screen" class="screen">
-        <div class="battle-container">
-            <h2>Bataille</h2>
-            <div id="battle-content"></div>
-            <div id="battle-setup">
-                <div id="army-selector"></div>
-                <button id="btn-attack" class="menu-btn small">Attaquer !</button>
-                <button id="btn-retreat" class="menu-btn small">Retraite</button>
-            </div>
-            <div id="battle-result" style="display:none;">
-                <div id="battle-report"></div>
-                <button id="btn-battle-close" class="menu-btn small">Continuer</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tech Tree Screen -->
-    <div id="tech-screen" class="screen">
-        <div class="tech-container">
-            <h2>Arbre de Technologies</h2>
-            <div id="tech-branches">
-                <div class="tech-branch" id="tech-economy">
-                    <h3>&#x1F33E; Economie</h3>
-                    <div class="tech-nodes" id="eco-nodes"></div>
-                </div>
-                <div class="tech-branch" id="tech-military">
-                    <h3>&#x2694; Militaire</h3>
-                    <div class="tech-nodes" id="mil-nodes"></div>
-                </div>
-                <div class="tech-branch" id="tech-civilization">
-                    <h3>&#x1F3DB; Civilisation</h3>
-                    <div class="tech-nodes" id="civ-nodes"></div>
-                </div>
-            </div>
-            <button id="btn-tech-close" class="menu-btn small" style="margin-top:16px;">Fermer</button>
-        </div>
-    </div>
-
-    <!-- Victory Screen -->
-    <div id="victory-screen" class="screen">
-        <div class="victory-container">
-            <h1>Victoire !</h1>
-            <p>Vous avez conquis tout le territoire !</p>
-            <div id="victory-stats"></div>
-            <button id="btn-victory-menu" class="menu-btn">Menu Principal</button>
-        </div>
-    </div>
-
-    <!-- Defeat Screen -->
-    <div id="defeat-screen" class="screen">
-        <div class="defeat-container">
-            <h1>Defaite...</h1>
-            <p id="defeat-reason"></p>
-            <div id="defeat-stats"></div>
-            <button id="btn-defeat-menu" class="menu-btn">Menu Principal</button>
-        </div>
-    </div>
-
-    <!-- Pause Menu Overlay -->
-    <div id="pause-overlay" class="screen">
-        <div class="pause-container">
-            <h2>Pause</h2>
-            <button id="btn-resume" class="menu-btn small">Reprendre</button>
-            <button id="btn-save" class="menu-btn small">Sauvegarder</button>
-            <button id="btn-quit" class="menu-btn small">Quitter</button>
-        </div>
-    </div>
-
-    <!-- Villager Management Overlay -->
-    <div id="villager-overlay" class="screen">
-        <div class="villager-manage-container">
-            <h2>Gestion des Villageois</h2>
-            <div id="villager-manage-list"></div>
-            <button id="btn-villager-close" class="menu-btn small" style="margin-top:16px;">Fermer</button>
-        </div>
     </div>
 
     <script>
@@ -1346,159 +584,45 @@ const Perlin = (function() {
 // === js/config.js ===
 // Game configuration constants
 const CONFIG = {
-    MAP_WIDTH: 60,
-    MAP_HEIGHT: 60,
-    TILE_WIDTH: 64,
-    TILE_HEIGHT: 32,
+    // Map grid (invisible) - large map
+    MAP_WIDTH: 200,
+    MAP_HEIGHT: 200,
+    CELL_SIZE: 16, // pixels per grid cell at zoom 1
 
     // Terrain types
     TERRAIN: {
-        WATER: 0,
-        PLAINS: 1,
-        GRASS: 2,
-        FOREST: 3,
-        HILLS: 4,
-        MOUNTAIN: 5
+        DEEP_WATER: 0,
+        WATER: 1,
+        SAND: 2,
+        PLAINS: 3,
+        GRASS: 4,
+        FOREST: 5,
+        DENSE_FOREST: 6,
+        HILLS: 7,
+        MOUNTAIN: 8,
+        SNOW_PEAK: 9
     },
 
     TERRAIN_NAMES: {
-        0: 'Eau',
-        1: 'Plaine',
-        2: 'Herbe',
-        3: 'Foret',
-        4: 'Collines',
-        5: 'Montagne'
+        0: 'Eau profonde',
+        1: 'Eau',
+        2: 'Sable',
+        3: 'Plaine',
+        4: 'Prairie',
+        5: 'Foret',
+        6: 'Foret dense',
+        7: 'Collines',
+        8: 'Montagne',
+        9: 'Sommet enneige'
     },
 
-    TERRAIN_COLORS: {
-        0: { fill: '#1a4a6e', stroke: '#1a3a5a', top: '#296294' },
-        1: { fill: '#7a8a38', stroke: '#6a7a30', top: '#a8be52' },
-        2: { fill: '#3a7a22', stroke: '#2a6a18', top: '#62a03a' },
-        3: { fill: '#143a18', stroke: '#0e2e12', top: '#225528' },
-        4: { fill: '#6a5838', stroke: '#5a4828', top: '#8c7855' },
-        5: { fill: '#555555', stroke: '#444444', top: '#878782' }
-    },
-
-    // Building types
-    BUILDINGS: {
-        TOWN_HALL: {
-            id: 'town_hall', name: 'Hotel de ville', icon: '\u{1F3DB}',
-            cost: { wood: 0, stone: 0, food: 0, gold: 0 },
-            size: 1, maxLevel: 5,
-            desc: 'Centre du village. Ameliorez pour debloquer des batiments.'
-        },
-        HOUSE: {
-            id: 'house', name: 'Maison', icon: '\u{1F3E0}',
-            cost: { wood: 30, stone: 10, food: 0, gold: 0 },
-            popIncrease: 5,
-            desc: 'Augmente la capacite de population de 5.'
-        },
-        FARM: {
-            id: 'farm', name: 'Ferme', icon: '\u{1F33E}',
-            cost: { wood: 20, stone: 5, food: 0, gold: 0 },
-            production: { food: 8 },
-            validTerrain: [1, 2],
-            desc: 'Produit 8 nourriture/cycle. Terrain: plaine ou herbe.'
-        },
-        SAWMILL: {
-            id: 'sawmill', name: 'Scierie', icon: '\u{1FAB5}',
-            cost: { wood: 10, stone: 15, food: 0, gold: 0 },
-            production: { wood: 6 },
-            validTerrain: [3],
-            desc: 'Produit 6 bois/cycle. Terrain: foret.'
-        },
-        MINE: {
-            id: 'mine', name: 'Mine', icon: '\u{26CF}',
-            cost: { wood: 25, stone: 5, food: 0, gold: 0 },
-            production: { stone: 5 },
-            validTerrain: [4, 5],
-            desc: 'Produit 5 pierre/cycle. Terrain: collines ou montagne.'
-        },
-        MARKET: {
-            id: 'market', name: 'Marche', icon: '\u{1F4B0}',
-            cost: { wood: 40, stone: 30, food: 0, gold: 10 },
-            production: { gold: 4 },
-            desc: 'Genere 4 or/cycle.'
-        },
-        BARRACKS: {
-            id: 'barracks', name: 'Caserne', icon: '\u{2694}',
-            cost: { wood: 50, stone: 40, food: 0, gold: 20 },
-            desc: 'Permet de recruter guerriers et archers.',
-            requiresTownHall: 2
-        },
-        STABLE: {
-            id: 'stable', name: 'Ecurie', icon: '\u{1F40E}',
-            cost: { wood: 60, stone: 30, food: 20, gold: 30 },
-            desc: 'Permet de recruter des cavaliers.',
-            requiresTownHall: 3
-        },
-        SIEGE_WORKSHOP: {
-            id: 'siege_workshop', name: 'Atelier de siege', icon: '\u{1F4A5}',
-            cost: { wood: 80, stone: 60, food: 0, gold: 50 },
-            desc: 'Permet de construire catapultes et beliers.',
-            requiresTownHall: 4
-        },
-        WATCHTOWER: {
-            id: 'watchtower', name: 'Tour de guet', icon: '\u{1F441}',
-            cost: { wood: 35, stone: 25, food: 0, gold: 5 },
-            visionRange: 5,
-            desc: 'Etend la visibilite de 5 tuiles.'
-        },
-        WALL: {
-            id: 'wall', name: 'Muraille', icon: '\u{1F9F1}',
-            cost: { wood: 10, stone: 30, food: 0, gold: 0 },
-            defense: 10,
-            desc: 'Defense passive +10.'
-        }
-    },
-
-    // Unit types
-    UNITS: {
-        WARRIOR: {
-            id: 'warrior', name: 'Guerrier', icon: '\u{2694}',
-            cost: { food: 10, gold: 15 },
-            hp: 100, attack: 15, defense: 12, speed: 1,
-            building: 'barracks'
-        },
-        ARCHER: {
-            id: 'archer', name: 'Archer', icon: '\u{1F3F9}',
-            cost: { food: 8, gold: 12 },
-            hp: 70, attack: 18, defense: 6, speed: 1,
-            building: 'barracks'
-        },
-        CAVALRY: {
-            id: 'cavalry', name: 'Cavalier', icon: '\u{1F40E}',
-            cost: { food: 20, gold: 30 },
-            hp: 120, attack: 20, defense: 10, speed: 2,
-            building: 'stable'
-        },
-        SIEGE: {
-            id: 'siege', name: 'Machine de siege', icon: '\u{1F4A5}',
-            cost: { food: 5, gold: 40, wood: 30 },
-            hp: 80, attack: 35, defense: 4, speed: 0.5,
-            building: 'siege_workshop'
-        }
-    },
-
-    // Villager roles
-    ROLES: ['Paysan', 'Bucheron', 'Mineur', 'Fermier', 'Marchand', 'Soldat', 'Archer', 'Cavalier', 'Ingenieur'],
-
-    // Names for villagers
-    FIRST_NAMES: [
-        'Aelric', 'Baudouin', 'Cedric', 'Darius', 'Edmond', 'Faldric', 'Gontran',
-        'Henri', 'Isidore', 'Jehan', 'Lothaire', 'Marceau', 'Norbert', 'Osmond',
-        'Pierre', 'Raoul', 'Sigebert', 'Thibault', 'Ulric', 'Vivien',
-        'Adele', 'Blanche', 'Clotilde', 'Diane', 'Eloise', 'Flore', 'Genevieve',
-        'Helene', 'Isabeau', 'Jeanne', 'Louise', 'Margot', 'Ninon', 'Odette',
-        'Perrine', 'Rosalie', 'Solene', 'Therese', 'Ursule', 'Violette'
-    ],
-
-    // Seasons
-    SEASONS: [
-        { name: 'Printemps', icon: '\u{1F33F}' },
-        { name: 'Ete', icon: '\u{2600}' },
-        { name: 'Automne', icon: '\u{1F342}' },
-        { name: 'Hiver', icon: '\u{2744}' }
+    // Faction colors
+    FACTION_COLORS: [
+        '#3a7ad5', // player - blue
+        '#c43a3a', // rival 1 - red
+        '#d4881a', // rival 2 - orange
+        '#8a3ab5', // rival 3 - purple
+        '#2a8a5a', // rival 4 - green
     ],
 
     // Speed settings (ms per cycle tick)
@@ -1508,19 +632,6 @@ const CONFIG = {
         FAST: 1000
     },
 
-    // Faction colors
-    FACTION_COLORS: [
-        '#3498db', // player - blue
-        '#e74c3c', // rival 1 - red
-        '#f39c12', // rival 2 - orange
-        '#9b59b6', // rival 3 - purple
-        '#1abc9c', // bandits - teal
-        '#e67e22', // empire - dark orange
-    ],
-
-    // Food consumption per person per cycle
-    FOOD_PER_POP: 1,
-
     // Starting resources
     START_RESOURCES: {
         wood: 100,
@@ -1529,7 +640,6 @@ const CONFIG = {
         gold: 30
     },
 
-    // Fog of war initial vision radius from town hall
     VISION_RADIUS: 6
 };
 
@@ -1542,7 +652,7 @@ const GameMap = {
     width: CONFIG.MAP_WIDTH,
     height: CONFIG.MAP_HEIGHT,
 
-    // Step 1: Generate terrain only (no regions)
+    // Generate terrain only (no kingdoms)
     generateTerrain(seed, onProgress) {
         Perlin.seed(seed);
         Perlin.seedRng(seed);
@@ -1551,244 +661,222 @@ const GameMap = {
         this.tiles = [];
         this.regions = [];
 
-        const totalRows = this.height;
         for (let y = 0; y < this.height; y++) {
             this.tiles[y] = [];
             for (let x = 0; x < this.width; x++) {
-                const elevation = Perlin.octave(x * 0.06, y * 0.06, 4, 0.5);
-                const moisture = Perlin.octave(x * 0.05 + 100, y * 0.05 + 100, 3, 0.5);
+                const nx = x / this.width;
+                const ny = y / this.height;
 
-                let terrain;
-                if (elevation < -0.25) terrain = CONFIG.TERRAIN.WATER;
-                else if (elevation < -0.05) terrain = CONFIG.TERRAIN.PLAINS;
-                else if (elevation < 0.15) {
-                    terrain = moisture > 0.1 ? CONFIG.TERRAIN.FOREST : CONFIG.TERRAIN.GRASS;
-                }
-                else if (elevation < 0.35) terrain = CONFIG.TERRAIN.HILLS;
-                else terrain = CONFIG.TERRAIN.MOUNTAIN;
+                // Multi-octave elevation
+                const elevation = Perlin.octave(x * 0.035, y * 0.035, 6, 0.5);
+                const moisture = Perlin.octave(x * 0.04 + 200, y * 0.04 + 200, 4, 0.5);
+
+                // Island falloff - edges tend toward water
+                const dx = (nx - 0.5) * 2;
+                const dy = (ny - 0.5) * 2;
+                const distFromCenter = Math.sqrt(dx * dx + dy * dy);
+                const falloff = Math.max(0, 1 - distFromCenter * 1.1);
+                const finalElev = elevation * 0.7 + falloff * 0.3;
+
+                const terrain = this._elevToTerrain(finalElev, moisture);
 
                 this.tiles[y][x] = {
                     x, y,
                     terrain,
+                    elevation: finalElev,
+                    moisture,
                     building: null,
-                    owner: -1,
-                    visible: false,
-                    explored: false,
-                    decoration: null
+                    owner: -1, // -1 = unclaimed
+                    regionId: -1,
+                    visible: true,
+                    explored: true,
                 };
             }
-            if (onProgress) onProgress((y + 1) / totalRows * 0.6);
+            if (onProgress) onProgress((y + 1) / this.height * 0.7);
         }
 
-        // Add decorations
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                if (this.tiles[y][x].terrain === CONFIG.TERRAIN.FOREST && Perlin.random() < 0.6) {
-                    this.tiles[y][x].decoration = 'tree';
-                }
-                if (this.tiles[y][x].terrain === CONFIG.TERRAIN.MOUNTAIN && Perlin.random() < 0.3) {
-                    this.tiles[y][x].decoration = 'rock';
-                }
-            }
-            if (onProgress) onProgress(0.6 + ((y + 1) / this.height) * 0.2);
-        }
+        // Generate natural regions via Voronoi
+        this._generateNaturalRegions();
+        if (onProgress) onProgress(0.9);
+
+        // Done
+        if (onProgress) onProgress(1.0);
     },
 
-    // Step 2: Place regions based on player-chosen position
-    generateRegions(playerX, playerY) {
+    _elevToTerrain(elev, moisture) {
+        if (elev < -0.30) return CONFIG.TERRAIN.DEEP_WATER;
+        if (elev < -0.15) return CONFIG.TERRAIN.WATER;
+        if (elev < -0.08) return CONFIG.TERRAIN.SAND;
+        if (elev < 0.02) return CONFIG.TERRAIN.PLAINS;
+        if (elev < 0.15) {
+            return moisture > 0.15 ? CONFIG.TERRAIN.FOREST :
+                   moisture > -0.05 ? CONFIG.TERRAIN.GRASS : CONFIG.TERRAIN.PLAINS;
+        }
+        if (elev < 0.25) {
+            return moisture > 0.2 ? CONFIG.TERRAIN.DENSE_FOREST : CONFIG.TERRAIN.FOREST;
+        }
+        if (elev < 0.38) return CONFIG.TERRAIN.HILLS;
+        if (elev < 0.50) return CONFIG.TERRAIN.MOUNTAIN;
+        return CONFIG.TERRAIN.SNOW_PEAK;
+    },
+
+    _generateNaturalRegions() {
+        // Voronoi-style: place seed points, assign each land tile to nearest
         this.regions = [];
+        const numRegions = Math.floor((this.width * this.height) / 900);
+        const seeds = [];
 
-        // Reset all owners
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                this.tiles[y][x].owner = -1;
-            }
-        }
-
-        // Player region
-        const playerStart = this.findValidSpot(playerX, playerY, 3);
-        this.regions.push({
-            id: 0,
-            name: 'Votre Royaume',
-            faction: 0,
-            color: CONFIG.FACTION_COLORS[0],
-            tiles: [],
-            capital: playerStart,
-            isPlayer: true
-        });
-
-        // Find positions for enemy kingdoms - spread far from player
-        const enemyPositions = this._findEnemyPositions(playerStart.x, playerStart.y);
-        const factionNames = ['Royaume de Fer', 'Duche de Flamme', 'Comtat des Ombres', 'Empire Dore'];
-
-        for (let i = 0; i < enemyPositions.length; i++) {
-            const pos = this.findValidSpot(enemyPositions[i].x, enemyPositions[i].y, 6);
-            this.regions.push({
-                id: i + 1,
-                name: factionNames[i],
-                faction: i + 1,
-                color: CONFIG.FACTION_COLORS[i + 1],
-                tiles: [],
-                capital: pos,
-                isPlayer: false,
-                type: i < 3 ? 'rival' : 'empire'
-            });
-        }
-
-        // Place bandit camps in gaps between kingdoms
-        const banditPositions = this._findBanditPositions(playerStart, enemyPositions);
-        for (let b = 0; b < banditPositions.length; b++) {
-            const pos = this.findValidSpot(banditPositions[b].x, banditPositions[b].y, 4);
-            this.regions.push({
-                id: 5 + b,
-                name: 'Bandits',
-                faction: -2,
-                color: '#666',
-                tiles: [],
-                capital: pos,
-                isPlayer: false,
-                type: 'bandit'
-            });
-        }
-
-        // Assign initial territory
-        for (const region of this.regions) {
-            const radius = region.isPlayer ? 4 : (region.type === 'bandit' ? 2 : 3);
-            for (let dy = -radius; dy <= radius; dy++) {
-                for (let dx = -radius; dx <= radius; dx++) {
-                    const tx = region.capital.x + dx;
-                    const ty = region.capital.y + dy;
-                    if (tx < 0 || ty < 0 || tx >= this.width || ty >= this.height) continue;
-                    if (this.tiles[ty][tx].terrain === CONFIG.TERRAIN.WATER) continue;
-                    if (dx * dx + dy * dy <= radius * radius) {
-                        if (this.tiles[ty][tx].owner === -1) {
-                            this.tiles[ty][tx].owner = region.id;
-                            region.tiles.push({ x: tx, y: ty });
-                        }
-                    }
-                }
-            }
-        }
-    },
-
-    _findEnemyPositions(px, py) {
-        // Place 4 enemy kingdoms as far as possible from the player
-        // Use corners and edges, adjusting based on where player is
-        const w = this.width;
-        const h = this.height;
-        const margin = Math.floor(Math.min(w, h) * 0.12);
-        const candidates = [
-            { x: margin, y: margin },
-            { x: w - margin, y: margin },
-            { x: margin, y: h - margin },
-            { x: w - margin, y: h - margin },
-            { x: Math.floor(w / 2), y: margin },
-            { x: Math.floor(w / 2), y: h - margin },
-            { x: margin, y: Math.floor(h / 2) },
-            { x: w - margin, y: Math.floor(h / 2) }
-        ];
-
-        // Sort by distance from player (farthest first)
-        candidates.sort((a, b) => {
-            const da = (a.x - px) ** 2 + (a.y - py) ** 2;
-            const db = (b.x - px) ** 2 + (b.y - py) ** 2;
-            return db - da;
-        });
-
-        // Pick 4, ensuring minimum distance between each
-        const selected = [];
-        const minDist = Math.floor(Math.min(w, h) * 0.25);
-        for (const c of candidates) {
-            if (selected.length >= 4) break;
-            const tooClose = selected.some(s =>
-                Math.sqrt((s.x - c.x) ** 2 + (s.y - c.y) ** 2) < minDist
-            );
-            if (!tooClose) selected.push(c);
-        }
-
-        // Fill remaining if needed
-        while (selected.length < 4) {
-            selected.push(candidates[selected.length]);
-        }
-
-        return selected;
-    },
-
-    _findBanditPositions(playerPos, enemyPositions) {
-        const allKingdoms = [playerPos, ...enemyPositions];
-        const bandits = [];
-        const minDistFromKingdom = Math.floor(Math.min(this.width, this.height) * 0.1);
-        const count = Math.max(4, Math.floor((this.width * this.height) / 800));
-
-        for (let attempt = 0; attempt < count * 10 && bandits.length < count; attempt++) {
-            const bx = Math.floor(Perlin.random() * (this.width - 10)) + 5;
-            const by = Math.floor(Perlin.random() * (this.height - 10)) + 5;
-
-            // Check terrain
-            if (bx >= this.width || by >= this.height) continue;
-            const tile = this.tiles[by][bx];
-            if (tile.terrain === CONFIG.TERRAIN.WATER || tile.terrain === CONFIG.TERRAIN.MOUNTAIN) continue;
-
-            // Check distance from kingdoms
-            const tooClose = allKingdoms.some(k =>
-                Math.sqrt((k.x - bx) ** 2 + (k.y - by) ** 2) < minDistFromKingdom
+        // Place region seeds on land tiles
+        for (let attempt = 0; attempt < numRegions * 20 && seeds.length < numRegions; attempt++) {
+            const rx = Math.floor(Perlin.random() * this.width);
+            const ry = Math.floor(Perlin.random() * this.height);
+            const tile = this.tiles[ry][rx];
+            if (tile.terrain <= CONFIG.TERRAIN.WATER) continue;
+            // Min distance from other seeds
+            const tooClose = seeds.some(s =>
+                Math.sqrt((s.x - rx) ** 2 + (s.y - ry) ** 2) < 12
             );
             if (tooClose) continue;
-
-            // Check distance from other bandits
-            const tooCloseBandit = bandits.some(b =>
-                Math.sqrt((b.x - bx) ** 2 + (b.y - by) ** 2) < minDistFromKingdom * 0.6
-            );
-            if (tooCloseBandit) continue;
-
-            bandits.push({ x: bx, y: by });
+            seeds.push({ x: rx, y: ry });
         }
 
-        return bandits;
+        // Create region objects
+        for (let i = 0; i < seeds.length; i++) {
+            this.regions.push({
+                id: i,
+                center: seeds[i],
+                tiles: [],
+                owner: -1, // no kingdom yet
+                name: '',
+                color: null
+            });
+        }
+
+        // Assign each land tile to nearest seed
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                const tile = this.tiles[y][x];
+                if (tile.terrain <= CONFIG.TERRAIN.WATER) continue;
+
+                let minDist = Infinity;
+                let closestRegion = -1;
+                for (let i = 0; i < seeds.length; i++) {
+                    const d = (seeds[i].x - x) ** 2 + (seeds[i].y - y) ** 2;
+                    if (d < minDist) {
+                        minDist = d;
+                        closestRegion = i;
+                    }
+                }
+
+                if (closestRegion >= 0) {
+                    tile.regionId = closestRegion;
+                    this.regions[closestRegion].tiles.push({ x, y });
+                }
+            }
+        }
+
+        // Remove tiny regions (< 20 tiles)
+        for (let i = this.regions.length - 1; i >= 0; i--) {
+            if (this.regions[i].tiles.length < 20) {
+                // Merge into nearest valid region
+                for (const t of this.regions[i].tiles) {
+                    const neighbors = this._getNeighborRegions(t.x, t.y, i);
+                    if (neighbors.length > 0) {
+                        const newRegion = neighbors[0];
+                        this.tiles[t.y][t.x].regionId = newRegion;
+                        this.regions[newRegion].tiles.push(t);
+                    }
+                }
+                this.regions[i].tiles = [];
+            }
+        }
     },
 
-    // Legacy method for save/load compatibility
-    generate(seed) {
-        this.generateTerrain(seed);
-        this.generateRegions(Math.floor(this.width / 2), Math.floor(this.height / 2));
+    _getNeighborRegions(x, y, excludeId) {
+        const found = [];
+        const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+        for (const [dx, dy] of dirs) {
+            const t = this.getTile(x + dx, y + dy);
+            if (t && t.regionId >= 0 && t.regionId !== excludeId && !found.includes(t.regionId)) {
+                found.push(t.regionId);
+            }
+        }
+        return found;
     },
 
-    // Check if a position is valid for kingdom placement
+    // Check if an area is suitable for a kingdom
     isValidKingdomSpot(x, y) {
-        const radius = 4;
+        const radius = 6;
         let landCount = 0;
         for (let dy = -radius; dy <= radius; dy++) {
             for (let dx = -radius; dx <= radius; dx++) {
                 if (dx * dx + dy * dy > radius * radius) continue;
-                const tx = x + dx;
-                const ty = y + dy;
-                const tile = this.getTile(tx, ty);
-                if (tile && tile.terrain !== CONFIG.TERRAIN.WATER && tile.terrain !== CONFIG.TERRAIN.MOUNTAIN) {
+                const tile = this.getTile(x + dx, y + dy);
+                if (tile && tile.terrain > CONFIG.TERRAIN.WATER && tile.terrain < CONFIG.TERRAIN.MOUNTAIN) {
                     landCount++;
                 }
             }
         }
-        // Need at least 60% land around the spot
-        const totalInRadius = Math.PI * radius * radius;
-        return landCount >= totalInRadius * 0.5;
+        return landCount >= 60;
     },
 
-    findValidSpot(cx, cy, radius) {
-        for (let r = 0; r <= radius; r++) {
-            for (let dy = -r; dy <= r; dy++) {
-                for (let dx = -r; dx <= r; dx++) {
-                    const x = cx + dx;
-                    const y = cy + dy;
-                    if (x >= 0 && y >= 0 && x < this.width && y < this.height) {
-                        if (this.tiles[y][x].terrain !== CONFIG.TERRAIN.WATER &&
-                            this.tiles[y][x].terrain !== CONFIG.TERRAIN.MOUNTAIN) {
-                            return { x, y };
-                        }
-                    }
-                }
+    // Place kingdoms based on player position
+    placeKingdoms(playerX, playerY) {
+        // Find player's region
+        const playerTile = this.getTile(playerX, playerY);
+        if (!playerTile || playerTile.regionId < 0) return;
+
+        const playerRegion = this.regions[playerTile.regionId];
+        playerRegion.owner = 0;
+        playerRegion.name = 'Votre Royaume';
+        playerRegion.color = CONFIG.FACTION_COLORS[0];
+
+        // Claim the player's region tiles
+        for (const t of playerRegion.tiles) {
+            this.tiles[t.y][t.x].owner = 0;
+        }
+
+        // Find spots for 4 enemy kingdoms - far from player
+        const candidates = this.regions.filter(r =>
+            r.tiles.length >= 40 && r.owner === -1
+        );
+
+        candidates.sort((a, b) => {
+            const da = (a.center.x - playerX) ** 2 + (a.center.y - playerY) ** 2;
+            const db = (b.center.x - playerX) ** 2 + (b.center.y - playerY) ** 2;
+            return db - da;
+        });
+
+        const enemyNames = ['Royaume de Fer', 'Duche de Flamme', 'Comtat des Ombres', 'Empire Dore'];
+        let placed = 0;
+        const minDistBetweenEnemies = 30;
+
+        for (const region of candidates) {
+            if (placed >= 4) break;
+
+            // Check distance from already placed enemies
+            const tooClose = this.regions.some(r =>
+                r.owner > 0 && Math.sqrt(
+                    (r.center.x - region.center.x) ** 2 +
+                    (r.center.y - region.center.y) ** 2
+                ) < minDistBetweenEnemies
+            );
+            if (tooClose) continue;
+
+            placed++;
+            region.owner = placed;
+            region.name = enemyNames[placed - 1];
+            region.color = CONFIG.FACTION_COLORS[placed];
+
+            for (const t of region.tiles) {
+                this.tiles[t.y][t.x].owner = placed;
             }
         }
-        return { x: cx, y: cy };
+    },
+
+    // Legacy compat
+    generate(seed) {
+        this.generateTerrain(seed);
     },
 
     getTile(x, y) {
@@ -1796,728 +884,457 @@ const GameMap = {
         return this.tiles[y][x];
     },
 
-    revealArea(cx, cy, radius) {
-        for (let dy = -radius; dy <= radius; dy++) {
-            for (let dx = -radius; dx <= radius; dx++) {
-                if (dx * dx + dy * dy > radius * radius) continue;
-                const tx = cx + dx;
-                const ty = cy + dy;
-                if (tx >= 0 && ty >= 0 && tx < this.width && ty < this.height) {
-                    this.tiles[ty][tx].visible = true;
-                    this.tiles[ty][tx].explored = true;
-                }
-            }
-        }
-    },
-
-    updateVisibility(playerRegionId) {
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                this.tiles[y][x].visible = false;
-            }
-        }
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                const tile = this.tiles[y][x];
-                if (tile.owner === playerRegionId) {
-                    let radius = 3;
-                    if (tile.building) {
-                        if (tile.building.type === 'watchtower') radius = CONFIG.BUILDINGS.WATCHTOWER.visionRange + 3;
-                        else if (tile.building.type === 'town_hall') radius = CONFIG.VISION_RADIUS;
-                        else radius = 4;
-                    }
-                    this.revealArea(x, y, radius);
-                }
-            }
-        }
-    },
-
     getRegion(id) {
-        return this.regions.find(r => r.id === id);
+        return this.regions[id] || null;
     },
 
     getPlayerRegion() {
-        return this.regions.find(r => r.isPlayer);
+        return this.regions.find(r => r.owner === 0);
     },
 
-    getAdjacentEnemyRegions(playerRegionId) {
-        const adjacent = new Set();
-        const playerRegion = this.getRegion(playerRegionId);
-        if (!playerRegion) return [];
-
-        for (const t of playerRegion.tiles) {
-            const neighbors = [
-                { x: t.x - 1, y: t.y }, { x: t.x + 1, y: t.y },
-                { x: t.x, y: t.y - 1 }, { x: t.x, y: t.y + 1 }
-            ];
-            for (const n of neighbors) {
-                const tile = this.getTile(n.x, n.y);
-                if (tile && tile.owner !== -1 && tile.owner !== playerRegionId) {
-                    adjacent.add(tile.owner);
-                }
-            }
-        }
-        return [...adjacent].map(id => this.getRegion(id)).filter(Boolean);
-    },
-
-    annexRegion(targetId, newOwnerId) {
-        const target = this.getRegion(targetId);
-        const newOwner = this.getRegion(newOwnerId);
-        if (!target || !newOwner) return;
-
-        for (const t of target.tiles) {
-            this.tiles[t.y][t.x].owner = newOwnerId;
-            newOwner.tiles.push({ x: t.x, y: t.y });
-        }
-        target.tiles = [];
-        target.faction = -99;
-    },
-
-    countTotalLandTiles() {
-        let count = 0;
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                if (this.tiles[y][x].terrain !== CONFIG.TERRAIN.WATER) count++;
-            }
-        }
-        return count;
-    },
-
-    countOwnedTiles(regionId) {
-        let count = 0;
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                if (this.tiles[y][x].owner === regionId) count++;
-            }
-        }
-        return count;
-    },
-
-    getConquestPercent(regionId) {
-        const total = this.countTotalLandTiles();
-        const owned = this.countOwnedTiles(regionId);
-        return total > 0 ? Math.round((owned / total) * 100) : 0;
-    },
-
-    // Render the full map to a canvas (for placement screen)
-    renderOverviewToCanvas(canvas, highlightX, highlightY, showValidity) {
+    // Render full overview for placement screen
+    renderOverviewToCanvas(canvas, castleX, castleY) {
         const ctx = canvas.getContext('2d');
         const w = canvas.width;
         const h = canvas.height;
-        ctx.clearRect(0, 0, w, h);
 
         const scaleX = w / this.width;
         const scaleY = h / this.height;
 
-        const terrainColors = {
-            0: '#1e5a8a',
-            1: '#a8be52',
-            2: '#5a9a32',
-            3: '#1e5528',
-            4: '#8c7855',
-            5: '#787872'
-        };
+        // Create imagedata for fast pixel rendering
+        const imageData = ctx.createImageData(w, h);
+        const data = imageData.data;
 
-        // Draw terrain
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                const tile = this.tiles[y][x];
-                ctx.fillStyle = terrainColors[tile.terrain] || '#333';
-                ctx.fillRect(x * scaleX, y * scaleY, scaleX + 0.5, scaleY + 0.5);
+        for (let py = 0; py < h; py++) {
+            const ty = Math.floor((py / h) * this.height);
+            for (let px = 0; px < w; px++) {
+                const tx = Math.floor((px / w) * this.width);
+                const tile = this.tiles[ty][tx];
+                const c = this._terrainRGB(tile.terrain, tx, ty);
+                const idx = (py * w + px) * 4;
+                data[idx] = c[0];
+                data[idx + 1] = c[1];
+                data[idx + 2] = c[2];
+                data[idx + 3] = 255;
             }
         }
 
-        // Highlight valid/invalid placement zones if showing
-        if (highlightX !== undefined && highlightY !== undefined) {
-            const radius = 5;
-            const valid = this.isValidKingdomSpot(highlightX, highlightY);
+        ctx.putImageData(imageData, 0, 0);
 
-            // Draw kingdom preview radius
-            ctx.beginPath();
-            ctx.arc(
-                (highlightX + 0.5) * scaleX,
-                (highlightY + 0.5) * scaleY,
-                radius * scaleX,
-                0, Math.PI * 2
-            );
-            ctx.fillStyle = valid ? 'rgba(60,160,80,0.3)' : 'rgba(180,50,50,0.3)';
-            ctx.fill();
-            ctx.strokeStyle = valid ? '#4a8a3a' : '#8a3a3a';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+        // Draw region borders (subtle)
+        ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+        ctx.lineWidth = 0.5;
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                const tile = this.tiles[y][x];
+                if (tile.regionId < 0) continue;
+                // Check right and bottom neighbors
+                const right = this.getTile(x + 1, y);
+                const bottom = this.getTile(x, y + 1);
+                if (right && right.regionId >= 0 && right.regionId !== tile.regionId) {
+                    const px = (x + 1) * scaleX;
+                    ctx.beginPath();
+                    ctx.moveTo(px, y * scaleY);
+                    ctx.lineTo(px, (y + 1) * scaleY);
+                    ctx.stroke();
+                }
+                if (bottom && bottom.regionId >= 0 && bottom.regionId !== tile.regionId) {
+                    const py2 = (y + 1) * scaleY;
+                    ctx.beginPath();
+                    ctx.moveTo(x * scaleX, py2);
+                    ctx.lineTo((x + 1) * scaleX, py2);
+                    ctx.stroke();
+                }
+            }
+        }
 
-            // Castle marker
-            ctx.fillStyle = '#c8a84a';
-            ctx.font = `${Math.max(16, scaleX * 3)}px serif`;
+        // Draw castle if placed
+        if (castleX !== undefined && castleY !== undefined) {
+            const valid = this.isValidKingdomSpot(castleX, castleY);
+
+            // Highlight kingdom region
+            const tile = this.getTile(castleX, castleY);
+            if (tile && tile.regionId >= 0) {
+                const region = this.regions[tile.regionId];
+                ctx.fillStyle = valid ? 'rgba(58,122,213,0.25)' : 'rgba(180,50,50,0.25)';
+                for (const t of region.tiles) {
+                    ctx.fillRect(t.x * scaleX, t.y * scaleY, scaleX + 0.5, scaleY + 0.5);
+                }
+            }
+
+            // Castle icon
+            const cx = (castleX + 0.5) * scaleX;
+            const cy = (castleY + 0.5) * scaleY;
+            const iconSize = Math.max(18, scaleX * 4);
+            ctx.font = `${iconSize}px serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('\u{1F3F0}', (highlightX + 0.5) * scaleX, (highlightY + 0.5) * scaleY);
+            ctx.shadowColor = 'rgba(0,0,0,0.7)';
+            ctx.shadowBlur = 4;
+            ctx.fillText('\u{1F3F0}', cx, cy);
+            ctx.shadowBlur = 0;
+        }
+    },
+
+    _terrainRGB(terrain, x, y) {
+        // Subtle per-tile variation
+        const hash = ((x * 7919 + y * 6271) & 0xFFFF) / 0xFFFF;
+        const v = (hash - 0.5) * 12;
+
+        switch (terrain) {
+            case CONFIG.TERRAIN.DEEP_WATER:  return [22 + v, 62 + v, 110 + v];
+            case CONFIG.TERRAIN.WATER:       return [38 + v, 88 + v, 140 + v];
+            case CONFIG.TERRAIN.SAND:        return [194 + v, 178 + v, 128 + v];
+            case CONFIG.TERRAIN.PLAINS:      return [148 + v, 176 + v, 72 + v];
+            case CONFIG.TERRAIN.GRASS:       return [88 + v, 148 + v, 52 + v];
+            case CONFIG.TERRAIN.FOREST:      return [42 + v, 92 + v, 38 + v];
+            case CONFIG.TERRAIN.DENSE_FOREST:return [24 + v, 62 + v, 26 + v];
+            case CONFIG.TERRAIN.HILLS:       return [132 + v, 112 + v, 78 + v];
+            case CONFIG.TERRAIN.MOUNTAIN:    return [108 + v, 104 + v, 98 + v];
+            case CONFIG.TERRAIN.SNOW_PEAK:   return [210 + v, 215 + v, 220 + v];
+            default:                         return [40, 40, 40];
         }
     }
 };
 
 
 // === js/renderer.js ===
-// Isometric renderer using HTML5 Canvas - realistic terrain colors
+// Top-down continuous map renderer
 const Renderer = {
     canvas: null,
     ctx: null,
-    minimapCanvas: null,
-    minimapCtx: null,
+    // Pre-rendered terrain buffer for performance
+    _terrainBuffer: null,
+    _bufferDirty: true,
 
     init() {
         this.canvas = document.getElementById('game-canvas');
         this.ctx = this.canvas.getContext('2d');
-        this.minimapCanvas = document.getElementById('minimap-canvas');
-        this.minimapCtx = this.minimapCanvas.getContext('2d');
         this.resize();
         window.addEventListener('resize', () => this.resize());
+        this._bufferDirty = true;
     },
 
     resize() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
+        this._bufferDirty = true;
+    },
+
+    // Build the full terrain as an offscreen image (called once after generation)
+    buildTerrainBuffer() {
+        const w = GameMap.width;
+        const h = GameMap.height;
+        const cellSize = CONFIG.CELL_SIZE;
+        const bufW = w * cellSize;
+        const bufH = h * cellSize;
+
+        this._terrainBuffer = document.createElement('canvas');
+        this._terrainBuffer.width = bufW;
+        this._terrainBuffer.height = bufH;
+        const ctx = this._terrainBuffer.getContext('2d');
+
+        // Render each cell as a colored square
+        const imageData = ctx.createImageData(bufW, bufH);
+        const data = imageData.data;
+
+        for (let ty = 0; ty < h; ty++) {
+            for (let tx = 0; tx < w; tx++) {
+                const tile = GameMap.tiles[ty][tx];
+                const rgb = GameMap._terrainRGB(tile.terrain, tx, ty);
+
+                const startX = tx * cellSize;
+                const startY = ty * cellSize;
+
+                for (let py = startY; py < startY + cellSize; py++) {
+                    for (let px = startX; px < startX + cellSize; px++) {
+                        const idx = (py * bufW + px) * 4;
+                        // Add sub-cell noise for natural look
+                        const micro = ((px * 13 + py * 7) & 7) - 3.5;
+                        data[idx] = Math.max(0, Math.min(255, rgb[0] + micro));
+                        data[idx + 1] = Math.max(0, Math.min(255, rgb[1] + micro));
+                        data[idx + 2] = Math.max(0, Math.min(255, rgb[2] + micro));
+                        data[idx + 3] = 255;
+                    }
+                }
+            }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+
+        // Draw region borders on the buffer
+        ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+        ctx.lineWidth = 1;
+        for (let ty = 0; ty < h; ty++) {
+            for (let tx = 0; tx < w; tx++) {
+                const tile = GameMap.tiles[ty][tx];
+                if (tile.regionId < 0) continue;
+                const right = GameMap.getTile(tx + 1, ty);
+                const bottom = GameMap.getTile(tx, ty + 1);
+                if (right && right.regionId >= 0 && right.regionId !== tile.regionId) {
+                    const px = (tx + 1) * cellSize;
+                    ctx.beginPath();
+                    ctx.moveTo(px, ty * cellSize);
+                    ctx.lineTo(px, (ty + 1) * cellSize);
+                    ctx.stroke();
+                }
+                if (bottom && bottom.regionId >= 0 && bottom.regionId !== tile.regionId) {
+                    const py = (ty + 1) * cellSize;
+                    ctx.beginPath();
+                    ctx.moveTo(tx * cellSize, py);
+                    ctx.lineTo((tx + 1) * cellSize, py);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Draw tree sprites on forest cells
+        this._drawTreesOnBuffer(ctx, cellSize);
+
+        // Draw rocks on mountain cells
+        this._drawRocksOnBuffer(ctx, cellSize);
+
+        this._bufferDirty = false;
+    },
+
+    _drawTreesOnBuffer(ctx, cellSize) {
+        for (let ty = 0; ty < GameMap.height; ty++) {
+            for (let tx = 0; tx < GameMap.width; tx++) {
+                const tile = GameMap.tiles[ty][tx];
+                if (tile.terrain !== CONFIG.TERRAIN.FOREST &&
+                    tile.terrain !== CONFIG.TERRAIN.DENSE_FOREST) continue;
+
+                const hash = ((tx * 7919 + ty * 6271) & 0xFFFF) / 0xFFFF;
+                const count = tile.terrain === CONFIG.TERRAIN.DENSE_FOREST ? 3 : (hash > 0.4 ? 2 : 1);
+                const cx = tx * cellSize;
+                const cy = ty * cellSize;
+
+                for (let i = 0; i < count; i++) {
+                    const h2 = ((tx * (i + 3) * 3571 + ty * 2819) & 0xFFFF) / 0xFFFF;
+                    const ox = cx + h2 * (cellSize - 6) + 3;
+                    const oy = cy + ((h2 * 7919) % 1) * (cellSize - 8) + 4;
+                    const size = 3 + h2 * 3;
+
+                    // Trunk
+                    ctx.fillStyle = '#3a2510';
+                    ctx.fillRect(ox - 0.5, oy, 1.5, size * 0.4);
+
+                    // Canopy
+                    const green = tile.terrain === CONFIG.TERRAIN.DENSE_FOREST ?
+                        `rgb(${20 + h2 * 15},${48 + h2 * 20},${22 + h2 * 10})` :
+                        `rgb(${32 + h2 * 20},${72 + h2 * 25},${30 + h2 * 15})`;
+                    ctx.fillStyle = green;
+                    ctx.beginPath();
+                    ctx.arc(ox, oy - size * 0.1, size * 0.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+    },
+
+    _drawRocksOnBuffer(ctx, cellSize) {
+        for (let ty = 0; ty < GameMap.height; ty++) {
+            for (let tx = 0; tx < GameMap.width; tx++) {
+                const tile = GameMap.tiles[ty][tx];
+                if (tile.terrain !== CONFIG.TERRAIN.MOUNTAIN &&
+                    tile.terrain !== CONFIG.TERRAIN.HILLS) continue;
+
+                const hash = ((tx * 3571 + ty * 2819) & 0xFFFF) / 0xFFFF;
+                if (hash > 0.4) continue;
+
+                const cx = tx * cellSize + cellSize / 2;
+                const cy = ty * cellSize + cellSize / 2;
+                const size = 2 + hash * 3;
+
+                ctx.fillStyle = tile.terrain === CONFIG.TERRAIN.MOUNTAIN ?
+                    `rgb(${90 + hash * 30},${86 + hash * 30},${80 + hash * 30})` :
+                    `rgb(${120 + hash * 20},${105 + hash * 20},${80 + hash * 20})`;
+                ctx.beginPath();
+                ctx.moveTo(cx - size, cy + size * 0.3);
+                ctx.lineTo(cx - size * 0.3, cy - size);
+                ctx.lineTo(cx + size * 0.5, cy - size * 0.7);
+                ctx.lineTo(cx + size, cy + size * 0.3);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
     },
 
     render() {
+        if (!this._terrainBuffer || this._bufferDirty) {
+            this.buildTerrainBuffer();
+        }
+
         const ctx = this.ctx;
-        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        ctx.fillStyle = '#1a2a3a';
-        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        const cw = this.canvas.width;
+        const ch = this.canvas.height;
 
-        const bounds = Camera.getVisibleBounds();
-        const tw = CONFIG.TILE_WIDTH * Camera.zoom;
-        const th = CONFIG.TILE_HEIGHT * Camera.zoom;
+        // Clear
+        ctx.fillStyle = '#0a1520';
+        ctx.fillRect(0, 0, cw, ch);
 
-        // Render tiles in isometric order (back to front)
-        for (let y = bounds.minY; y <= bounds.maxY; y++) {
-            for (let x = bounds.minX; x <= bounds.maxX; x++) {
-                const tile = GameMap.getTile(x, y);
-                if (!tile) continue;
+        // Draw the terrain buffer with camera transform
+        const cellSize = CONFIG.CELL_SIZE;
+        const zoom = Camera.zoom;
+        const srcX = Camera.x / zoom;
+        const srcY = Camera.y / zoom;
+        const srcW = cw / zoom;
+        const srcH = ch / zoom;
 
-                const screen = Camera.tileToScreen(x, y);
-                const sx = screen.x - Camera.x;
-                const sy = screen.y - Camera.y;
+        ctx.imageSmoothingEnabled = zoom < 1;
 
-                // Skip if offscreen
-                if (sx < -tw || sx > this.canvas.width + tw ||
-                    sy < -th * 3 || sy > this.canvas.height + th) continue;
+        ctx.drawImage(
+            this._terrainBuffer,
+            srcX, srcY, srcW, srcH,
+            0, 0, cw, ch
+        );
 
-                if (!tile.explored) {
-                    this.drawFogTile(ctx, sx, sy, tw, th);
-                    continue;
-                }
+        // Draw kingdom overlays
+        this._drawKingdomOverlays(ctx, cw, ch);
 
-                // Draw terrain with realistic colors
-                this.drawTerrain(ctx, tile, sx, sy, tw, th, x, y);
+        // Draw buildings
+        this._drawBuildings(ctx);
 
-                // Draw territory color overlay
-                if (tile.owner >= 0) {
-                    this.drawTerritoryOverlay(ctx, tile, sx, sy, tw, th);
-                }
-
-                // Draw decoration
-                if (tile.decoration && tile.visible) {
-                    this.drawDecoration(ctx, tile, sx, sy, tw, th, x, y);
-                }
-
-                // Draw building
-                if (tile.building && tile.visible) {
-                    this.drawBuilding(ctx, tile.building, sx, sy, tw, th);
-                }
-
-                // Fog of war (explored but not visible = dimmed)
-                if (tile.explored && !tile.visible) {
-                    this.drawDimOverlay(ctx, sx, sy, tw, th);
-                }
-            }
-        }
-
-        // Draw selection highlight
-        if (typeof Game !== 'undefined' && Game.selectedTile) {
-            const st = Game.selectedTile;
-            const screen = Camera.tileToScreen(st.x, st.y);
-            const sx = screen.x - Camera.x;
-            const sy = screen.y - Camera.y;
-            this.drawSelectionHighlight(ctx, sx, sy, tw, th);
-        }
-
-        // Draw build preview
-        if (typeof Game !== 'undefined' && Game.buildMode) {
-            this.drawBuildPreview(ctx, tw, th);
+        // Draw castle if placed
+        if (typeof Game !== 'undefined' && Game._castlePlaced) {
+            this._drawCastle(ctx, Game._castlePlaced.x, Game._castlePlaced.y);
         }
     },
 
-    drawIsoDiamond(ctx, x, y, w, h) {
-        ctx.beginPath();
-        ctx.moveTo(x, y - h / 2);          // top
-        ctx.lineTo(x + w / 2, y);           // right
-        ctx.lineTo(x, y + h / 2);           // bottom
-        ctx.lineTo(x - w / 2, y);           // left
-        ctx.closePath();
-    },
+    _drawKingdomOverlays(ctx, cw, ch) {
+        const cellSize = CONFIG.CELL_SIZE;
+        const zoom = Camera.zoom;
 
-    // Get a subtle color variation based on tile position for natural look
-    _varColor(baseR, baseG, baseB, x, y, range) {
-        // Use a simple hash for deterministic variation
-        const hash = ((x * 7919 + y * 6271) & 0xFFFF) / 0xFFFF;
-        const offset = (hash - 0.5) * range * 2;
-        const r = Math.max(0, Math.min(255, Math.round(baseR + offset)));
-        const g = Math.max(0, Math.min(255, Math.round(baseG + offset)));
-        const b = Math.max(0, Math.min(255, Math.round(baseB + offset)));
-        return `rgb(${r},${g},${b})`;
-    },
+        // Calculate visible cell range
+        const startX = Math.max(0, Math.floor(Camera.x / (cellSize * zoom)));
+        const startY = Math.max(0, Math.floor(Camera.y / (cellSize * zoom)));
+        const endX = Math.min(GameMap.width, Math.ceil((Camera.x + cw) / (cellSize * zoom)));
+        const endY = Math.min(GameMap.height, Math.ceil((Camera.y + ch) / (cellSize * zoom)));
 
-    drawTerrain(ctx, tile, sx, sy, tw, th, tileX, tileY) {
-        const terrain = tile.terrain;
-        // Realistic depth per terrain
-        const depth = terrain === CONFIG.TERRAIN.MOUNTAIN ? 10 * Camera.zoom :
-                      terrain === CONFIG.TERRAIN.HILLS ? 5 * Camera.zoom :
-                      terrain === CONFIG.TERRAIN.WATER ? -1 * Camera.zoom : 2 * Camera.zoom;
+        for (let ty = startY; ty < endY; ty++) {
+            for (let tx = startX; tx < endX; tx++) {
+                const tile = GameMap.tiles[ty][tx];
+                if (tile.owner < 0) continue;
 
-        // Realistic color palettes
-        let topColor, leftColor, rightColor, borderColor;
-        switch (terrain) {
-            case CONFIG.TERRAIN.WATER:
-                topColor = this._varColor(41, 98, 148, tileX, tileY, 12);
-                leftColor = '#1a4a6e';
-                rightColor = '#245680';
-                borderColor = '#1a3a5a';
-                break;
-            case CONFIG.TERRAIN.PLAINS:
-                topColor = this._varColor(168, 190, 82, tileX, tileY, 15);
-                leftColor = '#7a8a38';
-                rightColor = '#8a9a48';
-                borderColor = '#6a7a30';
-                break;
-            case CONFIG.TERRAIN.GRASS:
-                topColor = this._varColor(98, 160, 58, tileX, tileY, 18);
-                leftColor = '#3a7a22';
-                rightColor = '#4a8a32';
-                borderColor = '#2a6a18';
-                break;
-            case CONFIG.TERRAIN.FOREST:
-                topColor = this._varColor(34, 85, 40, tileX, tileY, 14);
-                leftColor = '#143a18';
-                rightColor = '#1a4a20';
-                borderColor = '#0e2e12';
-                break;
-            case CONFIG.TERRAIN.HILLS:
-                topColor = this._varColor(140, 120, 85, tileX, tileY, 12);
-                leftColor = '#6a5838';
-                rightColor = '#7a6848';
-                borderColor = '#5a4828';
-                break;
-            case CONFIG.TERRAIN.MOUNTAIN:
-                topColor = this._varColor(135, 135, 130, tileX, tileY, 15);
-                leftColor = '#555555';
-                rightColor = '#666666';
-                borderColor = '#444444';
-                break;
-            default:
-                topColor = '#666';
-                leftColor = '#444';
-                rightColor = '#555';
-                borderColor = '#333';
-        }
+                const region = GameMap.regions.find(r => r.owner === tile.owner && r.owner >= 0);
+                if (!region || !region.color) continue;
 
-        // Side faces (depth)
-        if (depth > 0) {
-            // Right side
-            ctx.beginPath();
-            ctx.moveTo(sx, sy + th / 2);
-            ctx.lineTo(sx + tw / 2, sy);
-            ctx.lineTo(sx + tw / 2, sy - depth);
-            ctx.lineTo(sx, sy + th / 2 - depth);
-            ctx.closePath();
-            ctx.fillStyle = rightColor;
-            ctx.fill();
-            ctx.strokeStyle = borderColor;
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
+                const sx = tx * cellSize * zoom - Camera.x;
+                const sy = ty * cellSize * zoom - Camera.y;
+                const sw = cellSize * zoom;
 
-            // Left side
-            ctx.beginPath();
-            ctx.moveTo(sx, sy + th / 2);
-            ctx.lineTo(sx - tw / 2, sy);
-            ctx.lineTo(sx - tw / 2, sy - depth);
-            ctx.lineTo(sx, sy + th / 2 - depth);
-            ctx.closePath();
-            ctx.fillStyle = leftColor;
-            ctx.fill();
-            ctx.strokeStyle = borderColor;
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
-        }
-
-        // Top face
-        const topY = sy - depth;
-        this.drawIsoDiamond(ctx, sx, topY, tw, th);
-        ctx.fillStyle = topColor;
-        ctx.fill();
-        ctx.strokeStyle = borderColor;
-        ctx.lineWidth = 0.5;
-        ctx.stroke();
-
-        // Water shimmer effect
-        if (terrain === CONFIG.TERRAIN.WATER) {
-            this.drawIsoDiamond(ctx, sx, sy, tw, th);
-            const shimmer = ((tileX + tileY) % 3 === 0) ? 0.06 : 0.03;
-            ctx.fillStyle = `rgba(180,220,255,${shimmer})`;
-            ctx.fill();
-        }
-
-        // Snow on mountain peaks
-        if (terrain === CONFIG.TERRAIN.MOUNTAIN) {
-            const hash = ((tileX * 7919 + tileY * 6271) & 0xFFFF) / 0xFFFF;
-            if (hash > 0.4) {
-                this.drawIsoDiamond(ctx, sx, topY, tw * 0.5, th * 0.5);
-                ctx.fillStyle = 'rgba(235,235,240,0.5)';
-                ctx.fill();
+                ctx.fillStyle = region.color + '30';
+                ctx.fillRect(sx, sy, sw + 0.5, sw + 0.5);
             }
         }
     },
 
-    drawTerritoryOverlay(ctx, tile, sx, sy, tw, th) {
-        const region = GameMap.getRegion(tile.owner);
-        if (!region) return;
-        this.drawIsoDiamond(ctx, sx, sy, tw, th);
-        ctx.fillStyle = region.color + '25';
-        ctx.fill();
-        ctx.strokeStyle = region.color + '50';
-        ctx.lineWidth = 0.8;
-        ctx.stroke();
+    _drawBuildings(ctx) {
+        // Will be used later for building placement
     },
 
-    drawDecoration(ctx, tile, sx, sy, tw, th, tileX, tileY) {
-        const type = tile.decoration;
-        const z = Camera.zoom;
-        const hash = ((tileX * 3571 + tileY * 2819) & 0xFFFF) / 0xFFFF;
+    _drawCastle(ctx, tileX, tileY) {
+        const cellSize = CONFIG.CELL_SIZE;
+        const zoom = Camera.zoom;
+        const sx = tileX * cellSize * zoom - Camera.x + (cellSize * zoom) / 2;
+        const sy = tileY * cellSize * zoom - Camera.y + (cellSize * zoom) / 2;
+        const iconSize = Math.max(16, cellSize * zoom * 1.5);
 
-        if (type === 'tree') {
-            // Draw 1-3 trees per tile for forest density
-            const treeCount = tile.terrain === CONFIG.TERRAIN.FOREST ? (hash > 0.5 ? 3 : 2) : 1;
-            const offsets = [
-                { dx: 0, dy: 0 },
-                { dx: -6 * z, dy: -2 * z },
-                { dx: 5 * z, dy: 1 * z }
-            ];
-
-            for (let i = 0; i < treeCount; i++) {
-                const ox = offsets[i].dx;
-                const oy = offsets[i].dy;
-                const treeH = (14 + hash * 6) * z;
-                const trunkH = 4 * z;
-                const trunkW = 2.5 * z;
-                const canopyW = (6 + hash * 3) * z;
-                const baseY = sy - th / 2 + oy;
-
-                // Trunk
-                ctx.fillStyle = '#4a3520';
-                ctx.fillRect(sx + ox - trunkW / 2, baseY - trunkH, trunkW, trunkH);
-
-                // Canopy - rounded look with two triangles
-                const darkGreen = this._varColor(28, 72, 32, tileX + i, tileY, 16);
-                const lightGreen = this._varColor(38, 92, 42, tileX + i * 3, tileY, 16);
-
-                // Lower canopy (wider)
-                ctx.beginPath();
-                ctx.moveTo(sx + ox, baseY - trunkH - treeH * 0.6);
-                ctx.lineTo(sx + ox + canopyW, baseY - trunkH);
-                ctx.lineTo(sx + ox - canopyW, baseY - trunkH);
-                ctx.closePath();
-                ctx.fillStyle = darkGreen;
-                ctx.fill();
-
-                // Upper canopy (narrower)
-                ctx.beginPath();
-                ctx.moveTo(sx + ox, baseY - trunkH - treeH);
-                ctx.lineTo(sx + ox + canopyW * 0.7, baseY - trunkH - treeH * 0.3);
-                ctx.lineTo(sx + ox - canopyW * 0.7, baseY - trunkH - treeH * 0.3);
-                ctx.closePath();
-                ctx.fillStyle = lightGreen;
-                ctx.fill();
-            }
-        } else if (type === 'rock') {
-            // Realistic rocks
-            const rz = (5 + hash * 3) * z;
-            // Main rock
-            ctx.beginPath();
-            ctx.moveTo(sx - rz, sy - th / 4);
-            ctx.lineTo(sx - rz * 0.6, sy - th / 4 - rz * 1.1);
-            ctx.lineTo(sx + rz * 0.3, sy - th / 4 - rz * 0.9);
-            ctx.lineTo(sx + rz, sy - th / 4 - rz * 0.2);
-            ctx.lineTo(sx + rz * 0.8, sy - th / 4);
-            ctx.closePath();
-            ctx.fillStyle = this._varColor(110, 105, 100, tileX, tileY, 15);
-            ctx.fill();
-            ctx.strokeStyle = '#555';
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
-
-            // Smaller rock beside
-            if (hash > 0.4) {
-                const srz = rz * 0.5;
-                ctx.beginPath();
-                ctx.moveTo(sx + rz * 0.5, sy - th / 4 + 1 * z);
-                ctx.lineTo(sx + rz * 0.6, sy - th / 4 - srz * 0.8);
-                ctx.lineTo(sx + rz * 1.1, sy - th / 4 - srz * 0.3);
-                ctx.lineTo(sx + rz * 1.2, sy - th / 4 + 1 * z);
-                ctx.closePath();
-                ctx.fillStyle = this._varColor(100, 95, 90, tileX + 1, tileY, 10);
-                ctx.fill();
-            }
-        }
-    },
-
-    drawBuilding(ctx, building, sx, sy, tw, th) {
-        const z = Camera.zoom;
-        const bDef = CONFIG.BUILDINGS[building.type.toUpperCase()] || {};
-        const bh = 20 * z;
-
-        const bw = tw * 0.6;
-        const bd = th * 0.6;
-
-        // Left face
-        ctx.beginPath();
-        ctx.moveTo(sx - bw / 2, sy - th / 4);
-        ctx.lineTo(sx, sy - th / 4 + bd / 2);
-        ctx.lineTo(sx, sy - th / 4 + bd / 2 - bh);
-        ctx.lineTo(sx - bw / 2, sy - th / 4 - bh);
-        ctx.closePath();
-        ctx.fillStyle = this.getBuildingColor(building.type, 'left');
-        ctx.fill();
-        ctx.strokeStyle = '#2a2015';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // Right face
-        ctx.beginPath();
-        ctx.moveTo(sx + bw / 2, sy - th / 4);
-        ctx.lineTo(sx, sy - th / 4 + bd / 2);
-        ctx.lineTo(sx, sy - th / 4 + bd / 2 - bh);
-        ctx.lineTo(sx + bw / 2, sy - th / 4 - bh);
-        ctx.closePath();
-        ctx.fillStyle = this.getBuildingColor(building.type, 'right');
-        ctx.fill();
-        ctx.strokeStyle = '#2a2015';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // Top face (roof)
-        ctx.beginPath();
-        ctx.moveTo(sx, sy - th / 4 - bh);
-        ctx.lineTo(sx + bw / 2, sy - th / 4 - bh);
-        ctx.lineTo(sx, sy - th / 4 + bd / 2 - bh);
-        ctx.lineTo(sx - bw / 2, sy - th / 4 - bh);
-        ctx.closePath();
-        ctx.fillStyle = this.getBuildingColor(building.type, 'top');
-        ctx.fill();
-        ctx.strokeStyle = '#2a2015';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // Building icon
-        const fontSize = Math.max(10, 14 * z);
-        ctx.font = `${fontSize}px serif`;
+        ctx.font = `${iconSize}px serif`;
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#fff';
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 2;
-        const icon = bDef.icon || '?';
-        const iy = sy - th / 4 - bh / 2;
-        ctx.strokeText(icon, sx, iy);
-        ctx.fillText(icon, sx, iy);
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 6;
+        ctx.fillText('\u{1F3F0}', sx, sy);
+        ctx.shadowBlur = 0;
 
-        // Level indicator for town hall
-        if (building.type === 'town_hall' && building.level > 1) {
-            ctx.font = `bold ${Math.max(8, 10 * z)}px sans-serif`;
-            ctx.fillStyle = '#e2b714';
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 2;
-            ctx.strokeText('Nv.' + building.level, sx, sy - th / 4 - bh - 4 * z);
-            ctx.fillText('Nv.' + building.level, sx, sy - th / 4 - bh - 4 * z);
-        }
-    },
-
-    getBuildingColor(type, face) {
-        const colors = {
-            town_hall: { left: '#6B5540', right: '#7D6550', top: '#A08060' },
-            house: { left: '#7A5828', right: '#8A6838', top: '#A58050' },
-            farm: { left: '#6B6B20', right: '#7A7A30', top: '#9A9A40' },
-            sawmill: { left: '#5A3520', right: '#6A4530', top: '#8A6550' },
-            mine: { left: '#4A4A4A', right: '#5A5A5A', top: '#707070' },
-            market: { left: '#7A3A18', right: '#8A4A28', top: '#AA6A40' },
-            barracks: { left: '#4A1010', right: '#5A2020', top: '#7A3838' },
-            stable: { left: '#3A5020', right: '#4A6030', top: '#6A8048' },
-            siege_workshop: { left: '#3A3A3A', right: '#4A4A4A', top: '#6A6A6A' },
-            watchtower: { left: '#5A5A6A', right: '#6A6A7A', top: '#8A8A9A' },
-            wall: { left: '#606060', right: '#707070', top: '#909090' }
-        };
-        const c = colors[type] || { left: '#555', right: '#666', top: '#888' };
-        return c[face];
-    },
-
-    drawFogTile(ctx, sx, sy, tw, th) {
-        this.drawIsoDiamond(ctx, sx, sy, tw, th);
-        ctx.fillStyle = '#0e1820';
-        ctx.fill();
-        ctx.strokeStyle = '#152030';
-        ctx.lineWidth = 0.3;
-        ctx.stroke();
-    },
-
-    drawDimOverlay(ctx, sx, sy, tw, th) {
-        this.drawIsoDiamond(ctx, sx, sy, tw, th);
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.fill();
-    },
-
-    drawSelectionHighlight(ctx, sx, sy, tw, th) {
-        this.drawIsoDiamond(ctx, sx, sy, tw + 2, th + 2);
-        ctx.strokeStyle = '#e2b714';
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
-        this.drawIsoDiamond(ctx, sx, sy, tw + 2, th + 2);
-        ctx.fillStyle = 'rgba(226,183,20,0.15)';
-        ctx.fill();
-    },
-
-    drawBuildPreview(ctx, tw, th) {
-        if (!Game.buildMode || !Game._hoverTile) return;
-        const hx = Game._hoverTile.x;
-        const hy = Game._hoverTile.y;
-        const screen = Camera.tileToScreen(hx, hy);
-        const sx = screen.x - Camera.x;
-        const sy = screen.y - Camera.y;
-
-        const tile = GameMap.getTile(hx, hy);
-        const canPlace = tile && Game.canPlaceBuilding(hx, hy, Game.buildMode);
-
-        this.drawIsoDiamond(ctx, sx, sy, tw, th);
-        ctx.fillStyle = canPlace ? 'rgba(46,204,113,0.3)' : 'rgba(231,76,60,0.3)';
-        ctx.fill();
-        ctx.strokeStyle = canPlace ? '#2ecc71' : '#e74c3c';
+        // Glow ring
+        ctx.beginPath();
+        ctx.arc(sx, sy, iconSize * 0.6, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(200,168,74,0.4)';
         ctx.lineWidth = 2;
         ctx.stroke();
     },
 
     renderMinimap() {
-        const mctx = this.minimapCtx;
-        const mw = this.minimapCanvas.width;
-        const mh = this.minimapCanvas.height;
-        mctx.clearRect(0, 0, mw, mh);
-        mctx.fillStyle = '#0e1820';
-        mctx.fillRect(0, 0, mw, mh);
-
-        const scaleX = mw / CONFIG.MAP_WIDTH;
-        const scaleY = mh / CONFIG.MAP_HEIGHT;
-
-        // Minimap terrain colors (flat, realistic)
-        const minimapColors = {
-            0: '#296294',  // water
-            1: '#a8be52',  // plains
-            2: '#62a03a',  // grass
-            3: '#225528',  // forest
-            4: '#8c7855',  // hills
-            5: '#878782',  // mountain
-        };
-
-        for (let y = 0; y < CONFIG.MAP_HEIGHT; y++) {
-            for (let x = 0; x < CONFIG.MAP_WIDTH; x++) {
-                const tile = GameMap.tiles[y][x];
-                if (!tile.explored) continue;
-
-                if (tile.owner >= 0) {
-                    const region = GameMap.getRegion(tile.owner);
-                    mctx.fillStyle = region ? region.color : '#333';
-                } else {
-                    mctx.fillStyle = minimapColors[tile.terrain] || '#333';
-                }
-                mctx.fillRect(x * scaleX, y * scaleY, scaleX + 0.5, scaleY + 0.5);
-            }
-        }
-
-        // Draw camera viewport rectangle
-        const topLeft = Camera.screenToTile(0, 0);
-        const bottomRight = Camera.screenToTile(this.canvas.width, this.canvas.height);
-        mctx.strokeStyle = '#fff';
-        mctx.lineWidth = 1;
-        mctx.strokeRect(
-            topLeft.x * scaleX, topLeft.y * scaleY,
-            (bottomRight.x - topLeft.x) * scaleX,
-            (bottomRight.y - topLeft.y) * scaleY
-        );
+        // No minimap for now
     }
 };
 
 
 // === js/camera.js ===
-// Camera / viewport management for isometric view
+// Camera for top-down 2D view
 const Camera = {
     x: 0,
     y: 0,
     zoom: 1,
     minZoom: 0.3,
-    maxZoom: 2.5,
+    maxZoom: 4,
     dragging: false,
     dragStartX: 0,
     dragStartY: 0,
     camStartX: 0,
     camStartY: 0,
+    _dragDist: 0,
+    _keys: {},
 
     init(canvas) {
         this.canvas = canvas;
-        this.centerOnTile(Math.floor(CONFIG.MAP_WIDTH / 2), Math.floor(CONFIG.MAP_HEIGHT / 2));
+
+        // Center on map middle
+        const mapPixelW = GameMap.width * CONFIG.CELL_SIZE * this.zoom;
+        const mapPixelH = GameMap.height * CONFIG.CELL_SIZE * this.zoom;
+        this.x = mapPixelW / 2 - canvas.width / 2;
+        this.y = mapPixelH / 2 - canvas.height / 2;
 
         canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
         canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
         canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
         canvas.addEventListener('mouseleave', () => this.dragging = false);
-        canvas.addEventListener('wheel', (e) => this.onWheel(e));
+        canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-        // Touch support
+        // Touch
         canvas.addEventListener('touchstart', (e) => this.onTouchStart(e));
-        canvas.addEventListener('touchmove', (e) => this.onTouchMove(e));
+        canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
         canvas.addEventListener('touchend', () => this.dragging = false);
 
         // Keyboard
-        this._keys = {};
         window.addEventListener('keydown', (e) => this._keys[e.key] = true);
         window.addEventListener('keyup', (e) => this._keys[e.key] = false);
     },
 
     update() {
-        const speed = 8 / this.zoom;
+        const speed = 6 / this.zoom;
         if (this._keys['ArrowLeft'] || this._keys['a']) this.x -= speed;
         if (this._keys['ArrowRight'] || this._keys['d']) this.x += speed;
         if (this._keys['ArrowUp'] || this._keys['w']) this.y -= speed;
         if (this._keys['ArrowDown'] || this._keys['s']) this.y += speed;
+
+        this._clamp();
     },
 
-    centerOnTile(tx, ty) {
-        const iso = this.tileToScreen(tx, ty);
-        this.x = iso.x - this.canvas.width / 2;
-        this.y = iso.y - this.canvas.height / 2;
+    _clamp() {
+        const mapW = GameMap.width * CONFIG.CELL_SIZE * this.zoom;
+        const mapH = GameMap.height * CONFIG.CELL_SIZE * this.zoom;
+        this.x = Math.max(-this.canvas.width / 2, Math.min(mapW - this.canvas.width / 2, this.x));
+        this.y = Math.max(-this.canvas.height / 2, Math.min(mapH - this.canvas.height / 2, this.y));
     },
 
-    tileToScreen(tx, ty) {
-        const tw = CONFIG.TILE_WIDTH * this.zoom;
-        const th = CONFIG.TILE_HEIGHT * this.zoom;
+    centerOnCell(cx, cy) {
+        const cellSize = CONFIG.CELL_SIZE * this.zoom;
+        this.x = (cx + 0.5) * cellSize - this.canvas.width / 2;
+        this.y = (cy + 0.5) * cellSize - this.canvas.height / 2;
+        this._clamp();
+    },
+
+    screenToCell(sx, sy) {
+        const worldX = (sx + this.x) / (CONFIG.CELL_SIZE * this.zoom);
+        const worldY = (sy + this.y) / (CONFIG.CELL_SIZE * this.zoom);
         return {
-            x: (tx - ty) * (tw / 2),
-            y: (tx + ty) * (th / 2)
+            x: Math.floor(worldX),
+            y: Math.floor(worldY)
         };
-    },
-
-    screenToTile(sx, sy) {
-        const px = sx + this.x;
-        const py = sy + this.y;
-        const tw = CONFIG.TILE_WIDTH * this.zoom;
-        const th = CONFIG.TILE_HEIGHT * this.zoom;
-        const tx = Math.floor((px / (tw / 2) + py / (th / 2)) / 2);
-        const ty = Math.floor((py / (th / 2) - px / (tw / 2)) / 2);
-        return { x: tx, y: ty };
     },
 
     onMouseDown(e) {
@@ -2538,6 +1355,7 @@ const Camera = {
             this._dragDist = Math.abs(dx) + Math.abs(dy);
             this.x = this.camStartX - dx;
             this.y = this.camStartY - dy;
+            this._clamp();
         }
     },
 
@@ -2548,9 +1366,9 @@ const Camera = {
             const rect = this.canvas.getBoundingClientRect();
             const sx = e.clientX - rect.left;
             const sy = e.clientY - rect.top;
-            const tile = this.screenToTile(sx, sy);
-            if (typeof Game !== 'undefined') {
-                Game.onTileClick(tile.x, tile.y);
+            const cell = this.screenToCell(sx, sy);
+            if (typeof Game !== 'undefined' && Game.onMapClick) {
+                Game.onMapClick(cell.x, cell.y);
             }
         }
     },
@@ -2566,12 +1384,11 @@ const Camera = {
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
 
-        // Adjust camera so the world point under the mouse stays fixed
-        const worldXBefore = mx + this.x;
-        const worldYBefore = my + this.y;
-        const scale = this.zoom / oldZoom;
-        this.x = worldXBefore * scale - mx;
-        this.y = worldYBefore * scale - my;
+        const worldXBefore = (mx + this.x) / oldZoom;
+        const worldYBefore = (my + this.y) / oldZoom;
+        this.x = worldXBefore * this.zoom - mx;
+        this.y = worldYBefore * this.zoom - my;
+        this._clamp();
     },
 
     onTouchStart(e) {
@@ -2591,1589 +1408,22 @@ const Camera = {
             const dy = e.touches[0].clientY - this.dragStartY;
             this.x = this.camStartX - dx;
             this.y = this.camStartY - dy;
+            this._clamp();
         }
-    },
-
-    getVisibleBounds() {
-        const topLeft = this.screenToTile(0, 0);
-        const topRight = this.screenToTile(this.canvas.width, 0);
-        const bottomLeft = this.screenToTile(0, this.canvas.height);
-        const bottomRight = this.screenToTile(this.canvas.width, this.canvas.height);
-
-        return {
-            minX: Math.max(0, Math.min(topLeft.x, bottomLeft.x) - 2),
-            maxX: Math.min(CONFIG.MAP_WIDTH - 1, Math.max(topRight.x, bottomRight.x) + 2),
-            minY: Math.max(0, Math.min(topLeft.y, topRight.y) - 2),
-            maxY: Math.min(CONFIG.MAP_HEIGHT - 1, Math.max(bottomLeft.y, bottomRight.y) + 2)
-        };
-    }
-};
-
-
-// === js/resources.js ===
-// Resource management
-const Resources = {
-    wood: 0,
-    stone: 0,
-    food: 0,
-    gold: 0,
-    rates: { wood: 0, stone: 0, food: 0, gold: 0 },
-
-    init() {
-        this.wood = CONFIG.START_RESOURCES.wood;
-        this.stone = CONFIG.START_RESOURCES.stone;
-        this.food = CONFIG.START_RESOURCES.food;
-        this.gold = CONFIG.START_RESOURCES.gold;
-        this.updateRates();
-    },
-
-    canAfford(cost) {
-        return (!cost.wood || this.wood >= cost.wood) &&
-               (!cost.stone || this.stone >= cost.stone) &&
-               (!cost.food || this.food >= cost.food) &&
-               (!cost.gold || this.gold >= cost.gold);
-    },
-
-    spend(cost) {
-        if (!this.canAfford(cost)) return false;
-        if (cost.wood) this.wood -= cost.wood;
-        if (cost.stone) this.stone -= cost.stone;
-        if (cost.food) this.food -= cost.food;
-        if (cost.gold) this.gold -= cost.gold;
-        return true;
-    },
-
-    add(type, amount) {
-        this[type] = Math.max(0, (this[type] || 0) + amount);
-    },
-
-    updateRates() {
-        const rates = { wood: 0, stone: 0, food: 0, gold: 0 };
-
-        // Production from buildings
-        for (let y = 0; y < CONFIG.MAP_HEIGHT; y++) {
-            for (let x = 0; x < CONFIG.MAP_WIDTH; x++) {
-                const tile = GameMap.tiles[y][x];
-                if (tile.owner !== 0 || !tile.building) continue;
-                const bType = tile.building.type.toUpperCase();
-                const bDef = CONFIG.BUILDINGS[bType];
-                if (bDef && bDef.production) {
-                    for (const [res, amt] of Object.entries(bDef.production)) {
-                        rates[res] += amt;
-                    }
-                }
-            }
-        }
-
-        // Food consumption
-        const popCount = Population.villagers.length;
-        rates.food -= popCount * CONFIG.FOOD_PER_POP;
-
-        // Tax income from population (small gold per 5 people)
-        rates.gold += Math.floor(popCount / 5);
-
-        // Tech bonuses
-        if (TechTree.isResearched('better_farms')) rates.food += 4;
-        if (TechTree.isResearched('advanced_commerce')) rates.gold += 5;
-        if (TechTree.isResearched('forestry')) rates.wood += 3;
-        if (TechTree.isResearched('masonry')) rates.stone += 3;
-
-        this.rates = rates;
-    },
-
-    processCycle() {
-        this.updateRates();
-        this.wood = Math.max(0, this.wood + this.rates.wood);
-        this.stone = Math.max(0, this.stone + this.rates.stone);
-        this.food = Math.max(0, this.food + this.rates.food);
-        this.gold = Math.max(0, this.gold + this.rates.gold);
-
-        // Starvation check
-        if (this.food <= 0 && this.rates.food < 0) {
-            Population.adjustMoral(-15);
-            Notifications.add('Famine ! La population souffre de la faim.', 'alert');
-        }
-    },
-
-    updateUI() {
-        document.getElementById('wood-count').textContent = Math.floor(this.wood);
-        document.getElementById('stone-count').textContent = Math.floor(this.stone);
-        document.getElementById('food-count').textContent = Math.floor(this.food);
-        document.getElementById('gold-count').textContent = Math.floor(this.gold);
-
-        const formatRate = (r) => (r >= 0 ? '+' : '') + r;
-        document.getElementById('wood-rate').textContent = formatRate(this.rates.wood);
-        document.getElementById('stone-rate').textContent = formatRate(this.rates.stone);
-        document.getElementById('food-rate').textContent = formatRate(this.rates.food);
-        document.getElementById('gold-rate').textContent = formatRate(this.rates.gold);
-    },
-
-    serialize() {
-        return { wood: this.wood, stone: this.stone, food: this.food, gold: this.gold };
-    },
-
-    deserialize(data) {
-        this.wood = data.wood;
-        this.stone = data.stone;
-        this.food = data.food;
-        this.gold = data.gold;
-        this.updateRates();
-    }
-};
-
-
-// === js/buildings.js ===
-// Building placement and management
-const Buildings = {
-    playerBuildings: [],
-
-    getTownHallLevel() {
-        for (const b of this.playerBuildings) {
-            if (b.type === 'town_hall') return b.level || 1;
-        }
-        return 0;
-    },
-
-    canBuild(buildingId) {
-        const bKey = buildingId.toUpperCase();
-        const bDef = CONFIG.BUILDINGS[bKey];
-        if (!bDef) return false;
-
-        // Check town hall requirement
-        if (bDef.requiresTownHall && this.getTownHallLevel() < bDef.requiresTownHall) {
-            return false;
-        }
-
-        // Check resources
-        return Resources.canAfford(bDef.cost);
-    },
-
-    getAvailableBuildings() {
-        const available = [];
-        const thLevel = this.getTownHallLevel();
-
-        for (const [key, bDef] of Object.entries(CONFIG.BUILDINGS)) {
-            if (key === 'TOWN_HALL') continue; // only placed once at start
-            if (bDef.requiresTownHall && thLevel < bDef.requiresTownHall) continue;
-            available.push({ key: key.toLowerCase(), ...bDef });
-        }
-        return available;
-    },
-
-    placeBuilding(x, y, buildingId) {
-        const bKey = buildingId.toUpperCase();
-        const bDef = CONFIG.BUILDINGS[bKey];
-        if (!bDef) return false;
-
-        const tile = GameMap.getTile(x, y);
-        if (!tile) return false;
-
-        // Validate terrain
-        if (bDef.validTerrain && !bDef.validTerrain.includes(tile.terrain)) {
-            Notifications.add(`${bDef.name} ne peut pas etre place sur ce terrain.`, 'alert');
-            return false;
-        }
-
-        // Can't build on water or existing building
-        if (tile.terrain === CONFIG.TERRAIN.WATER) return false;
-        if (tile.building) {
-            Notifications.add('Il y a deja un batiment ici.', 'alert');
-            return false;
-        }
-
-        // Must be player territory
-        if (tile.owner !== 0) {
-            Notifications.add('Vous ne pouvez construire que sur votre territoire.', 'alert');
-            return false;
-        }
-
-        // Spend resources
-        if (!Resources.spend(bDef.cost)) {
-            Notifications.add('Ressources insuffisantes !', 'alert');
-            return false;
-        }
-
-        const building = {
-            type: buildingId.toLowerCase(),
-            x, y,
-            level: 1,
-            built: true
-        };
-
-        tile.building = building;
-        this.playerBuildings.push(building);
-
-        // Increase pop cap for houses
-        if (bDef.popIncrease) {
-            Population.maxPop += bDef.popIncrease;
-        }
-
-        // Vision for watchtower
-        if (buildingId === 'watchtower') {
-            GameMap.revealArea(x, y, bDef.visionRange + 3);
-        }
-
-        Resources.updateRates();
-        Notifications.add(`${bDef.name} construit !`, 'success');
-        return true;
-    },
-
-    placeTownHall(x, y) {
-        const tile = GameMap.getTile(x, y);
-        if (!tile) return;
-        const building = {
-            type: 'town_hall',
-            x, y,
-            level: 1,
-            built: true
-        };
-        tile.building = building;
-        this.playerBuildings.push(building);
-        GameMap.revealArea(x, y, CONFIG.VISION_RADIUS);
-    },
-
-    upgradeTownHall() {
-        const th = this.playerBuildings.find(b => b.type === 'town_hall');
-        if (!th || th.level >= 5) return false;
-
-        const cost = {
-            wood: 50 * th.level,
-            stone: 50 * th.level,
-            food: 20 * th.level,
-            gold: 30 * th.level
-        };
-
-        if (!Resources.spend(cost)) {
-            Notifications.add('Ressources insuffisantes pour ameliorer !', 'alert');
-            return false;
-        }
-
-        th.level++;
-        Notifications.add(`Hotel de ville ameliore au niveau ${th.level} !`, 'success');
-        return true;
-    },
-
-    getDefenseBonus() {
-        let defense = 0;
-        for (const b of this.playerBuildings) {
-            if (b.type === 'wall') defense += CONFIG.BUILDINGS.WALL.defense;
-        }
-        if (TechTree.isResearched('fortifications')) defense += 15;
-        return defense;
-    },
-
-    hasBuilding(type) {
-        return this.playerBuildings.some(b => b.type === type);
-    },
-
-    countBuilding(type) {
-        return this.playerBuildings.filter(b => b.type === type).length;
-    },
-
-    serialize() {
-        return this.playerBuildings.map(b => ({
-            type: b.type, x: b.x, y: b.y, level: b.level
-        }));
-    },
-
-    deserialize(data) {
-        this.playerBuildings = [];
-        for (const bd of data) {
-            const tile = GameMap.getTile(bd.x, bd.y);
-            if (tile) {
-                const building = { type: bd.type, x: bd.x, y: bd.y, level: bd.level || 1, built: true };
-                tile.building = building;
-                this.playerBuildings.push(building);
-            }
-        }
-    }
-};
-
-
-// === js/population.js ===
-// Population and villager management
-const Population = {
-    villagers: [],
-    maxPop: 5,
-    moral: 100,
-    nextId: 1,
-
-    init() {
-        this.villagers = [];
-        this.maxPop = 5;
-        this.moral = 100;
-        this.nextId = 1;
-        // Start with 3 villagers
-        for (let i = 0; i < 3; i++) {
-            this.addVillager();
-        }
-    },
-
-    addVillager(role) {
-        if (this.villagers.length >= this.maxPop) return null;
-
-        const name = CONFIG.FIRST_NAMES[Math.floor(Perlin.random() * CONFIG.FIRST_NAMES.length)];
-        const villager = {
-            id: this.nextId++,
-            name: name,
-            role: role || 'Paysan',
-            moral: 80 + Math.floor(Perlin.random() * 20)
-        };
-        this.villagers.push(villager);
-        return villager;
-    },
-
-    removeVillager(id) {
-        this.villagers = this.villagers.filter(v => v.id !== id);
-    },
-
-    setRole(id, role) {
-        const v = this.villagers.find(v => v.id === id);
-        if (v) v.role = role;
-    },
-
-    getCountByRole(role) {
-        return this.villagers.filter(v => v.role === role).length;
-    },
-
-    adjustMoral(amount) {
-        this.moral = Math.max(0, Math.min(100, this.moral + amount));
-    },
-
-    processCycle() {
-        // Check housing
-        if (this.villagers.length > this.maxPop) {
-            // Some leave
-            const excess = this.villagers.length - this.maxPop;
-            for (let i = 0; i < excess; i++) {
-                this.villagers.pop();
-            }
-            Notifications.add('Des villageois partent faute de logement !', 'alert');
-        }
-
-        // Moral adjustments
-        if (Resources.food > 0) {
-            this.adjustMoral(2); // fed
-        }
-        if (this.villagers.length < this.maxPop * 0.5) {
-            this.adjustMoral(1); // plenty of room
-        }
-
-        // Growth: chance to gain a villager if moral is good and there's room
-        if (this.villagers.length < this.maxPop && this.moral > 60 && Perlin.random() < 0.25) {
-            const v = this.addVillager();
-            if (v) Notifications.add(`${v.name} a rejoint votre village !`, 'success');
-        }
-
-        // Rebellion at 0 moral
-        if (this.moral <= 0) {
-            const deserters = Math.ceil(this.villagers.length * 0.3);
-            for (let i = 0; i < deserters && this.villagers.length > 0; i++) {
-                this.villagers.pop();
-            }
-            this.moral = 20;
-            Notifications.add('Rebellion ! Des villageois desertent !', 'alert');
-        }
-
-        // Apply role-based bonuses (workers boost production beyond base building rate)
-        // Farmers
-        const farmers = this.getCountByRole('Fermier');
-        if (farmers > 0) Resources.add('food', farmers * 2);
-        // Woodcutters
-        const woodcutters = this.getCountByRole('Bucheron');
-        if (woodcutters > 0) Resources.add('wood', woodcutters * 2);
-        // Miners
-        const miners = this.getCountByRole('Mineur');
-        if (miners > 0) Resources.add('stone', miners * 2);
-        // Merchants
-        const merchants = this.getCountByRole('Marchand');
-        if (merchants > 0) Resources.add('gold', merchants * 2);
-    },
-
-    updateUI() {
-        document.getElementById('pop-count').textContent = this.villagers.length;
-        document.getElementById('pop-max').textContent = this.maxPop;
-        document.getElementById('moral-value').textContent = this.moral;
-    },
-
-    serialize() {
-        return {
-            villagers: this.villagers,
-            maxPop: this.maxPop,
-            moral: this.moral,
-            nextId: this.nextId
-        };
-    },
-
-    deserialize(data) {
-        this.villagers = data.villagers;
-        this.maxPop = data.maxPop;
-        this.moral = data.moral;
-        this.nextId = data.nextId;
-    }
-};
-
-
-// === js/military.js ===
-// Military unit management
-const Military = {
-    units: { warrior: 0, archer: 0, cavalry: 0, siege: 0 },
-
-    canRecruit(unitId) {
-        const uDef = CONFIG.UNITS[unitId.toUpperCase()];
-        if (!uDef) return false;
-
-        // Check building requirement
-        if (!Buildings.hasBuilding(uDef.building)) return false;
-
-        // Check resources
-        return Resources.canAfford(uDef.cost);
-    },
-
-    recruit(unitId) {
-        const uDef = CONFIG.UNITS[unitId.toUpperCase()];
-        if (!uDef) return false;
-
-        if (!Buildings.hasBuilding(uDef.building)) {
-            Notifications.add(`Construisez d'abord : ${uDef.building}`, 'alert');
-            return false;
-        }
-
-        if (!Resources.spend(uDef.cost)) {
-            Notifications.add('Ressources insuffisantes !', 'alert');
-            return false;
-        }
-
-        this.units[unitId.toLowerCase()]++;
-        Notifications.add(`${uDef.name} recrute !`, 'success');
-        return true;
-    },
-
-    getTotalUnits() {
-        return Object.values(this.units).reduce((a, b) => a + b, 0);
-    },
-
-    getArmyStrength(army) {
-        let attack = 0, defense = 0, hp = 0;
-        for (const [type, count] of Object.entries(army)) {
-            const uDef = CONFIG.UNITS[type.toUpperCase()];
-            if (!uDef || count <= 0) continue;
-            attack += uDef.attack * count;
-            defense += uDef.defense * count;
-            hp += uDef.hp * count;
-        }
-
-        // Tech bonuses
-        if (TechTree.isResearched('steel_weapons')) attack = Math.floor(attack * 1.2);
-        if (TechTree.isResearched('armor_plating')) defense = Math.floor(defense * 1.2);
-        if (TechTree.isResearched('battle_tactics')) {
-            attack = Math.floor(attack * 1.1);
-            defense = Math.floor(defense * 1.1);
-        }
-
-        // Moral bonus
-        const moralMod = Population.moral / 100;
-        attack = Math.floor(attack * (0.5 + moralMod * 0.5));
-
-        return { attack, defense, hp };
-    },
-
-    removeUnits(losses) {
-        for (const [type, count] of Object.entries(losses)) {
-            this.units[type] = Math.max(0, (this.units[type] || 0) - count);
-        }
-    },
-
-    serialize() {
-        return { ...this.units };
-    },
-
-    deserialize(data) {
-        this.units = { warrior: 0, archer: 0, cavalry: 0, siege: 0, ...data };
-    }
-};
-
-
-// === js/combat.js ===
-// Combat system - abstract strategic battles
-const Combat = {
-    currentBattle: null,
-
-    initBattle(targetRegion, army) {
-        // Calculate defender strength
-        const defenderStrength = this.getDefenderStrength(targetRegion);
-        const attackerStrength = Military.getArmyStrength(army);
-
-        this.currentBattle = {
-            targetRegion,
-            army: { ...army },
-            attackerStrength,
-            defenderStrength,
-            result: null
-        };
-
-        this.showBattleSetup();
-    },
-
-    getDefenderStrength(region) {
-        // Base strength based on region type and size
-        let base = region.tiles.length * 2;
-
-        if (region.type === 'bandit') {
-            base = 30 + region.tiles.length * 3;
-        } else if (region.type === 'empire') {
-            base = 100 + region.tiles.length * 5;
-        } else {
-            // Rival kingdom - scales with game time
-            base = 50 + region.tiles.length * 4 + (typeof Game !== 'undefined' ? Game.year * 5 : 0);
-        }
-
-        return {
-            attack: Math.floor(base * 0.8),
-            defense: Math.floor(base),
-            hp: Math.floor(base * 3)
-        };
-    },
-
-    resolveBattle() {
-        if (!this.currentBattle) return null;
-
-        const { attackerStrength, defenderStrength, army, targetRegion } = this.currentBattle;
-
-        // Combat resolution with random modifier
-        const attackRoll = (attackerStrength.attack + attackerStrength.hp * 0.3) *
-                          (0.85 + Perlin.random() * 0.3);
-        const defendRoll = (defenderStrength.defense + defenderStrength.hp * 0.3) *
-                          (0.85 + Perlin.random() * 0.3);
-
-        // Siege bonus against fortified regions
-        if (army.siege > 0) {
-            // Siege units are very effective
-        }
-
-        const attackerScore = attackRoll;
-        const defenderScore = defendRoll;
-
-        const victory = attackerScore > defenderScore;
-        const dominance = victory ?
-            attackerScore / Math.max(1, defenderScore) :
-            defenderScore / Math.max(1, attackerScore);
-
-        // Calculate losses
-        const lossFactor = victory ? Math.max(0.1, 1 - dominance * 0.3) : Math.min(0.9, 0.3 + dominance * 0.2);
-        const losses = {};
-        for (const [type, count] of Object.entries(army)) {
-            if (count > 0) {
-                losses[type] = Math.max(1, Math.floor(count * lossFactor));
-                if (victory && dominance > 2) losses[type] = Math.max(0, Math.floor(count * 0.1));
-            }
-        }
-
-        this.currentBattle.result = {
-            victory,
-            losses,
-            attackerScore: Math.floor(attackerScore),
-            defenderScore: Math.floor(defenderScore)
-        };
-
-        // Apply losses
-        Military.removeUnits(losses);
-
-        // Apply result
-        if (victory) {
-            GameMap.annexRegion(targetRegion.id, 0);
-            Population.adjustMoral(10);
-            Notifications.add(`Victoire ! ${targetRegion.name} conquis !`, 'success');
-        } else {
-            Population.adjustMoral(-10);
-            Notifications.add(`Defaite contre ${targetRegion.name}...`, 'alert');
-        }
-
-        this.showBattleResult();
-        return this.currentBattle.result;
-    },
-
-    showBattleSetup() {
-        const screen = document.getElementById('battle-screen');
-        const content = document.getElementById('battle-content');
-        const setup = document.getElementById('battle-setup');
-        const result = document.getElementById('battle-result');
-
-        const battle = this.currentBattle;
-
-        content.innerHTML = `
-            <h3>Attaque de : ${battle.targetRegion.name}</h3>
-            <div class="battle-forces">
-                <div class="battle-side">
-                    <h4>Votre Armee</h4>
-                    ${this.formatArmy(battle.army)}
-                    <div class="unit-line"><strong>Force: ${battle.attackerStrength.attack + battle.attackerStrength.defense}</strong></div>
-                </div>
-                <div class="battle-side">
-                    <h4>Defenseurs</h4>
-                    <div class="unit-line">Force estimee: ~${battle.defenderStrength.attack + battle.defenderStrength.defense}</div>
-                    <div class="unit-line">Type: ${battle.targetRegion.type || 'rival'}</div>
-                </div>
-            </div>
-        `;
-
-        setup.style.display = 'block';
-        result.style.display = 'none';
-        screen.classList.add('active');
-    },
-
-    showBattleResult() {
-        const setup = document.getElementById('battle-setup');
-        const result = document.getElementById('battle-result');
-        const report = document.getElementById('battle-report');
-
-        const battle = this.currentBattle;
-        const r = battle.result;
-
-        let lossText = '';
-        for (const [type, count] of Object.entries(r.losses)) {
-            if (count > 0) {
-                const uDef = CONFIG.UNITS[type.toUpperCase()];
-                lossText += `<div>${uDef ? uDef.name : type}: -${count}</div>`;
-            }
-        }
-
-        report.innerHTML = `
-            <h3 style="color:${r.victory ? '#2ecc71' : '#e74c3c'}">${r.victory ? 'VICTOIRE !' : 'DEFAITE...'}</h3>
-            <div>Score attaque: ${r.attackerScore} vs Defense: ${r.defenderScore}</div>
-            <div style="margin-top:8px"><strong>Pertes:</strong></div>
-            ${lossText || '<div>Aucune perte !</div>'}
-            ${r.victory ? '<div style="margin-top:8px;color:#2ecc71">Territoire annexe !</div>' : ''}
-        `;
-
-        setup.style.display = 'none';
-        result.style.display = 'block';
-    },
-
-    formatArmy(army) {
-        let html = '';
-        for (const [type, count] of Object.entries(army)) {
-            if (count > 0) {
-                const uDef = CONFIG.UNITS[type.toUpperCase()];
-                html += `<div class="unit-line">${uDef ? uDef.icon : ''} ${uDef ? uDef.name : type}: ${count}</div>`;
-            }
-        }
-        return html || '<div class="unit-line">Aucune unite</div>';
-    },
-
-    closeBattle() {
-        document.getElementById('battle-screen').classList.remove('active');
-        this.currentBattle = null;
-    }
-};
-
-
-// === js/factions.js ===
-// AI Factions - rival kingdoms, bandits, and empires
-const Factions = {
-    factionData: {},
-
-    init() {
-        this.factionData = {};
-        for (const region of GameMap.regions) {
-            if (region.isPlayer) continue;
-            if (region.faction === -99) continue;
-
-            this.factionData[region.id] = {
-                regionId: region.id,
-                type: region.type || 'rival',
-                strength: this.getInitialStrength(region),
-                aggression: region.type === 'bandit' ? 0.6 : (region.type === 'empire' ? 0.3 : 0.4),
-                lastAttack: -10,
-                growthRate: region.type === 'empire' ? 8 : (region.type === 'bandit' ? 2 : 5)
-            };
-        }
-    },
-
-    getInitialStrength(region) {
-        if (region.type === 'bandit') return 20 + Math.floor(Perlin.random() * 30);
-        if (region.type === 'empire') return 80 + Math.floor(Perlin.random() * 60);
-        return 40 + Math.floor(Perlin.random() * 40);
-    },
-
-    processCycle(year, season) {
-        for (const [id, data] of Object.entries(this.factionData)) {
-            const region = GameMap.getRegion(parseInt(id));
-            if (!region || region.faction === -99 || region.tiles.length === 0) continue;
-
-            // Growth
-            data.strength += data.growthRate;
-
-            // Expansion: AI tries to claim adjacent unclaimed tiles
-            if (Perlin.random() < 0.3) {
-                this.expandTerritory(region);
-            }
-
-            // Attack player?
-            if (this.shouldAttackPlayer(data, year)) {
-                this.attackPlayer(region, data);
-            }
-        }
-    },
-
-    expandTerritory(region) {
-        // Grab some adjacent unclaimed tiles
-        const newTiles = [];
-        for (const t of region.tiles) {
-            const neighbors = [
-                { x: t.x - 1, y: t.y }, { x: t.x + 1, y: t.y },
-                { x: t.x, y: t.y - 1 }, { x: t.x, y: t.y + 1 }
-            ];
-            for (const n of neighbors) {
-                const tile = GameMap.getTile(n.x, n.y);
-                if (tile && tile.owner === -1 && tile.terrain !== CONFIG.TERRAIN.WATER) {
-                    if (Perlin.random() < 0.15) {
-                        tile.owner = region.id;
-                        newTiles.push({ x: n.x, y: n.y });
-                    }
-                }
-            }
-        }
-        region.tiles.push(...newTiles);
-    },
-
-    shouldAttackPlayer(data, year) {
-        if (year < 2) return false; // grace period
-        if (year - data.lastAttack < 3) return false; // cooldown
-        if (data.strength < 30) return false;
-
-        // Check adjacency with player
-        const region = GameMap.getRegion(data.regionId);
-        if (!region) return false;
-
-        const playerRegion = GameMap.getPlayerRegion();
-        if (!playerRegion) return false;
-
-        // Check if actually adjacent
-        let adjacent = false;
-        for (const t of region.tiles) {
-            const neighbors = [
-                { x: t.x - 1, y: t.y }, { x: t.x + 1, y: t.y },
-                { x: t.x, y: t.y - 1 }, { x: t.x, y: t.y + 1 }
-            ];
-            for (const n of neighbors) {
-                const tile = GameMap.getTile(n.x, n.y);
-                if (tile && tile.owner === playerRegion.id) {
-                    adjacent = true;
-                    break;
-                }
-            }
-            if (adjacent) break;
-        }
-
-        if (!adjacent) return false;
-
-        return Perlin.random() < data.aggression * 0.15;
-    },
-
-    attackPlayer(region, data) {
-        data.lastAttack = typeof Game !== 'undefined' ? Game.year : 0;
-
-        const attackPower = Math.floor(data.strength * 0.6);
-        const playerDefense = Buildings.getDefenseBonus() + Military.getTotalUnits() * 8;
-
-        const roll = (0.85 + Perlin.random() * 0.3);
-        const attackScore = attackPower * roll;
-        const defendScore = playerDefense * (0.85 + Perlin.random() * 0.3);
-
-        if (attackScore > defendScore) {
-            // Enemy wins - steal some border tiles
-            const playerRegion = GameMap.getPlayerRegion();
-            let stolen = 0;
-            const maxSteal = Math.min(5, Math.floor(region.tiles.length * 0.3));
-
-            // Find player border tiles adjacent to this region
-            for (const t of [...playerRegion.tiles]) {
-                if (stolen >= maxSteal) break;
-                const neighbors = [
-                    { x: t.x - 1, y: t.y }, { x: t.x + 1, y: t.y },
-                    { x: t.x, y: t.y - 1 }, { x: t.x, y: t.y + 1 }
-                ];
-                for (const n of neighbors) {
-                    const tile = GameMap.getTile(n.x, n.y);
-                    if (tile && tile.owner === region.id) {
-                        // This player tile borders enemy - steal it
-                        const pt = GameMap.getTile(t.x, t.y);
-                        if (pt && !pt.building) {
-                            pt.owner = region.id;
-                            region.tiles.push({ x: t.x, y: t.y });
-                            playerRegion.tiles = playerRegion.tiles.filter(
-                                tt => !(tt.x === t.x && tt.y === t.y)
-                            );
-                            stolen++;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            Population.adjustMoral(-8);
-            data.strength -= Math.floor(attackPower * 0.3);
-            Notifications.add(`${region.name} attaque et prend du territoire !`, 'alert');
-        } else {
-            // Player defends
-            data.strength -= Math.floor(attackPower * 0.5);
-            Population.adjustMoral(5);
-            Notifications.add(`Attaque de ${region.name} repoussee !`, 'success');
-        }
-    },
-
-    serialize() {
-        return this.factionData;
-    },
-
-    deserialize(data) {
-        this.factionData = data;
-    }
-};
-
-
-// === js/tech.js ===
-// Technology tree
-const TechTree = {
-    researched: {},
-    currentResearch: null,
-    researchProgress: 0,
-
-    techs: {
-        // Economy branch
-        better_farms: {
-            id: 'better_farms', name: 'Agriculture amelioree', branch: 'economy',
-            desc: 'Les fermes produisent +4 nourriture/cycle.',
-            cost: { gold: 30 }, cycles: 3, requires: []
-        },
-        forestry: {
-            id: 'forestry', name: 'Sylviculture', branch: 'economy',
-            desc: 'Les scieries produisent +3 bois/cycle.',
-            cost: { gold: 30 }, cycles: 3, requires: []
-        },
-        masonry: {
-            id: 'masonry', name: 'Maconnerie', branch: 'economy',
-            desc: 'Les mines produisent +3 pierre/cycle.',
-            cost: { gold: 35 }, cycles: 3, requires: []
-        },
-        advanced_commerce: {
-            id: 'advanced_commerce', name: 'Commerce avance', branch: 'economy',
-            desc: 'Les marches generent +5 or/cycle.',
-            cost: { gold: 60, stone: 20 }, cycles: 5, requires: ['better_farms']
-        },
-        trade_routes: {
-            id: 'trade_routes', name: 'Routes commerciales', branch: 'economy',
-            desc: 'Or +8/cycle supplementaire.',
-            cost: { gold: 100, wood: 50 }, cycles: 8, requires: ['advanced_commerce']
-        },
-
-        // Military branch
-        steel_weapons: {
-            id: 'steel_weapons', name: 'Armes en acier', branch: 'military',
-            desc: 'Attaque de toutes les unites +20%.',
-            cost: { gold: 40, stone: 20 }, cycles: 4, requires: []
-        },
-        armor_plating: {
-            id: 'armor_plating', name: 'Armures renforcees', branch: 'military',
-            desc: 'Defense de toutes les unites +20%.',
-            cost: { gold: 40, stone: 30 }, cycles: 4, requires: []
-        },
-        battle_tactics: {
-            id: 'battle_tactics', name: 'Tactiques de combat', branch: 'military',
-            desc: 'Attaque et defense +10%.',
-            cost: { gold: 80 }, cycles: 6, requires: ['steel_weapons']
-        },
-        fortifications: {
-            id: 'fortifications', name: 'Fortifications', branch: 'military',
-            desc: 'Defense passive +15.',
-            cost: { gold: 50, stone: 40 }, cycles: 5, requires: ['armor_plating']
-        },
-        elite_training: {
-            id: 'elite_training', name: 'Entrainement d\'elite', branch: 'military',
-            desc: 'Unites recrutees avec +30% de stats.',
-            cost: { gold: 120 }, cycles: 8, requires: ['battle_tactics']
-        },
-
-        // Civilization branch
-        housing_reform: {
-            id: 'housing_reform', name: 'Reforme du logement', branch: 'civilization',
-            desc: 'Les maisons logent +3 personnes.',
-            cost: { gold: 25, wood: 20 }, cycles: 3, requires: []
-        },
-        festivals: {
-            id: 'festivals', name: 'Festivites', branch: 'civilization',
-            desc: 'Moral +5 chaque saison.',
-            cost: { gold: 30, food: 20 }, cycles: 3, requires: []
-        },
-        diplomacy: {
-            id: 'diplomacy', name: 'Diplomatie', branch: 'civilization',
-            desc: 'Reduit l\'agressivite des factions rivales.',
-            cost: { gold: 60 }, cycles: 5, requires: ['festivals']
-        },
-        great_library: {
-            id: 'great_library', name: 'Grande bibliotheque', branch: 'civilization',
-            desc: 'Recherche 30% plus rapide.',
-            cost: { gold: 100, stone: 50 }, cycles: 8, requires: ['diplomacy']
-        },
-        golden_age: {
-            id: 'golden_age', name: 'Age d\'or', branch: 'civilization',
-            desc: 'Toute la production +25%.',
-            cost: { gold: 200, food: 100 }, cycles: 12, requires: ['great_library']
-        }
-    },
-
-    isResearched(techId) {
-        return !!this.researched[techId];
-    },
-
-    canResearch(techId) {
-        const tech = this.techs[techId];
-        if (!tech) return false;
-        if (this.researched[techId]) return false;
-        if (this.currentResearch) return false;
-
-        // Check prerequisites
-        for (const req of tech.requires) {
-            if (!this.researched[req]) return false;
-        }
-
-        return Resources.canAfford(tech.cost);
-    },
-
-    startResearch(techId) {
-        if (!this.canResearch(techId)) return false;
-
-        const tech = this.techs[techId];
-        if (!Resources.spend(tech.cost)) return false;
-
-        this.currentResearch = techId;
-        this.researchProgress = 0;
-        Notifications.add(`Recherche commencee: ${tech.name}`, 'success');
-        return true;
-    },
-
-    processCycle() {
-        if (!this.currentResearch) return;
-
-        const tech = this.techs[this.currentResearch];
-        let progressInc = 1;
-        if (this.isResearched('great_library')) progressInc = 1.3;
-
-        this.researchProgress += progressInc;
-
-        if (this.researchProgress >= tech.cycles) {
-            this.researched[this.currentResearch] = true;
-            Notifications.add(`Recherche terminee: ${tech.name} !`, 'success');
-
-            // Apply immediate effects
-            if (this.currentResearch === 'housing_reform') {
-                // Each existing house gets +3 pop
-                const houseCount = Buildings.countBuilding('house');
-                Population.maxPop += houseCount * 3;
-            }
-            if (this.currentResearch === 'diplomacy') {
-                for (const data of Object.values(Factions.factionData)) {
-                    data.aggression *= 0.6;
-                }
-            }
-
-            this.currentResearch = null;
-            this.researchProgress = 0;
-        }
-    },
-
-    renderTechTree() {
-        const branches = {
-            economy: document.getElementById('eco-nodes'),
-            military: document.getElementById('mil-nodes'),
-            civilization: document.getElementById('civ-nodes')
-        };
-
-        for (const el of Object.values(branches)) {
-            el.innerHTML = '';
-        }
-
-        for (const tech of Object.values(this.techs)) {
-            const container = branches[tech.branch];
-            if (!container) continue;
-
-            const node = document.createElement('div');
-            node.className = 'tech-node';
-
-            if (this.researched[tech.id]) {
-                node.classList.add('researched');
-            } else if (this.currentResearch === tech.id) {
-                node.classList.add('researching');
-            } else if (!this.canResearch(tech.id) && !this.currentResearch) {
-                // Check if it's just locked due to prereqs
-                const prereqsMet = tech.requires.every(r => this.researched[r]);
-                if (!prereqsMet) node.classList.add('locked');
-            }
-
-            let costText = Object.entries(tech.cost)
-                .map(([r, a]) => `${a} ${r}`)
-                .join(', ');
-
-            let statusText = '';
-            if (this.researched[tech.id]) statusText = ' [Complete]';
-            else if (this.currentResearch === tech.id) {
-                statusText = ` [${Math.floor(this.researchProgress)}/${tech.cycles} cycles]`;
-            }
-
-            node.innerHTML = `
-                <div class="tech-name">${tech.name}${statusText}</div>
-                <div class="tech-desc">${tech.desc}</div>
-                <div class="tech-cost">Cout: ${costText} | ${tech.cycles} cycles</div>
-            `;
-
-            if (!this.researched[tech.id] && this.currentResearch !== tech.id) {
-                node.addEventListener('click', () => {
-                    if (this.canResearch(tech.id)) {
-                        this.startResearch(tech.id);
-                        this.renderTechTree(); // refresh
-                    }
-                });
-            }
-
-            container.appendChild(node);
-        }
-    },
-
-    serialize() {
-        return {
-            researched: this.researched,
-            currentResearch: this.currentResearch,
-            researchProgress: this.researchProgress
-        };
-    },
-
-    deserialize(data) {
-        this.researched = data.researched || {};
-        this.currentResearch = data.currentResearch;
-        this.researchProgress = data.researchProgress || 0;
-    }
-};
-
-
-// === js/ui.js ===
-// UI management
-const UI = {
-    init() {
-        this.setupBuildButtons();
-        this.setupRecruitButtons();
-        this.setupEventListeners();
-        this.setupMinimapClick();
-        this.setupCanvasHover();
-    },
-
-    setupBuildButtons() {
-        const container = document.getElementById('build-buttons');
-        // Keep the label
-        const label = container.querySelector('.group-label');
-        container.innerHTML = '';
-        container.appendChild(label);
-
-        const buildings = Buildings.getAvailableBuildings();
-        for (const b of buildings) {
-            const btn = document.createElement('button');
-            btn.className = 'action-btn';
-            btn.title = `${b.name}\n${b.desc}\nCout: ${this.formatCost(b.cost)}`;
-            btn.textContent = `${b.icon || ''} ${b.name}`;
-            btn.dataset.building = b.key;
-            btn.addEventListener('click', () => {
-                if (Game.buildMode === b.key) {
-                    Game.buildMode = null;
-                    this.clearBuildSelection();
-                } else {
-                    Game.buildMode = b.key;
-                    this.clearBuildSelection();
-                    btn.classList.add('selected');
-                }
-            });
-            container.appendChild(btn);
-        }
-
-        // Town hall upgrade button
-        const thLevel = Buildings.getTownHallLevel();
-        if (thLevel > 0 && thLevel < 5) {
-            const btn = document.createElement('button');
-            btn.className = 'action-btn';
-            const cost = { wood: 50 * thLevel, stone: 50 * thLevel, food: 20 * thLevel, gold: 30 * thLevel };
-            btn.title = `Ameliorer Hotel de ville (Nv.${thLevel + 1})\nCout: ${this.formatCost(cost)}`;
-            btn.textContent = '\u{1F3DB} Ameliorer HdV';
-            btn.addEventListener('click', () => {
-                Buildings.upgradeTownHall();
-                this.setupBuildButtons(); // refresh
-            });
-            container.appendChild(btn);
-        }
-    },
-
-    setupRecruitButtons() {
-        const container = document.getElementById('recruit-buttons');
-        const label = container.querySelector('.group-label');
-        container.innerHTML = '';
-        container.appendChild(label);
-
-        for (const [key, uDef] of Object.entries(CONFIG.UNITS)) {
-            const btn = document.createElement('button');
-            btn.className = 'action-btn';
-            btn.title = `${uDef.name}\nPV:${uDef.hp} ATK:${uDef.attack} DEF:${uDef.defense}\nCout: ${this.formatCost(uDef.cost)}`;
-            btn.textContent = `${uDef.icon} ${uDef.name} (${Military.units[key.toLowerCase()] || 0})`;
-            btn.disabled = !Military.canRecruit(key.toLowerCase());
-            btn.addEventListener('click', () => {
-                Military.recruit(key.toLowerCase());
-                this.setupRecruitButtons(); // refresh counts
-            });
-            container.appendChild(btn);
-        }
-
-        // Attack button if we have units and adjacent enemies
-        if (Military.getTotalUnits() > 0) {
-            const enemies = GameMap.getAdjacentEnemyRegions(0);
-            if (enemies.length > 0) {
-                const btn = document.createElement('button');
-                btn.className = 'action-btn';
-                btn.style.background = '#5a1a1a';
-                btn.textContent = '\u{2694} Attaquer';
-                btn.addEventListener('click', () => this.showAttackMenu(enemies));
-                container.appendChild(btn);
-            }
-        }
-    },
-
-    showAttackMenu(enemies) {
-        // Use battle screen to select target and army composition
-        const content = document.getElementById('battle-content');
-        const selector = document.getElementById('army-selector');
-        const screen = document.getElementById('battle-screen');
-        const setup = document.getElementById('battle-setup');
-        const result = document.getElementById('battle-result');
-
-        content.innerHTML = '<h3>Choisissez une cible</h3>';
-
-        // Target selection
-        let targetHtml = '';
-        for (const enemy of enemies) {
-            targetHtml += `
-                <div class="army-row">
-                    <span style="color:${enemy.color}">${enemy.name}</span>
-                    <span>(${enemy.tiles.length} tuiles)</span>
-                    <button class="action-btn target-btn" data-region="${enemy.id}">Cibler</button>
-                </div>
-            `;
-        }
-        content.innerHTML += targetHtml;
-
-        // Army composition
-        let armyHtml = '<h4 style="margin-top:12px">Composition de l\'armee</h4>';
-        for (const [key, uDef] of Object.entries(CONFIG.UNITS)) {
-            const available = Military.units[key.toLowerCase()] || 0;
-            if (available > 0) {
-                armyHtml += `
-                    <div class="army-row">
-                        <span>${uDef.icon} ${uDef.name} (${available})</span>
-                        <input type="number" min="0" max="${available}" value="${available}" id="send-${key.toLowerCase()}">
-                    </div>
-                `;
-            }
-        }
-        selector.innerHTML = armyHtml;
-
-        setup.style.display = 'block';
-        result.style.display = 'none';
-        screen.classList.add('active');
-
-        // Target button handlers
-        document.querySelectorAll('.target-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.target-btn').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-                Game._selectedTarget = parseInt(btn.dataset.region);
-            });
-        });
-
-        // Attack button handler
-        document.getElementById('btn-attack').onclick = () => {
-            if (!Game._selectedTarget && Game._selectedTarget !== 0) {
-                Notifications.add('Selectionnez une cible !', 'alert');
-                return;
-            }
-            const army = {};
-            for (const key of Object.keys(CONFIG.UNITS)) {
-                const input = document.getElementById('send-' + key.toLowerCase());
-                if (input) army[key.toLowerCase()] = parseInt(input.value) || 0;
-            }
-            const totalSent = Object.values(army).reduce((a, b) => a + b, 0);
-            if (totalSent === 0) {
-                Notifications.add('Envoyez au moins une unite !', 'alert');
-                return;
-            }
-            const targetRegion = GameMap.getRegion(Game._selectedTarget);
-            if (targetRegion) {
-                Combat.initBattle(targetRegion, army);
-                Combat.resolveBattle();
-            }
-        };
-
-        // Retreat button
-        document.getElementById('btn-retreat').onclick = () => {
-            Combat.closeBattle();
-        };
-    },
-
-    setupEventListeners() {
-        // Time controls
-        document.getElementById('btn-pause').addEventListener('click', () => {
-            Game.setSpeed('PAUSED');
-            this.updateTimeButtons('btn-pause');
-        });
-        document.getElementById('btn-normal').addEventListener('click', () => {
-            Game.setSpeed('NORMAL');
-            this.updateTimeButtons('btn-normal');
-        });
-        document.getElementById('btn-fast').addEventListener('click', () => {
-            Game.setSpeed('FAST');
-            this.updateTimeButtons('btn-fast');
-        });
-
-        // Tech tree
-        document.getElementById('btn-tech-tree').addEventListener('click', () => {
-            TechTree.renderTechTree();
-            document.getElementById('tech-screen').classList.add('active');
-        });
-        document.getElementById('btn-tech-close').addEventListener('click', () => {
-            document.getElementById('tech-screen').classList.remove('active');
-        });
-
-        // Villager management
-        document.getElementById('btn-villagers').addEventListener('click', () => {
-            this.showVillagerManagement();
-        });
-        document.getElementById('btn-villager-close').addEventListener('click', () => {
-            document.getElementById('villager-overlay').classList.remove('active');
-        });
-
-        // Pause menu
-        document.getElementById('btn-menu-pause').addEventListener('click', () => {
-            Game.setSpeed('PAUSED');
-            this.updateTimeButtons('btn-pause');
-            document.getElementById('pause-overlay').classList.add('active');
-        });
-        document.getElementById('btn-resume').addEventListener('click', () => {
-            document.getElementById('pause-overlay').classList.remove('active');
-            Game.setSpeed('NORMAL');
-            this.updateTimeButtons('btn-normal');
-        });
-        document.getElementById('btn-save').addEventListener('click', () => {
-            SaveManager.save();
-            Notifications.add('Partie sauvegardee !', 'success');
-        });
-        document.getElementById('btn-quit').addEventListener('click', () => {
-            document.getElementById('pause-overlay').classList.remove('active');
-            Game.showScreen('menu-screen');
-        });
-
-        // Battle close
-        document.getElementById('btn-battle-close').addEventListener('click', () => {
-            Combat.closeBattle();
-            this.setupRecruitButtons();
-            // Check victory
-            Game.checkVictory();
-        });
-
-        // Victory/Defeat return
-        document.getElementById('btn-victory-menu').addEventListener('click', () => {
-            Game.showScreen('menu-screen');
-        });
-        document.getElementById('btn-defeat-menu').addEventListener('click', () => {
-            Game.showScreen('menu-screen');
-        });
-    },
-
-    setupMinimapClick() {
-        const minimap = document.getElementById('minimap-canvas');
-        minimap.addEventListener('click', (e) => {
-            const rect = minimap.getBoundingClientRect();
-            const mx = e.clientX - rect.left;
-            const my = e.clientY - rect.top;
-            const tileX = Math.floor((mx / minimap.width) * CONFIG.MAP_WIDTH);
-            const tileY = Math.floor((my / minimap.height) * CONFIG.MAP_HEIGHT);
-            Camera.centerOnTile(tileX, tileY);
-        });
-    },
-
-    setupCanvasHover() {
-        const canvas = document.getElementById('game-canvas');
-        canvas.addEventListener('mousemove', (e) => {
-            if (Camera.dragging) return;
-            const rect = canvas.getBoundingClientRect();
-            const sx = e.clientX - rect.left;
-            const sy = e.clientY - rect.top;
-            Game._hoverTile = Camera.screenToTile(sx, sy);
-        });
-        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-    },
-
-    showVillagerManagement() {
-        const container = document.getElementById('villager-manage-list');
-        container.innerHTML = '';
-
-        if (Population.villagers.length === 0) {
-            container.innerHTML = '<p>Aucun villageois.</p>';
-        }
-
-        for (const v of Population.villagers) {
-            const row = document.createElement('div');
-            row.className = 'villager-row';
-
-            const name = document.createElement('span');
-            name.className = 'v-name';
-            name.textContent = `${v.name} (Moral: ${v.moral})`;
-
-            const select = document.createElement('select');
-            for (const role of CONFIG.ROLES) {
-                const opt = document.createElement('option');
-                opt.value = role;
-                opt.textContent = role;
-                if (v.role === role) opt.selected = true;
-                select.appendChild(opt);
-            }
-            select.addEventListener('change', () => {
-                Population.setRole(v.id, select.value);
-            });
-
-            row.appendChild(name);
-            row.appendChild(select);
-            container.appendChild(row);
-        }
-
-        document.getElementById('villager-overlay').classList.add('active');
-    },
-
-    updateTimeButtons(activeId) {
-        document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
-        document.getElementById(activeId).classList.add('active');
-    },
-
-    clearBuildSelection() {
-        document.querySelectorAll('#build-buttons .action-btn').forEach(btn => btn.classList.remove('selected'));
-    },
-
-    updateInfoPanel(tile) {
-        const title = document.getElementById('info-title');
-        const content = document.getElementById('info-content');
-
-        if (!tile) {
-            title.textContent = 'Selection';
-            content.innerHTML = 'Cliquez sur une tuile pour voir ses details.';
-            return;
-        }
-
-        const terrainName = CONFIG.TERRAIN_NAMES[tile.terrain] || 'Inconnu';
-        let ownerName = 'Inexplore';
-        if (tile.owner === -1) ownerName = 'Non revendique';
-        else if (tile.owner === 0) ownerName = 'Votre Royaume';
-        else {
-            const region = GameMap.getRegion(tile.owner);
-            ownerName = region ? region.name : 'Inconnu';
-        }
-
-        let html = `
-            <div class="info-row"><span class="info-label">Terrain:</span><span>${terrainName}</span></div>
-            <div class="info-row"><span class="info-label">Position:</span><span>${tile.x}, ${tile.y}</span></div>
-            <div class="info-row"><span class="info-label">Proprietaire:</span><span>${ownerName}</span></div>
-        `;
-
-        if (tile.building) {
-            const bDef = CONFIG.BUILDINGS[tile.building.type.toUpperCase()];
-            html += `<div class="info-row"><span class="info-label">Batiment:</span><span>${bDef ? bDef.name : tile.building.type}</span></div>`;
-            if (tile.building.level > 1) {
-                html += `<div class="info-row"><span class="info-label">Niveau:</span><span>${tile.building.level}</span></div>`;
-            }
-            if (bDef && bDef.production) {
-                html += '<div class="info-row"><span class="info-label">Production:</span><span>';
-                html += Object.entries(bDef.production).map(([r, a]) => `+${a} ${r}`).join(', ');
-                html += '</span></div>';
-            }
-        }
-
-        // Conquest percentage
-        const conquest = GameMap.getConquestPercent(0);
-        html += `<hr style="border-color:#3a506b;margin:8px 0">`;
-        html += `<div class="info-row"><span class="info-label">Conquete:</span><span>${conquest}%</span></div>`;
-        html += `<div class="info-row"><span class="info-label">Armee:</span><span>${Military.getTotalUnits()} unites</span></div>`;
-
-        title.textContent = terrainName + (tile.building ? ' - ' + (CONFIG.BUILDINGS[tile.building.type.toUpperCase()]?.name || '') : '');
-        content.innerHTML = html;
-    },
-
-    formatCost(cost) {
-        return Object.entries(cost)
-            .filter(([, v]) => v > 0)
-            .map(([k, v]) => `${v} ${k}`)
-            .join(', ');
-    },
-
-    refreshAll() {
-        this.setupBuildButtons();
-        this.setupRecruitButtons();
-    }
-};
-
-
-// === js/notifications.js ===
-// Notification system
-const Notifications = {
-    container: null,
-
-    init() {
-        this.container = document.getElementById('notifications');
-    },
-
-    add(message, type) {
-        type = type || '';
-        const notif = document.createElement('div');
-        notif.className = 'notification' + (type ? ' ' + type : '');
-        notif.textContent = message;
-        this.container.appendChild(notif);
-
-        // Auto-remove after 4 seconds
-        setTimeout(() => {
-            notif.style.opacity = '0';
-            notif.style.transition = 'opacity 0.5s';
-            setTimeout(() => {
-                if (notif.parentNode) notif.parentNode.removeChild(notif);
-            }, 500);
-        }, 4000);
-
-        // Keep max 5 notifications
-        while (this.container.children.length > 5) {
-            this.container.removeChild(this.container.firstChild);
-        }
-    }
-};
-
-
-// === js/save.js ===
-// Save and load system using localStorage
-const SaveManager = {
-    SAVE_KEY: 'souvenirs_de_couronne_save',
-    AUTO_SAVE_KEY: 'souvenirs_de_couronne_autosave',
-
-    save(slot) {
-        const key = slot === 'auto' ? this.AUTO_SAVE_KEY : this.SAVE_KEY;
-        const data = {
-            version: 1,
-            seed: Game.seed,
-            year: Game.year,
-            season: Game.season,
-            totalCycles: Game.totalCycles,
-            resources: Resources.serialize(),
-            population: Population.serialize(),
-            military: Military.serialize(),
-            buildings: Buildings.serialize(),
-            tech: TechTree.serialize(),
-            factions: Factions.serialize(),
-            map: this.serializeMap(),
-            timestamp: Date.now()
-        };
-        try {
-            localStorage.setItem(key, JSON.stringify(data));
-            return true;
-        } catch (e) {
-            console.error('Save failed:', e);
-            return false;
-        }
-    },
-
-    load(slot) {
-        const key = slot === 'auto' ? this.AUTO_SAVE_KEY : this.SAVE_KEY;
-        try {
-            const raw = localStorage.getItem(key);
-            if (!raw) return null;
-            return JSON.parse(raw);
-        } catch (e) {
-            console.error('Load failed:', e);
-            return null;
-        }
-    },
-
-    hasSave() {
-        return !!(localStorage.getItem(this.SAVE_KEY) || localStorage.getItem(this.AUTO_SAVE_KEY));
-    },
-
-    serializeMap() {
-        const tiles = [];
-        for (let y = 0; y < CONFIG.MAP_HEIGHT; y++) {
-            tiles[y] = [];
-            for (let x = 0; x < CONFIG.MAP_WIDTH; x++) {
-                const t = GameMap.tiles[y][x];
-                tiles[y][x] = {
-                    terrain: t.terrain,
-                    owner: t.owner,
-                    explored: t.explored,
-                    decoration: t.decoration
-                };
-            }
-        }
-        return {
-            tiles,
-            regions: GameMap.regions.map(r => ({
-                id: r.id,
-                name: r.name,
-                faction: r.faction,
-                color: r.color,
-                capital: r.capital,
-                isPlayer: r.isPlayer,
-                type: r.type,
-                tiles: r.tiles
-            }))
-        };
-    },
-
-    deserializeMap(data) {
-        for (let y = 0; y < CONFIG.MAP_HEIGHT; y++) {
-            for (let x = 0; x < CONFIG.MAP_WIDTH; x++) {
-                const saved = data.tiles[y][x];
-                GameMap.tiles[y][x] = {
-                    x, y,
-                    terrain: saved.terrain,
-                    building: null,
-                    owner: saved.owner,
-                    visible: false,
-                    explored: saved.explored,
-                    decoration: saved.decoration
-                };
-            }
-        }
-        GameMap.regions = data.regions;
     }
 };
 
 
 // === js/game.js ===
-// Main game controller
+// Main game controller - minimal: map + placement only
 const Game = {
     seed: '',
-    year: 1,
-    season: 0,
-    totalCycles: 0,
-    speed: 'NORMAL',
-    buildMode: null,
-    selectedTile: null,
-    _hoverTile: null,
-    _selectedTarget: null,
-    _tickTimer: null,
-    _lastTick: 0,
     _running: false,
-    _placementHover: null,
+    _castlePlaced: null, // { x, y } or null
 
     init() {
-        // Menu setup
         document.getElementById('btn-new-game').addEventListener('click', () => this.newGame());
-        document.getElementById('btn-continue').addEventListener('click', () => this.continueGame());
+        document.getElementById('btn-continue').addEventListener('click', () => {});
         document.getElementById('btn-options').addEventListener('click', () => this.showScreen('options-screen'));
         document.getElementById('btn-options-close').addEventListener('click', () => this.showScreen('menu-screen'));
         document.getElementById('btn-quit-game').addEventListener('click', () => {
@@ -4186,12 +1436,7 @@ const Game = {
         // Placement screen
         document.getElementById('btn-confirm-placement').addEventListener('click', () => this.confirmPlacement());
 
-        // Show continue button if save exists
-        if (SaveManager.hasSave()) {
-            document.getElementById('btn-continue').style.display = 'block';
-        }
-
-        // Apply options on map size change
+        // Options
         document.getElementById('opt-map-size').addEventListener('change', (e) => {
             const size = parseInt(e.target.value);
             CONFIG.MAP_WIDTH = size;
@@ -4199,54 +1444,45 @@ const Game = {
         });
     },
 
-    // ==================== NEW GAME FLOW ====================
+    showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    },
+
+    // ==================== NEW GAME ====================
 
     newGame() {
         const seedField = document.getElementById('seed-field');
         this.seed = seedField.value || String(Date.now());
-        this.year = 1;
-        this.season = 0;
-        this.totalCycles = 0;
-        this.buildMode = null;
-        this.selectedTile = null;
+        this._castlePlaced = null;
 
-        // Show loading screen
         this.showScreen('loading-screen');
         this._updateLoadingProgress(0, 'Preparation du parchemin...');
 
-        // Use setTimeout to allow the UI to render
         setTimeout(() => this._generateMapAsync(), 50);
     },
 
     _generateMapAsync() {
         const messages = [
             'Les cartographes explorent les terres...',
+            'Les oceans se forment...',
             'Les forets prennent racine...',
             'Les montagnes emergent des brumes...',
-            'Les rivieres tracent leur chemin...',
-            'Les decorateurs plantent les arbres...',
-            'La carte est presque prete...'
+            'Les regions se dessinent...',
+            'Dernieres touches...'
         ];
-
         let lastMsgIdx = -1;
 
-        // Generate terrain with progress callback
-        const onProgress = (progress) => {
+        GameMap.generateTerrain(this.seed, (progress) => {
             const msgIdx = Math.min(messages.length - 1, Math.floor(progress * messages.length));
             if (msgIdx !== lastMsgIdx) {
                 lastMsgIdx = msgIdx;
                 this._updateLoadingProgress(progress, messages[msgIdx]);
             }
-        };
+        });
 
-        GameMap.generateTerrain(this.seed, onProgress);
-
-        this._updateLoadingProgress(0.85, 'Dernieres touches...');
-
-        setTimeout(() => {
-            this._updateLoadingProgress(1.0, 'La carte est prete !');
-            setTimeout(() => this._showPlacementScreen(), 600);
-        }, 200);
+        this._updateLoadingProgress(1.0, 'La carte est prete !');
+        setTimeout(() => this._showPlacementScreen(), 500);
     },
 
     _updateLoadingProgress(progress, message) {
@@ -4262,46 +1498,35 @@ const Game = {
 
     _showPlacementScreen() {
         this.showScreen('placement-screen');
-        this._placementHover = null;
-        this._placementSelected = null;
+        this._castlePlaced = null;
 
         const canvas = document.getElementById('placement-canvas');
         const container = document.getElementById('placement-map-area');
 
-        // Size canvas to fit container
         const rect = container.getBoundingClientRect();
         const size = Math.min(rect.width - 40, rect.height - 20);
         canvas.width = size;
         canvas.height = size;
 
-        // Initial render
         GameMap.renderOverviewToCanvas(canvas);
 
-        // Hover handler
+        const btn = document.getElementById('btn-confirm-placement');
+        btn.disabled = true;
+        btn.classList.remove('ready');
+
         canvas.onmousemove = (e) => {
+            // Only show hover if no castle placed yet
+            if (this._castlePlaced) return;
             const cr = canvas.getBoundingClientRect();
             const mx = e.clientX - cr.left;
             const my = e.clientY - cr.top;
             const tileX = Math.floor((mx / canvas.width) * GameMap.width);
             const tileY = Math.floor((my / canvas.height) * GameMap.height);
 
-            if (tileX !== this._placementHover?.x || tileY !== this._placementHover?.y) {
-                this._placementHover = { x: tileX, y: tileY };
-                GameMap.renderOverviewToCanvas(canvas, tileX, tileY, true);
-
-                // Update placement info
-                const tile = GameMap.getTile(tileX, tileY);
-                const valid = GameMap.isValidKingdomSpot(tileX, tileY);
-                const info = document.getElementById('placement-info');
-                if (tile) {
-                    const terrainName = CONFIG.TERRAIN_NAMES[tile.terrain] || 'Inconnu';
-                    info.textContent = `${terrainName} (${tileX}, ${tileY}) - ${valid ? 'Emplacement valide' : 'Terrain inadapte'}`;
-                    info.style.color = valid ? '#a8d8a8' : '#d8a8a8';
-                }
-            }
+            GameMap.renderOverviewToCanvas(canvas, tileX, tileY);
+            this._updatePlacementInfo(tileX, tileY);
         };
 
-        // Click handler
         canvas.onclick = (e) => {
             const cr = canvas.getBoundingClientRect();
             const mx = e.clientX - cr.left;
@@ -4309,354 +1534,92 @@ const Game = {
             const tileX = Math.floor((mx / canvas.width) * GameMap.width);
             const tileY = Math.floor((my / canvas.height) * GameMap.height);
 
-            if (GameMap.isValidKingdomSpot(tileX, tileY)) {
-                this._placementSelected = { x: tileX, y: tileY };
-                GameMap.renderOverviewToCanvas(canvas, tileX, tileY, true);
-                document.getElementById('btn-confirm-placement').disabled = false;
-                document.getElementById('btn-confirm-placement').classList.add('ready');
-            }
-        };
+            const tile = GameMap.getTile(tileX, tileY);
+            if (!tile || tile.terrain <= CONFIG.TERRAIN.WATER) return;
 
-        // Disable confirm until a spot is selected
-        document.getElementById('btn-confirm-placement').disabled = true;
-        document.getElementById('btn-confirm-placement').classList.remove('ready');
+            if (!GameMap.isValidKingdomSpot(tileX, tileY)) return;
+
+            // Place or move the castle
+            this._castlePlaced = { x: tileX, y: tileY };
+            GameMap.renderOverviewToCanvas(canvas, tileX, tileY);
+            btn.disabled = false;
+            btn.classList.add('ready');
+
+            const info = document.getElementById('placement-info');
+            info.textContent = 'Chateau place ! Cliquez ailleurs pour deplacer, ou validez.';
+            info.style.color = '#c8a84a';
+        };
+    },
+
+    _updatePlacementInfo(tileX, tileY) {
+        const tile = GameMap.getTile(tileX, tileY);
+        const info = document.getElementById('placement-info');
+        if (!tile) return;
+
+        const terrainName = CONFIG.TERRAIN_NAMES[tile.terrain] || 'Inconnu';
+        const valid = GameMap.isValidKingdomSpot(tileX, tileY);
+
+        if (tile.terrain <= CONFIG.TERRAIN.WATER) {
+            info.textContent = `${terrainName} - Impossible de fonder ici`;
+            info.style.color = '#d8a8a8';
+        } else if (!valid) {
+            info.textContent = `${terrainName} (${tileX}, ${tileY}) - Pas assez de terre cultivable`;
+            info.style.color = '#d8a8a8';
+        } else {
+            info.textContent = `${terrainName} (${tileX}, ${tileY}) - Bon emplacement pour votre royaume`;
+            info.style.color = '#a8d8a8';
+        }
     },
 
     confirmPlacement() {
-        if (!this._placementSelected) return;
+        if (!this._castlePlaced) return;
 
-        const px = this._placementSelected.x;
-        const py = this._placementSelected.y;
+        // Place kingdoms
+        GameMap.placeKingdoms(this._castlePlaced.x, this._castlePlaced.y);
 
-        // Generate regions based on player position
-        GameMap.generateRegions(px, py);
-
-        // Initialize systems
-        Resources.init();
-        Population.init();
-        Military.units = { warrior: 0, archer: 0, cavalry: 0, siege: 0 };
-        Buildings.playerBuildings = [];
-        TechTree.researched = {};
-        TechTree.currentResearch = null;
-        TechTree.researchProgress = 0;
-
-        // Place initial town hall
-        const playerRegion = GameMap.getPlayerRegion();
-        if (playerRegion) {
-            Buildings.placeTownHall(playerRegion.capital.x, playerRegion.capital.y);
-            GameMap.updateVisibility(0);
-        }
-
-        // Initialize factions
-        Factions.init();
-
-        // Start game
-        this.startGame();
-
-        if (playerRegion) {
-            Camera.centerOnTile(playerRegion.capital.x, playerRegion.capital.y);
-        }
-
-        // Clean up placement listeners
+        // Cleanup placement
         const canvas = document.getElementById('placement-canvas');
         canvas.onmousemove = null;
         canvas.onclick = null;
+
+        // Start the map view
+        this._startMapView();
     },
 
-    // ==================== CONTINUE ====================
+    // ==================== MAP VIEW (game) ====================
 
-    continueGame() {
-        const data = SaveManager.load() || SaveManager.load('auto');
-        if (!data) {
-            Notifications.add('Aucune sauvegarde trouvee.', 'alert');
-            return;
-        }
-
-        this.seed = data.seed;
-        this.year = data.year;
-        this.season = data.season;
-        this.totalCycles = data.totalCycles;
-
-        GameMap.generate(this.seed);
-        SaveManager.deserializeMap(data.map);
-
-        Resources.deserialize(data.resources);
-        Population.deserialize(data.population);
-        Military.deserialize(data.military);
-        Buildings.deserialize(data.buildings);
-        TechTree.deserialize(data.tech);
-        Factions.deserialize(data.factions);
-
-        GameMap.updateVisibility(0);
-
-        this.startGame();
-
-        const playerRegion = GameMap.getPlayerRegion();
-        if (playerRegion) {
-            Camera.centerOnTile(playerRegion.capital.x, playerRegion.capital.y);
-        }
-    },
-
-    // ==================== GAME LOOP ====================
-
-    startGame() {
+    _startMapView() {
         this.showScreen('game-screen');
         Renderer.init();
         Camera.init(Renderer.canvas);
-        Notifications.init();
-        UI.init();
 
-        this.speed = 'NORMAL';
         this._running = true;
-        this._lastTick = Date.now();
 
-        this.updateSeasonUI();
-        Resources.updateUI();
-        Population.updateUI();
+        // Center on castle
+        if (this._castlePlaced) {
+            Camera.centerOnCell(this._castlePlaced.x, this._castlePlaced.y);
+        }
 
-        this.gameLoop();
-        this.startTickTimer();
+        this._gameLoop();
     },
 
-    gameLoop() {
+    _gameLoop() {
         if (!this._running) return;
-
         Camera.update();
         Renderer.render();
-        Renderer.renderMinimap();
-
-        requestAnimationFrame(() => this.gameLoop());
+        requestAnimationFrame(() => this._gameLoop());
     },
 
-    startTickTimer() {
-        if (this._tickTimer) clearInterval(this._tickTimer);
-        this._tickTimer = setInterval(() => this.tick(), 100);
-    },
-
-    tick() {
-        if (this.speed === 'PAUSED') return;
-
-        const now = Date.now();
-        const interval = CONFIG.SPEED[this.speed] || CONFIG.SPEED.NORMAL;
-        if (now - this._lastTick < interval) return;
-
-        this._lastTick = now;
-        this.processCycle();
-    },
-
-    processCycle() {
-        this.totalCycles++;
-
-        this.season++;
-        if (this.season >= 4) {
-            this.season = 0;
-            this.year++;
-        }
-
-        Resources.processCycle();
-        Population.processCycle();
-        TechTree.processCycle();
-        Factions.processCycle(this.year, this.season);
-
-        this.processRandomEvent();
-
-        if (TechTree.isResearched('festivals')) {
-            Population.adjustMoral(5);
-        }
-
-        GameMap.updateVisibility(0);
-
-        this.updateSeasonUI();
-        Resources.updateUI();
-        Population.updateUI();
-        UI.refreshAll();
-
-        if (this.totalCycles % 4 === 0) {
-            SaveManager.save('auto');
-        }
-
-        this.checkDefeat();
-    },
-
-    processRandomEvent() {
-        if (Perlin.random() > 0.15) return;
-
-        const events = [
-            {
-                name: 'Bonne recolte !',
-                effect: () => { Resources.add('food', 30); },
-                msg: 'Une recolte exceptionnelle ! +30 nourriture.', type: 'success'
-            },
-            {
-                name: 'Epidemie',
-                effect: () => {
-                    Population.adjustMoral(-10);
-                    if (Population.villagers.length > 1) {
-                        Population.villagers.pop();
-                    }
-                },
-                msg: 'Une epidemie frappe le village !', type: 'alert'
-            },
-            {
-                name: 'Marchands itinerants',
-                effect: () => { Resources.add('gold', 20); },
-                msg: 'Des marchands de passage apportent des richesses ! +20 or.', type: 'success'
-            },
-            {
-                name: 'Tempete',
-                effect: () => { Resources.add('wood', -15); },
-                msg: 'Une tempete endommage vos reserves ! -15 bois.', type: 'alert'
-            },
-            {
-                name: 'Migration',
-                effect: () => {
-                    if (Population.villagers.length < Population.maxPop) {
-                        const v = Population.addVillager();
-                        if (v) Notifications.add(`${v.name} arrive de loin !`, 'success');
-                    }
-                },
-                msg: 'Des migrants cherchent refuge !', type: 'success'
-            },
-            {
-                name: 'Filon d\'or',
-                effect: () => { Resources.add('gold', 15); Resources.add('stone', 10); },
-                msg: 'Un filon d\'or decouvert ! +15 or, +10 pierre.', type: 'success'
-            }
-        ];
-
-        const event = events[Math.floor(Perlin.random() * events.length)];
-        event.effect();
-        Notifications.add(event.msg, event.type);
-    },
-
-    onTileClick(tx, ty) {
-        const tile = GameMap.getTile(tx, ty);
-        if (!tile || !tile.explored) return;
-
-        if (this.buildMode) {
-            if (this.canPlaceBuilding(tx, ty, this.buildMode)) {
-                Buildings.placeBuilding(tx, ty, this.buildMode);
-                GameMap.updateVisibility(0);
-                UI.refreshAll();
-            }
-        } else {
-            this.selectedTile = { x: tx, y: ty };
-            UI.updateInfoPanel(tile);
-        }
-    },
-
-    canPlaceBuilding(x, y, buildingId) {
-        const tile = GameMap.getTile(x, y);
-        if (!tile) return false;
-        if (tile.terrain === CONFIG.TERRAIN.WATER) return false;
-        if (tile.building) return false;
-        if (tile.owner !== 0) return false;
-
-        const bDef = CONFIG.BUILDINGS[buildingId.toUpperCase()];
-        if (bDef && bDef.validTerrain && !bDef.validTerrain.includes(tile.terrain)) {
-            return false;
-        }
-
-        return true;
-    },
-
-    setSpeed(speed) {
-        this.speed = speed;
-    },
-
-    updateSeasonUI() {
-        const seasonData = CONFIG.SEASONS[this.season];
-        document.getElementById('season-icon').textContent = seasonData.icon;
-        document.getElementById('season-name').textContent = seasonData.name;
-        document.getElementById('year-count').textContent = this.year;
-    },
-
-    checkVictory() {
-        const percent = GameMap.getConquestPercent(0);
-        if (percent >= 100) {
-            this.showVictory();
-        }
-    },
-
-    checkDefeat() {
-        if (Population.villagers.length <= 0) {
-            this.showDefeat('Tous vos villageois ont disparu...');
-            return;
-        }
-        const playerRegion = GameMap.getPlayerRegion();
-        if (playerRegion) {
-            const th = Buildings.playerBuildings.find(b => b.type === 'town_hall');
-            if (th) {
-                const thTile = GameMap.getTile(th.x, th.y);
-                if (thTile && thTile.owner !== 0) {
-                    this.showDefeat('Votre capitale a ete conquise !');
-                }
-            }
-        }
-    },
-
-    showVictory() {
-        this._running = false;
-        const stats = document.getElementById('victory-stats');
-        stats.innerHTML = `
-            <div>Annees ecoulees: ${this.year}</div>
-            <div>Cycles totaux: ${this.totalCycles}</div>
-            <div>Population finale: ${Population.villagers.length}</div>
-            <div>Armee: ${Military.getTotalUnits()} unites</div>
-            <div>Technologies: ${Object.keys(TechTree.researched).length}</div>
-        `;
-        this.showScreen('victory-screen');
-    },
-
-    showDefeat(reason) {
-        this._running = false;
-        document.getElementById('defeat-reason').textContent = reason;
-        const stats = document.getElementById('defeat-stats');
-        stats.innerHTML = `
-            <div>Annees ecoulees: ${this.year}</div>
-            <div>Cycles totaux: ${this.totalCycles}</div>
-            <div>Conquete: ${GameMap.getConquestPercent(0)}%</div>
-        `;
-        this.showScreen('defeat-screen');
-    },
-
-    showScreen(screenId) {
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById(screenId).classList.add('active');
-    },
-
-    _initKeyShortcuts() {
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                if (this.buildMode) {
-                    this.buildMode = null;
-                    UI.clearBuildSelection();
-                } else if (document.getElementById('tech-screen').classList.contains('active')) {
-                    document.getElementById('tech-screen').classList.remove('active');
-                } else if (document.getElementById('villager-overlay').classList.contains('active')) {
-                    document.getElementById('villager-overlay').classList.remove('active');
-                } else if (document.getElementById('battle-screen').classList.contains('active')) {
-                    Combat.closeBattle();
-                }
-            }
-            if (e.key === ' ') {
-                e.preventDefault();
-                if (this.speed === 'PAUSED') {
-                    this.setSpeed('NORMAL');
-                    UI.updateTimeButtons('btn-normal');
-                } else {
-                    this.setSpeed('PAUSED');
-                    UI.updateTimeButtons('btn-pause');
-                }
-            }
-        });
+    onMapClick(cellX, cellY) {
+        // For now, just log the cell clicked
+        const tile = GameMap.getTile(cellX, cellY);
+        if (!tile) return;
+        // Future: building placement, selection, etc.
     }
 };
 
-// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     Game.init();
-    Game._initKeyShortcuts();
 });
 
 
