@@ -50,10 +50,11 @@ const CONFIG = {
 
     // Starting resources
     START_RESOURCES: {
-        wood: 100,
-        stone: 50,
-        food: 80,
-        gold: 30
+        wood: 0,
+        stone: 0,
+        iron: 0,
+        gold: 0,
+        food: 5
     },
 
     VISION_RADIUS: 6

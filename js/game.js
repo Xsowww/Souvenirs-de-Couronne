@@ -6,6 +6,11 @@ const Game = {
     _worldMapOpen: false,
     _worldMapBuffer: null,
 
+    // Resources
+    resources: { wood: 0, stone: 0, iron: 0, gold: 0, food: 5 },
+    houses: 0,
+    families: 0,
+
     init() {
         document.getElementById('btn-new-game').addEventListener('click', () => this.newGame());
         document.getElementById('btn-continue').addEventListener('click', () => {});
@@ -283,11 +288,20 @@ const Game = {
 
         // Switch to isometric mode
         Renderer.setIsoMode(true);
-        Camera.zoom = 2.0; // Start zoomed in for iso view
+        Camera.zoom = 2.0;
 
         this._running = true;
         this._worldMapOpen = false;
         this._worldMapBuffer = null;
+
+        // Reset resources
+        this.resources = { wood: 0, stone: 0, iron: 0, gold: 0, food: 5 };
+        this.houses = 0;
+        this.families = 0;
+
+        // Show HUD
+        document.getElementById('hud-bar').classList.add('active');
+        this._updateHUD();
 
         // Center on castle
         if (this._castlePlaced) {
@@ -295,6 +309,16 @@ const Game = {
         }
 
         this._gameLoop();
+    },
+
+    _updateHUD() {
+        document.getElementById('hud-wood').textContent = this.resources.wood;
+        document.getElementById('hud-stone').textContent = this.resources.stone;
+        document.getElementById('hud-iron').textContent = this.resources.iron;
+        document.getElementById('hud-gold').textContent = this.resources.gold;
+        document.getElementById('hud-food').textContent = this.resources.food;
+        document.getElementById('hud-houses').textContent = this.houses;
+        document.getElementById('hud-families').textContent = this.families;
     },
 
     _gameLoop() {

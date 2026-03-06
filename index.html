@@ -414,6 +414,69 @@ body {
     text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 
+/* ===== HUD BAR ===== */
+#hud-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 44px;
+    z-index: 10;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    background: linear-gradient(180deg, #2a1a0c 0%, #1a100a 60%, #0e0806 100%);
+    border-bottom: 2px solid var(--gold-dark);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.7), inset 0 -1px 0 rgba(200,168,74,0.1);
+    font-family: 'Cinzel', serif;
+}
+#hud-bar.active { display: flex; }
+
+.hud-left, .hud-right {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+.hud-resource {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.82rem;
+    color: var(--parchment);
+    letter-spacing: 0.5px;
+}
+.hud-resource .hud-icon {
+    font-size: 1.1rem;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+}
+.hud-resource .hud-val {
+    color: var(--gold-light);
+    font-weight: 700;
+    min-width: 20px;
+    text-align: right;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+.hud-separator {
+    width: 1px;
+    height: 26px;
+    background: linear-gradient(180deg, transparent, rgba(200,168,74,0.25), transparent);
+}
+.hud-housing {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.82rem;
+    color: var(--parchment);
+}
+.hud-housing .hud-icon {
+    font-size: 1.1rem;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+}
+.hud-housing .hud-val {
+    color: var(--gold-light);
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+
 /* ===== WORLD MAP OVERLAY ===== */
 #worldmap-overlay {
     display: none;
@@ -543,9 +606,47 @@ body {
         </div>
     </div>
 
-    <!-- Game Screen (just the map) -->
+    <!-- Game Screen -->
     <div id="game-screen" class="screen">
         <canvas id="game-canvas"></canvas>
+
+        <!-- HUD Bar -->
+        <div id="hud-bar">
+            <div class="hud-left">
+                <div class="hud-resource" title="Bois">
+                    <span class="hud-icon">&#x1FAB5;</span>
+                    <span class="hud-val" id="hud-wood">0</span>
+                </div>
+                <div class="hud-resource" title="Roche">
+                    <span class="hud-icon">&#x1FAA8;</span>
+                    <span class="hud-val" id="hud-stone">0</span>
+                </div>
+                <div class="hud-resource" title="Fer">
+                    <span class="hud-icon">&#x2699;</span>
+                    <span class="hud-val" id="hud-iron">0</span>
+                </div>
+                <div class="hud-resource" title="Or">
+                    <span class="hud-icon">&#x1FA99;</span>
+                    <span class="hud-val" id="hud-gold">0</span>
+                </div>
+                <div class="hud-resource" title="Nourriture">
+                    <span class="hud-icon">&#x1F35E;</span>
+                    <span class="hud-val" id="hud-food">5</span>
+                </div>
+            </div>
+            <div class="hud-right">
+                <div class="hud-housing" title="Maisons disponibles">
+                    <span class="hud-icon">&#x1F3E0;</span>
+                    <span class="hud-val" id="hud-houses">0</span>
+                </div>
+                <div class="hud-separator"></div>
+                <div class="hud-housing" title="Familles">
+                    <span class="hud-icon">&#x1F46A;</span>
+                    <span class="hud-val" id="hud-families">0</span>
+                </div>
+            </div>
+        </div>
+
         <div id="map-hint">[ ZQSD ] Deplacer &nbsp; [ M ] Carte du Monde</div>
     </div>
 
@@ -698,10 +799,11 @@ const CONFIG = {
 
     // Starting resources
     START_RESOURCES: {
-        wood: 100,
-        stone: 50,
-        food: 80,
-        gold: 30
+        wood: 0,
+        stone: 0,
+        iron: 0,
+        gold: 0,
+        food: 5
     },
 
     VISION_RADIUS: 6
@@ -1125,17 +1227,13 @@ const GameMap = {
 
 
 // === js/renderer.js ===
-// Top-down continuous map renderer with isometric game view
+// Smooth isometric renderer - no visible tile grid
 const Renderer = {
     canvas: null,
     ctx: null,
-    // Pre-rendered terrain buffer for performance
     _terrainBuffer: null,
     _bufferDirty: true,
-    // Isometric mode
     _isoMode: false,
-    _isoBuffer: null,
-    _isoBufferDirty: true,
 
     init() {
         this.canvas = document.getElementById('game-canvas');
@@ -1143,22 +1241,19 @@ const Renderer = {
         this.resize();
         window.addEventListener('resize', () => this.resize());
         this._bufferDirty = true;
-        this._isoBufferDirty = true;
     },
 
     resize() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
         this._bufferDirty = true;
-        this._isoBufferDirty = true;
     },
 
     setIsoMode(enabled) {
         this._isoMode = enabled;
-        this._isoBufferDirty = true;
     },
 
-    // Build the full terrain as an offscreen image (called once after generation)
+    // Build the full terrain as an offscreen image (for top-down/placement)
     buildTerrainBuffer() {
         const w = GameMap.width;
         const h = GameMap.height;
@@ -1171,7 +1266,6 @@ const Renderer = {
         this._terrainBuffer.height = bufH;
         const ctx = this._terrainBuffer.getContext('2d');
 
-        // Render each cell as a colored square
         const imageData = ctx.createImageData(bufW, bufH);
         const data = imageData.data;
 
@@ -1179,14 +1273,12 @@ const Renderer = {
             for (let tx = 0; tx < w; tx++) {
                 const tile = GameMap.tiles[ty][tx];
                 const rgb = GameMap._terrainRGB(tile.terrain, tx, ty);
-
                 const startX = tx * cellSize;
                 const startY = ty * cellSize;
 
                 for (let py = startY; py < startY + cellSize; py++) {
                     for (let px = startX; px < startX + cellSize; px++) {
                         const idx = (py * bufW + px) * 4;
-                        // Add sub-cell noise for natural look
                         const micro = ((px * 13 + py * 7) & 7) - 3.5;
                         data[idx] = Math.max(0, Math.min(255, rgb[0] + micro));
                         data[idx + 1] = Math.max(0, Math.min(255, rgb[1] + micro));
@@ -1199,7 +1291,7 @@ const Renderer = {
 
         ctx.putImageData(imageData, 0, 0);
 
-        // Draw region borders on the buffer
+        // Subtle region borders
         ctx.strokeStyle = 'rgba(0,0,0,0.08)';
         ctx.lineWidth = 1;
         for (let ty = 0; ty < h; ty++) {
@@ -1216,23 +1308,20 @@ const Renderer = {
                     ctx.stroke();
                 }
                 if (bottom && bottom.regionId >= 0 && bottom.regionId !== tile.regionId) {
-                    const py = (ty + 1) * cellSize;
+                    const py2 = (ty + 1) * cellSize;
                     ctx.beginPath();
-                    ctx.moveTo(tx * cellSize, py);
-                    ctx.lineTo((tx + 1) * cellSize, py);
+                    ctx.moveTo(tx * cellSize, py2);
+                    ctx.lineTo((tx + 1) * cellSize, py2);
                     ctx.stroke();
                 }
             }
         }
 
-        // Draw tree sprites on forest cells
+        // Trees and rocks on buffer (for top-down mode only)
         this._drawTreesOnBuffer(ctx, cellSize);
-
-        // Draw rocks on mountain cells
         this._drawRocksOnBuffer(ctx, cellSize);
 
         this._bufferDirty = false;
-        this._isoBufferDirty = true;
     },
 
     _drawTreesOnBuffer(ctx, cellSize) {
@@ -1252,12 +1341,8 @@ const Renderer = {
                     const ox = cx + h2 * (cellSize - 6) + 3;
                     const oy = cy + ((h2 * 7919) % 1) * (cellSize - 8) + 4;
                     const size = 3 + h2 * 3;
-
-                    // Trunk
                     ctx.fillStyle = '#3a2510';
                     ctx.fillRect(ox - 0.5, oy, 1.5, size * 0.4);
-
-                    // Canopy
                     const green = tile.terrain === CONFIG.TERRAIN.DENSE_FOREST ?
                         `rgb(${20 + h2 * 15},${48 + h2 * 20},${22 + h2 * 10})` :
                         `rgb(${32 + h2 * 20},${72 + h2 * 25},${30 + h2 * 15})`;
@@ -1276,14 +1361,11 @@ const Renderer = {
                 const tile = GameMap.tiles[ty][tx];
                 if (tile.terrain !== CONFIG.TERRAIN.MOUNTAIN &&
                     tile.terrain !== CONFIG.TERRAIN.HILLS) continue;
-
                 const hash = ((tx * 3571 + ty * 2819) & 0xFFFF) / 0xFFFF;
                 if (hash > 0.4) continue;
-
                 const cx = tx * cellSize + cellSize / 2;
                 const cy = ty * cellSize + cellSize / 2;
                 const size = 2 + hash * 3;
-
                 ctx.fillStyle = tile.terrain === CONFIG.TERRAIN.MOUNTAIN ?
                     `rgb(${90 + hash * 30},${86 + hash * 30},${80 + hash * 30})` :
                     `rgb(${120 + hash * 20},${105 + hash * 20},${80 + hash * 20})`;
@@ -1315,12 +1397,9 @@ const Renderer = {
         const cw = this.canvas.width;
         const ch = this.canvas.height;
 
-        // Clear
         ctx.fillStyle = '#0a1520';
         ctx.fillRect(0, 0, cw, ch);
 
-        // Draw the terrain buffer with camera transform
-        const cellSize = CONFIG.CELL_SIZE;
         const zoom = Camera.zoom;
         const srcX = Camera.x / zoom;
         const srcY = Camera.y / zoom;
@@ -1328,195 +1407,47 @@ const Renderer = {
         const srcH = ch / zoom;
 
         ctx.imageSmoothingEnabled = zoom < 1;
+        ctx.drawImage(this._terrainBuffer, srcX, srcY, srcW, srcH, 0, 0, cw, ch);
 
-        ctx.drawImage(
-            this._terrainBuffer,
-            srcX, srcY, srcW, srcH,
-            0, 0, cw, ch
-        );
-
-        // Draw kingdom overlays
         this._drawKingdomOverlays(ctx, cw, ch);
 
-        // Draw buildings
-        this._drawBuildings(ctx);
-
-        // Draw castle if placed
         if (typeof Game !== 'undefined' && Game._castlePlaced) {
             this._drawCastle(ctx, Game._castlePlaced.x, Game._castlePlaced.y);
         }
     },
 
-    // ==================== ISOMETRIC RENDERING ====================
+    // ==================== SMOOTH ISOMETRIC RENDERING ====================
+
+    // Get interpolated elevation at fractional world position
+    _getElevAt(wx, wy) {
+        const ix = Math.floor(wx);
+        const iy = Math.floor(wy);
+        const fx = wx - ix;
+        const fy = wy - iy;
+
+        const e00 = this._tileElev(ix, iy);
+        const e10 = this._tileElev(ix + 1, iy);
+        const e01 = this._tileElev(ix, iy + 1);
+        const e11 = this._tileElev(ix + 1, iy + 1);
+
+        const top = e00 + (e10 - e00) * fx;
+        const bot = e01 + (e11 - e01) * fx;
+        return top + (bot - top) * fy;
+    },
+
+    _tileElev(x, y) {
+        const t = GameMap.getTile(x, y);
+        return t ? t.elevation : -0.5;
+    },
 
     _renderIso() {
-        if (!this._terrainBuffer || this._bufferDirty) {
-            this.buildTerrainBuffer();
-        }
-
         const ctx = this.ctx;
         const cw = this.canvas.width;
         const ch = this.canvas.height;
 
-        // Clear
         ctx.fillStyle = '#0a1520';
         ctx.fillRect(0, 0, cw, ch);
 
-        const cellSize = CONFIG.CELL_SIZE;
-        const zoom = Camera.zoom;
-
-        // Iso tile dimensions
-        const tileW = cellSize * zoom;
-        const tileH = tileW * 0.5; // isometric ratio
-
-        // Calculate visible range from camera
-        // In iso mode, camera.x/y still track world position in cell coords
-        const camCellX = Camera.x / (cellSize * zoom);
-        const camCellY = Camera.y / (cellSize * zoom);
-
-        // How many tiles visible
-        const viewTilesX = Math.ceil(cw / tileW) + 4;
-        const viewTilesY = Math.ceil(ch / tileH) + 8;
-
-        const startCX = Math.floor(camCellX) - 2;
-        const startCY = Math.floor(camCellY) - 2;
-
-        // Iso projection: screen_x = (tx - ty) * tileW/2 + offsetX
-        //                 screen_y = (tx + ty) * tileH/2 + offsetY - elevation
-        const originX = cw / 2;
-        const originY = ch * 0.2;
-
-        // Draw back to front
-        const rangeX = viewTilesX;
-        const rangeY = viewTilesY;
-
-        for (let row = 0; row < rangeX + rangeY; row++) {
-            for (let i = Math.max(0, row - rangeY + 1); i <= Math.min(row, rangeX - 1); i++) {
-                const j = row - i;
-                const tx = startCX + i;
-                const ty = startCY + j;
-
-                if (tx < 0 || ty < 0 || tx >= GameMap.width || ty >= GameMap.height) continue;
-                const tile = GameMap.tiles[ty][tx];
-
-                // Iso screen position
-                const relX = tx - camCellX;
-                const relY = ty - camCellY;
-                const sx = originX + (relX - relY) * tileW * 0.5;
-                const sy = originY + (relX + relY) * tileH * 0.5;
-
-                // Elevation offset
-                const elevOff = tile.elevation * tileH * 1.5;
-
-                // Cull offscreen
-                if (sx < -tileW || sx > cw + tileW || sy - elevOff < -tileH * 3 || sy - elevOff > ch + tileH * 2) continue;
-
-                const rgb = GameMap._terrainRGB(tile.terrain, tx, ty);
-
-                // Draw isometric diamond (top face)
-                ctx.fillStyle = `rgb(${Math.round(rgb[0])},${Math.round(rgb[1])},${Math.round(rgb[2])})`;
-                ctx.beginPath();
-                ctx.moveTo(sx, sy - elevOff - tileH * 0.5);  // top
-                ctx.lineTo(sx + tileW * 0.5, sy - elevOff);  // right
-                ctx.lineTo(sx, sy - elevOff + tileH * 0.5);  // bottom
-                ctx.lineTo(sx - tileW * 0.5, sy - elevOff);  // left
-                ctx.closePath();
-                ctx.fill();
-
-                // Side faces for elevated terrain (gives 3D depth)
-                if (tile.elevation > -0.1) {
-                    const sideH = Math.max(1, tile.elevation * tileH * 0.8 + tileH * 0.3);
-                    // Left side (darker)
-                    ctx.fillStyle = `rgb(${Math.round(rgb[0] * 0.65)},${Math.round(rgb[1] * 0.65)},${Math.round(rgb[2] * 0.65)})`;
-                    ctx.beginPath();
-                    ctx.moveTo(sx - tileW * 0.5, sy - elevOff);
-                    ctx.lineTo(sx, sy - elevOff + tileH * 0.5);
-                    ctx.lineTo(sx, sy - elevOff + tileH * 0.5 + sideH);
-                    ctx.lineTo(sx - tileW * 0.5, sy - elevOff + sideH);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Right side (slightly darker)
-                    ctx.fillStyle = `rgb(${Math.round(rgb[0] * 0.8)},${Math.round(rgb[1] * 0.8)},${Math.round(rgb[2] * 0.8)})`;
-                    ctx.beginPath();
-                    ctx.moveTo(sx + tileW * 0.5, sy - elevOff);
-                    ctx.lineTo(sx, sy - elevOff + tileH * 0.5);
-                    ctx.lineTo(sx, sy - elevOff + tileH * 0.5 + sideH);
-                    ctx.lineTo(sx + tileW * 0.5, sy - elevOff + sideH);
-                    ctx.closePath();
-                    ctx.fill();
-                }
-
-                // Kingdom overlay
-                if (tile.owner >= 0) {
-                    const region = GameMap.regions.find(r => r.owner === tile.owner && r.owner >= 0);
-                    if (region && region.color) {
-                        ctx.fillStyle = region.color + '30';
-                        ctx.beginPath();
-                        ctx.moveTo(sx, sy - elevOff - tileH * 0.5);
-                        ctx.lineTo(sx + tileW * 0.5, sy - elevOff);
-                        ctx.lineTo(sx, sy - elevOff + tileH * 0.5);
-                        ctx.lineTo(sx - tileW * 0.5, sy - elevOff);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-                }
-
-                // Trees on forest tiles
-                if (tile.terrain === CONFIG.TERRAIN.FOREST || tile.terrain === CONFIG.TERRAIN.DENSE_FOREST) {
-                    const hash = ((tx * 7919 + ty * 6271) & 0xFFFF) / 0xFFFF;
-                    const count = tile.terrain === CONFIG.TERRAIN.DENSE_FOREST ? 2 : (hash > 0.5 ? 1 : 0);
-                    for (let t = 0; t <= count; t++) {
-                        const th = ((tx * (t+3) * 3571 + ty * 2819) & 0xFFFF) / 0xFFFF;
-                        const treeH = (3 + th * 4) * zoom;
-                        const treeOx = (th - 0.5) * tileW * 0.25;
-                        const treeOy = (((th * 7919) % 1) - 0.5) * tileH * 0.25;
-                        const treeSx = sx + treeOx;
-                        const treeSy = sy - elevOff - tileH * 0.2 + treeOy;
-
-                        // Trunk
-                        ctx.fillStyle = '#3a2510';
-                        ctx.fillRect(treeSx - 0.5 * zoom, treeSy - treeH * 0.4, 1.5 * zoom, treeH * 0.5);
-
-                        // Canopy
-                        const isDense = tile.terrain === CONFIG.TERRAIN.DENSE_FOREST;
-                        ctx.fillStyle = isDense ?
-                            `rgb(${Math.round(20+th*15)},${Math.round(48+th*20)},${Math.round(22+th*10)})` :
-                            `rgb(${Math.round(32+th*20)},${Math.round(72+th*25)},${Math.round(30+th*15)})`;
-                        ctx.beginPath();
-                        ctx.arc(treeSx, treeSy - treeH * 0.5, treeH * 0.35, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-                }
-
-                // Rocks on hills/mountains
-                if (tile.terrain === CONFIG.TERRAIN.MOUNTAIN || tile.terrain === CONFIG.TERRAIN.HILLS) {
-                    const hash = ((tx * 3571 + ty * 2819) & 0xFFFF) / 0xFFFF;
-                    if (hash < 0.35) {
-                        const rockSize = (2 + hash * 3) * zoom;
-                        const isMtn = tile.terrain === CONFIG.TERRAIN.MOUNTAIN;
-                        ctx.fillStyle = isMtn ?
-                            `rgb(${Math.round(90+hash*30)},${Math.round(86+hash*30)},${Math.round(80+hash*30)})` :
-                            `rgb(${Math.round(120+hash*20)},${Math.round(105+hash*20)},${Math.round(80+hash*20)})`;
-                        ctx.beginPath();
-                        ctx.moveTo(sx - rockSize, sy - elevOff - tileH*0.1 + rockSize*0.3);
-                        ctx.lineTo(sx - rockSize*0.3, sy - elevOff - tileH*0.1 - rockSize);
-                        ctx.lineTo(sx + rockSize*0.5, sy - elevOff - tileH*0.1 - rockSize*0.7);
-                        ctx.lineTo(sx + rockSize, sy - elevOff - tileH*0.1 + rockSize*0.3);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-                }
-            }
-        }
-
-        // Draw castle (cabin) on top
-        if (typeof Game !== 'undefined' && Game._castlePlaced) {
-            this._drawIsoCabin(ctx, Game._castlePlaced.x, Game._castlePlaced.y);
-        }
-    },
-
-    _drawIsoCabin(ctx, tileX, tileY) {
         const cellSize = CONFIG.CELL_SIZE;
         const zoom = Camera.zoom;
         const tileW = cellSize * zoom;
@@ -1525,138 +1456,475 @@ const Renderer = {
         const camCellX = Camera.x / (cellSize * zoom);
         const camCellY = Camera.y / (cellSize * zoom);
 
-        const originX = this.canvas.width / 2;
-        const originY = this.canvas.height * 0.2;
+        const originX = cw / 2;
+        const originY = ch * 0.25;
 
-        const relX = tileX - camCellX;
-        const relY = tileY - camCellY;
-        const sx = originX + (relX - relY) * tileW * 0.5;
+        // Determine visible range (generous padding)
+        const viewRange = Math.ceil(Math.max(cw, ch) / tileH) + 6;
+        const startCX = Math.floor(camCellX) - Math.ceil(viewRange / 2);
+        const startCY = Math.floor(camCellY) - Math.ceil(viewRange / 2);
+        const endCX = startCX + viewRange;
+        const endCY = startCY + viewRange;
 
-        const tile = GameMap.getTile(tileX, tileY);
-        const elev = tile ? tile.elevation : 0;
-        const elevOff = elev * tileH * 1.5;
-        const sy = originY + (relX + relY) * tileH * 0.5 - elevOff;
+        // Draw terrain back to front (painter's algorithm via diagonal sweep)
+        for (let sum = startCX + startCY; sum <= endCX + endCY; sum++) {
+            for (let tx = Math.max(startCX, sum - endCY); tx <= Math.min(endCX, sum - startCY); tx++) {
+                const ty = sum - tx;
+                if (tx < 0 || ty < 0 || tx >= GameMap.width || ty >= GameMap.height) continue;
 
-        const scale = zoom * 1.2;
-        const cabW = 18 * scale;
-        const cabH = 12 * scale;
-        const roofH = 10 * scale;
-        const baseX = sx - cabW / 2;
-        const baseY = sy - cabH - tileH * 0.3;
+                const tile = GameMap.tiles[ty][tx];
+                const relX = tx - camCellX;
+                const relY = ty - camCellY;
 
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.25)';
-        ctx.beginPath();
-        ctx.ellipse(sx, sy - tileH * 0.15, cabW * 0.6, cabH * 0.2, 0, 0, Math.PI * 2);
-        ctx.fill();
+                // Smooth elevation from corners
+                const eTopLeft = this._getElevAt(tx, ty);
+                const eTopRight = this._getElevAt(tx + 1, ty);
+                const eBotRight = this._getElevAt(tx + 1, ty + 1);
+                const eBotLeft = this._getElevAt(tx, ty + 1);
+                const eCenter = (eTopLeft + eTopRight + eBotRight + eBotLeft) * 0.25;
 
-        // Cabin walls (front)
-        ctx.fillStyle = '#5a3d1e';
-        ctx.fillRect(baseX, baseY, cabW, cabH);
+                const elevScale = tileH * 2.0;
 
-        // Wood planks detail
-        ctx.strokeStyle = '#4a2e14';
-        ctx.lineWidth = 0.5 * scale;
-        for (let i = 1; i < 4; i++) {
-            const py = baseY + (cabH / 4) * i;
-            ctx.beginPath();
-            ctx.moveTo(baseX, py);
-            ctx.lineTo(baseX + cabW, py);
-            ctx.stroke();
+                // Iso corners (no grid lines - smooth)
+                const toIso = (rx, ry, elev) => ({
+                    x: originX + (rx - ry) * tileW * 0.5,
+                    y: originY + (rx + ry) * tileH * 0.5 - elev * elevScale
+                });
+
+                const topPt = toIso(relX, relY, eTopLeft);
+                const rightPt = toIso(relX + 1, relY, eTopRight);
+                const botPt = toIso(relX + 1, relY + 1, eBotRight);
+                const leftPt = toIso(relX, relY + 1, eBotLeft);
+
+                // Cull offscreen
+                const minSX = Math.min(topPt.x, rightPt.x, botPt.x, leftPt.x);
+                const maxSX = Math.max(topPt.x, rightPt.x, botPt.x, leftPt.x);
+                const minSY = Math.min(topPt.y, rightPt.y, botPt.y, leftPt.y);
+                const maxSY = Math.max(topPt.y, rightPt.y, botPt.y, leftPt.y);
+                if (maxSX < -tileW || minSX > cw + tileW || maxSY < -tileH * 4 || minSY > ch + tileH * 4) continue;
+
+                const rgb = GameMap._terrainRGB(tile.terrain, tx, ty);
+
+                // Light based on slope (normal approximation)
+                const slopeX = (eTopRight + eBotRight - eTopLeft - eBotLeft) * 0.5;
+                const slopeY = (eBotLeft + eBotRight - eTopLeft - eTopRight) * 0.5;
+                const light = 1.0 + slopeX * 0.3 - slopeY * 0.2;
+                const lr = Math.max(0, Math.min(255, Math.round(rgb[0] * light)));
+                const lg = Math.max(0, Math.min(255, Math.round(rgb[1] * light)));
+                const lb = Math.max(0, Math.min(255, Math.round(rgb[2] * light)));
+
+                // Draw top face (smooth quad)
+                ctx.fillStyle = `rgb(${lr},${lg},${lb})`;
+                ctx.beginPath();
+                ctx.moveTo(topPt.x, topPt.y);
+                ctx.lineTo(rightPt.x, rightPt.y);
+                ctx.lineTo(botPt.x, botPt.y);
+                ctx.lineTo(leftPt.x, leftPt.y);
+                ctx.closePath();
+                ctx.fill();
+
+                // Side faces for depth effect (only draw visible sides)
+                const sideDepth = tileH * 0.6;
+
+                // Left side (bottom-left edge visible)
+                if (eBotLeft > -0.3 || eTopLeft > -0.3) {
+                    const sH = Math.max(sideDepth * 0.3, sideDepth + eCenter * sideDepth * 0.5);
+                    ctx.fillStyle = `rgb(${Math.round(lr*0.6)},${Math.round(lg*0.6)},${Math.round(lb*0.6)})`;
+                    ctx.beginPath();
+                    ctx.moveTo(leftPt.x, leftPt.y);
+                    ctx.lineTo(botPt.x, botPt.y);
+                    ctx.lineTo(botPt.x, botPt.y + sH);
+                    ctx.lineTo(leftPt.x, leftPt.y + sH);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                // Right side (bottom-right edge visible)
+                if (eBotRight > -0.3 || eTopRight > -0.3) {
+                    const sH = Math.max(sideDepth * 0.3, sideDepth + eCenter * sideDepth * 0.5);
+                    ctx.fillStyle = `rgb(${Math.round(lr*0.75)},${Math.round(lg*0.75)},${Math.round(lb*0.75)})`;
+                    ctx.beginPath();
+                    ctx.moveTo(rightPt.x, rightPt.y);
+                    ctx.lineTo(botPt.x, botPt.y);
+                    ctx.lineTo(botPt.x, botPt.y + sH);
+                    ctx.lineTo(rightPt.x, rightPt.y + sH);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                // Kingdom overlay on top face
+                if (tile.owner >= 0) {
+                    const region = GameMap.regions.find(r => r.owner === tile.owner);
+                    if (region && region.color) {
+                        ctx.fillStyle = region.color + '25';
+                        ctx.beginPath();
+                        ctx.moveTo(topPt.x, topPt.y);
+                        ctx.lineTo(rightPt.x, rightPt.y);
+                        ctx.lineTo(botPt.x, botPt.y);
+                        ctx.lineTo(leftPt.x, leftPt.y);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                }
+
+                // Center point for placing objects
+                const centerPt = toIso(relX + 0.5, relY + 0.5, eCenter);
+
+                // Iso trees (semi-3D)
+                if (tile.terrain === CONFIG.TERRAIN.FOREST || tile.terrain === CONFIG.TERRAIN.DENSE_FOREST) {
+                    this._drawIsoTree(ctx, centerPt.x, centerPt.y, tile, tx, ty, zoom);
+                }
+
+                // Iso rocks (semi-3D)
+                if (tile.terrain === CONFIG.TERRAIN.MOUNTAIN || tile.terrain === CONFIG.TERRAIN.HILLS) {
+                    this._drawIsoRock(ctx, centerPt.x, centerPt.y, tile, tx, ty, zoom);
+                }
+            }
         }
 
-        // Door
-        const doorW = 4 * scale;
-        const doorH = 7 * scale;
-        ctx.fillStyle = '#3a2510';
-        ctx.fillRect(sx - doorW / 2, baseY + cabH - doorH, doorW, doorH);
-        // Door handle
-        ctx.fillStyle = '#c8a84a';
+        // Draw cabin on top of everything
+        if (typeof Game !== 'undefined' && Game._castlePlaced) {
+            this._drawIsoCabin(ctx, Game._castlePlaced.x, Game._castlePlaced.y);
+        }
+    },
+
+    // Semi-3D tree with trunk, shadow, layered canopy
+    _drawIsoTree(ctx, sx, sy, tile, tx, ty, zoom) {
+        const hash = ((tx * 7919 + ty * 6271) & 0xFFFF) / 0xFFFF;
+        const isDense = tile.terrain === CONFIG.TERRAIN.DENSE_FOREST;
+        const count = isDense ? (hash > 0.3 ? 3 : 2) : (hash > 0.5 ? 2 : 1);
+
+        for (let i = 0; i < count; i++) {
+            const th = ((tx * (i + 3) * 3571 + ty * 2819) & 0xFFFF) / 0xFFFF;
+            const treeH = (5 + th * 6) * zoom;
+            const ox = (th - 0.5) * 8 * zoom;
+            const oy = (((th * 7919) % 1) - 0.5) * 4 * zoom;
+            const treeSx = sx + ox;
+            const treeSy = sy + oy;
+            const trunkW = 1.5 * zoom;
+            const canopyR = treeH * 0.3;
+
+            // Shadow on ground
+            ctx.fillStyle = 'rgba(0,0,0,0.15)';
+            ctx.beginPath();
+            ctx.ellipse(treeSx + 2 * zoom, treeSy + 1 * zoom, canopyR * 0.8, canopyR * 0.35, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Trunk (3D - front face)
+            ctx.fillStyle = '#4a3018';
+            ctx.fillRect(treeSx - trunkW * 0.5, treeSy - treeH * 0.5, trunkW, treeH * 0.55);
+            // Trunk side highlight
+            ctx.fillStyle = '#5a3d1e';
+            ctx.fillRect(treeSx - trunkW * 0.5, treeSy - treeH * 0.5, trunkW * 0.4, treeH * 0.55);
+
+            // Canopy layers (bottom to top for depth)
+            for (let layer = 0; layer < 3; layer++) {
+                const layerY = treeSy - treeH * (0.45 + layer * 0.18);
+                const layerR = canopyR * (1.0 - layer * 0.2);
+                const shade = layer * 12;
+
+                if (isDense) {
+                    ctx.fillStyle = `rgb(${18 + th * 12 + shade},${40 + th * 18 + shade},${20 + th * 8})`;
+                } else {
+                    ctx.fillStyle = `rgb(${28 + th * 18 + shade},${62 + th * 22 + shade},${26 + th * 12})`;
+                }
+                ctx.beginPath();
+                ctx.ellipse(treeSx, layerY, layerR, layerR * 0.65, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Highlight on top canopy
+            ctx.fillStyle = isDense ? 'rgba(60,100,40,0.3)' : 'rgba(80,130,50,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(treeSx - canopyR * 0.15, treeSy - treeH * 0.78, canopyR * 0.3, canopyR * 0.2, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    },
+
+    // Semi-3D rock with faces and highlights
+    _drawIsoRock(ctx, sx, sy, tile, tx, ty, zoom) {
+        const hash = ((tx * 3571 + ty * 2819) & 0xFFFF) / 0xFFFF;
+        if (hash > 0.45) return;
+
+        const isMtn = tile.terrain === CONFIG.TERRAIN.MOUNTAIN;
+        const rockH = (4 + hash * 6) * zoom;
+        const rockW = (3 + hash * 4) * zoom;
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
         ctx.beginPath();
-        ctx.arc(sx + doorW * 0.25, baseY + cabH - doorH * 0.4, 0.6 * scale, 0, Math.PI * 2);
+        ctx.ellipse(sx + 1.5 * zoom, sy + 1 * zoom, rockW * 0.7, rockW * 0.3, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Window
-        ctx.fillStyle = '#a8c8e8';
-        const winSize = 3 * scale;
-        ctx.fillRect(baseX + cabW * 0.15, baseY + cabH * 0.2, winSize, winSize);
-        ctx.fillRect(baseX + cabW - cabW * 0.15 - winSize, baseY + cabH * 0.2, winSize, winSize);
-        // Window cross
-        ctx.strokeStyle = '#3a2510';
-        ctx.lineWidth = 0.4 * scale;
-        [baseX + cabW * 0.15, baseX + cabW - cabW * 0.15 - winSize].forEach(wx => {
-            ctx.beginPath();
-            ctx.moveTo(wx + winSize/2, baseY + cabH * 0.2);
-            ctx.lineTo(wx + winSize/2, baseY + cabH * 0.2 + winSize);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(wx, baseY + cabH * 0.2 + winSize/2);
-            ctx.lineTo(wx + winSize, baseY + cabH * 0.2 + winSize/2);
-            ctx.stroke();
-        });
+        // Base color
+        const br = isMtn ? 85 + hash * 35 : 115 + hash * 25;
+        const bg = isMtn ? 80 + hash * 35 : 100 + hash * 25;
+        const bb = isMtn ? 75 + hash * 30 : 75 + hash * 20;
 
-        // Roof (triangle)
-        const roofOverhang = 3 * scale;
-        ctx.fillStyle = '#8b4513';
+        // Front face (darker)
+        ctx.fillStyle = `rgb(${Math.round(br * 0.8)},${Math.round(bg * 0.8)},${Math.round(bb * 0.8)})`;
         ctx.beginPath();
-        ctx.moveTo(baseX - roofOverhang, baseY);
-        ctx.lineTo(sx, baseY - roofH);
-        ctx.lineTo(baseX + cabW + roofOverhang, baseY);
+        ctx.moveTo(sx - rockW, sy);
+        ctx.lineTo(sx - rockW * 0.4, sy - rockH);
+        ctx.lineTo(sx + rockW * 0.5, sy - rockH * 0.85);
+        ctx.lineTo(sx + rockW, sy);
         ctx.closePath();
         ctx.fill();
 
-        // Roof outline
-        ctx.strokeStyle = '#5a2d0a';
-        ctx.lineWidth = 1 * scale;
+        // Top face (lighter)
+        ctx.fillStyle = `rgb(${Math.round(br)},${Math.round(bg)},${Math.round(bb)})`;
         ctx.beginPath();
-        ctx.moveTo(baseX - roofOverhang, baseY);
-        ctx.lineTo(sx, baseY - roofH);
-        ctx.lineTo(baseX + cabW + roofOverhang, baseY);
+        ctx.moveTo(sx - rockW * 0.4, sy - rockH);
+        ctx.lineTo(sx + rockW * 0.1, sy - rockH * 1.1);
+        ctx.lineTo(sx + rockW * 0.7, sy - rockH * 0.9);
+        ctx.lineTo(sx + rockW * 0.5, sy - rockH * 0.85);
+        ctx.closePath();
+        ctx.fill();
+
+        // Right face
+        ctx.fillStyle = `rgb(${Math.round(br * 0.65)},${Math.round(bg * 0.65)},${Math.round(bb * 0.65)})`;
+        ctx.beginPath();
+        ctx.moveTo(sx + rockW * 0.5, sy - rockH * 0.85);
+        ctx.lineTo(sx + rockW * 0.7, sy - rockH * 0.9);
+        ctx.lineTo(sx + rockW * 1.05, sy - rockH * 0.1);
+        ctx.lineTo(sx + rockW, sy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.beginPath();
+        ctx.moveTo(sx - rockW * 0.3, sy - rockH * 0.9);
+        ctx.lineTo(sx, sy - rockH * 1.05);
+        ctx.lineTo(sx + rockW * 0.15, sy - rockH * 0.8);
+        ctx.closePath();
+        ctx.fill();
+    },
+
+    // Semi-3D cabin with isometric perspective
+    _drawIsoCabin(ctx, tileX, tileY) {
+        const cellSize = CONFIG.CELL_SIZE;
+        const zoom = Camera.zoom;
+        const tileW = cellSize * zoom;
+        const tileH = tileW * 0.5;
+        const elevScale = tileH * 2.0;
+
+        const camCellX = Camera.x / (cellSize * zoom);
+        const camCellY = Camera.y / (cellSize * zoom);
+
+        const originX = this.canvas.width / 2;
+        const originY = this.canvas.height * 0.25;
+
+        const elev = this._getElevAt(tileX + 0.5, tileY + 0.5);
+        const relX = tileX + 0.5 - camCellX;
+        const relY = tileY + 0.5 - camCellY;
+        const sx = originX + (relX - relY) * tileW * 0.5;
+        const sy = originY + (relX + relY) * tileH * 0.5 - elev * elevScale;
+
+        const s = zoom * 1.3;
+
+        // === Shadow ===
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.beginPath();
+        ctx.ellipse(sx, sy + 2 * s, 14 * s, 5 * s, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // === Foundation (stone base) ===
+        const foundH = 3 * s;
+        ctx.fillStyle = '#6a6460';
+        ctx.beginPath();
+        ctx.moveTo(sx - 12 * s, sy);
+        ctx.lineTo(sx + 12 * s, sy);
+        ctx.lineTo(sx + 12 * s, sy + foundH);
+        ctx.lineTo(sx - 12 * s, sy + foundH);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#5a5450';
+        ctx.beginPath();
+        ctx.moveTo(sx + 12 * s, sy);
+        ctx.lineTo(sx + 15 * s, sy - 2 * s);
+        ctx.lineTo(sx + 15 * s, sy - 2 * s + foundH);
+        ctx.lineTo(sx + 12 * s, sy + foundH);
+        ctx.closePath();
+        ctx.fill();
+
+        // === Left wall (darker) ===
+        const wallH = 14 * s;
+        const wallTop = sy - wallH;
+        ctx.fillStyle = '#5a3d1e';
+        ctx.beginPath();
+        ctx.moveTo(sx - 12 * s, sy);
+        ctx.lineTo(sx - 12 * s, wallTop);
+        ctx.lineTo(sx, wallTop - 3 * s);
+        ctx.lineTo(sx, sy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Wood plank lines on left wall
+        ctx.strokeStyle = '#4a2e14';
+        ctx.lineWidth = 0.4 * s;
+        for (let p = 1; p <= 4; p++) {
+            const py = wallTop + (wallH / 5) * p;
+            ctx.beginPath();
+            ctx.moveTo(sx - 12 * s, py);
+            ctx.lineTo(sx, py - 3 * s * (p / 5));
+            ctx.stroke();
+        }
+
+        // === Right wall (lighter) ===
+        ctx.fillStyle = '#6a4a28';
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx, wallTop - 3 * s);
+        ctx.lineTo(sx + 12 * s, wallTop);
+        ctx.lineTo(sx + 12 * s, sy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Plank lines on right wall
+        ctx.strokeStyle = '#5a3a1c';
+        ctx.lineWidth = 0.4 * s;
+        for (let p = 1; p <= 4; p++) {
+            const py = wallTop + (wallH / 5) * p;
+            ctx.beginPath();
+            ctx.moveTo(sx, py - 3 * s * (p / 5));
+            ctx.lineTo(sx + 12 * s, py);
+            ctx.stroke();
+        }
+
+        // === Door (on right wall) ===
+        const doorW = 4 * s;
+        const doorH = 7 * s;
+        const doorX = sx + 5 * s;
+        ctx.fillStyle = '#3a2510';
+        ctx.fillRect(doorX, sy - doorH, doorW, doorH);
+        ctx.strokeStyle = '#2a1a08';
+        ctx.lineWidth = 0.3 * s;
+        ctx.strokeRect(doorX, sy - doorH, doorW, doorH);
+        // Handle
+        ctx.fillStyle = '#c8a84a';
+        ctx.beginPath();
+        ctx.arc(doorX + doorW * 0.75, sy - doorH * 0.4, 0.6 * s, 0, Math.PI * 2);
+        ctx.fill();
+
+        // === Windows ===
+        const winS = 3 * s;
+        // Left wall window
+        const lwx = sx - 7 * s;
+        const lwy = wallTop + wallH * 0.3;
+        ctx.fillStyle = '#a8c8e8';
+        ctx.fillRect(lwx, lwy, winS, winS);
+        ctx.strokeStyle = '#3a2510';
+        ctx.lineWidth = 0.3 * s;
+        ctx.strokeRect(lwx, lwy, winS, winS);
+        ctx.beginPath();
+        ctx.moveTo(lwx + winS / 2, lwy);
+        ctx.lineTo(lwx + winS / 2, lwy + winS);
+        ctx.moveTo(lwx, lwy + winS / 2);
+        ctx.lineTo(lwx + winS, lwy + winS / 2);
+        ctx.stroke();
+        // Window glow
+        ctx.fillStyle = 'rgba(200,180,120,0.15)';
+        ctx.fillRect(lwx, lwy, winS, winS);
+
+        // === Roof ===
+        const roofPeak = wallTop - 10 * s;
+        // Left roof face
+        ctx.fillStyle = '#7a3a12';
+        ctx.beginPath();
+        ctx.moveTo(sx - 14 * s, wallTop);
+        ctx.lineTo(sx, roofPeak);
+        ctx.lineTo(sx + 2 * s, wallTop - 3 * s);
+        ctx.lineTo(sx - 12 * s, wallTop);
+        ctx.closePath();
+        ctx.fill();
+
+        // Right roof face (lighter)
+        ctx.fillStyle = '#8b4513';
+        ctx.beginPath();
+        ctx.moveTo(sx, roofPeak);
+        ctx.lineTo(sx + 14 * s, wallTop);
+        ctx.lineTo(sx + 12 * s, wallTop);
+        ctx.lineTo(sx + 2 * s, wallTop - 3 * s);
+        ctx.closePath();
+        ctx.fill();
+
+        // Roof ridge
+        ctx.strokeStyle = '#5a2d0a';
+        ctx.lineWidth = 1 * s;
+        ctx.beginPath();
+        ctx.moveTo(sx, roofPeak);
+        ctx.lineTo(sx + 2 * s, wallTop - 3 * s);
         ctx.stroke();
 
-        // Chimney
-        const chimW = 3 * scale;
-        const chimH = 6 * scale;
-        const chimX = sx + cabW * 0.2;
-        ctx.fillStyle = '#6a6a6a';
-        ctx.fillRect(chimX, baseY - roofH * 0.5 - chimH, chimW, chimH);
-        ctx.fillStyle = '#4a4a4a';
-        ctx.fillRect(chimX - 0.5 * scale, baseY - roofH * 0.5 - chimH, chimW + 1 * scale, 1.5 * scale);
+        // === Chimney ===
+        const chimW = 3 * s;
+        const chimH = 8 * s;
+        const chimX = sx + 7 * s;
+        const chimY = wallTop - 5 * s;
+        ctx.fillStyle = '#6a6460';
+        ctx.fillRect(chimX, chimY - chimH, chimW, chimH);
+        ctx.fillStyle = '#5a5450';
+        ctx.fillRect(chimX + chimW, chimY - chimH, chimW * 0.4, chimH);
+        // Cap
+        ctx.fillStyle = '#4a4440';
+        ctx.fillRect(chimX - 0.5 * s, chimY - chimH, chimW + 1.5 * s, 1.5 * s);
 
-        // Smoke particles
-        for (let i = 0; i < 3; i++) {
-            const smokeY = baseY - roofH * 0.5 - chimH - (4 + i * 5) * scale;
-            const smokeX = chimX + chimW / 2 + Math.sin(Date.now() / 800 + i * 2) * 2 * scale;
-            const smokeR = (1.5 + i * 0.8) * scale;
-            ctx.fillStyle = `rgba(180,180,180,${0.3 - i * 0.08})`;
+        // Smoke
+        const now = Date.now();
+        for (let i = 0; i < 4; i++) {
+            const smokeAge = (now / 600 + i * 1.5) % 6;
+            const smokeX2 = chimX + chimW * 0.5 + Math.sin(now / 700 + i * 2.1) * 2.5 * s;
+            const smokeY2 = chimY - chimH - smokeAge * 3 * s;
+            const smokeR = (1.2 + smokeAge * 0.6) * s;
+            const alpha = Math.max(0, 0.3 - smokeAge * 0.05);
+            ctx.fillStyle = `rgba(180,180,180,${alpha})`;
             ctx.beginPath();
-            ctx.arc(smokeX, smokeY, smokeR, 0, Math.PI * 2);
+            ctx.arc(smokeX2, smokeY2, smokeR, 0, Math.PI * 2);
             ctx.fill();
         }
 
-        // Banner/flag
-        const flagX = baseX + cabW - 2 * scale;
-        const flagY = baseY - roofH * 0.7;
-        const poleH = 12 * scale;
+        // === Flag ===
+        const flagX = sx - 10 * s;
+        const flagY = wallTop;
+        const poleH = 16 * s;
         ctx.strokeStyle = '#3a2510';
-        ctx.lineWidth = 1 * scale;
+        ctx.lineWidth = 1 * s;
         ctx.beginPath();
         ctx.moveTo(flagX, flagY);
         ctx.lineTo(flagX, flagY - poleH);
         ctx.stroke();
-        // Flag cloth
+        // Pole top ball
+        ctx.fillStyle = '#c8a84a';
+        ctx.beginPath();
+        ctx.arc(flagX, flagY - poleH, 1 * s, 0, Math.PI * 2);
+        ctx.fill();
+        // Flag cloth (animated)
+        const wave = Math.sin(now / 400) * 1.5 * s;
         ctx.fillStyle = '#3a7ad5';
         ctx.beginPath();
-        ctx.moveTo(flagX, flagY - poleH);
-        ctx.lineTo(flagX + 6 * scale + Math.sin(Date.now() / 500) * 1 * scale, flagY - poleH + 2 * scale);
-        ctx.lineTo(flagX, flagY - poleH + 5 * scale);
+        ctx.moveTo(flagX, flagY - poleH + 1 * s);
+        ctx.quadraticCurveTo(flagX + 4 * s + wave, flagY - poleH + 2.5 * s, flagX + 7 * s + wave * 0.5, flagY - poleH + 2 * s);
+        ctx.lineTo(flagX + 6.5 * s + wave, flagY - poleH + 6 * s);
+        ctx.quadraticCurveTo(flagX + 3 * s + wave * 0.5, flagY - poleH + 5.5 * s, flagX, flagY - poleH + 6 * s);
         ctx.closePath();
         ctx.fill();
-
-        // Glow ring around base
+        // Cross on flag
+        ctx.strokeStyle = '#e8d48a';
+        ctx.lineWidth = 0.5 * s;
+        const fcx = flagX + 3.5 * s + wave * 0.5;
+        const fcy = flagY - poleH + 3.5 * s;
         ctx.beginPath();
-        ctx.ellipse(sx, sy - tileH * 0.15, cabW * 0.8, cabH * 0.3, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(200,168,74,0.35)';
+        ctx.moveTo(fcx, fcy - 1.5 * s);
+        ctx.lineTo(fcx, fcy + 1.5 * s);
+        ctx.moveTo(fcx - 1.5 * s, fcy);
+        ctx.lineTo(fcx + 1.5 * s, fcy);
+        ctx.stroke();
+
+        // === Glow ring ===
+        ctx.beginPath();
+        ctx.ellipse(sx, sy + 1 * s, 16 * s, 6 * s, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(200,168,74,0.3)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
     },
@@ -1664,8 +1932,6 @@ const Renderer = {
     _drawKingdomOverlays(ctx, cw, ch) {
         const cellSize = CONFIG.CELL_SIZE;
         const zoom = Camera.zoom;
-
-        // Calculate visible cell range
         const startX = Math.max(0, Math.floor(Camera.x / (cellSize * zoom)));
         const startY = Math.max(0, Math.floor(Camera.y / (cellSize * zoom)));
         const endX = Math.min(GameMap.width, Math.ceil((Camera.x + cw) / (cellSize * zoom)));
@@ -1675,22 +1941,15 @@ const Renderer = {
             for (let tx = startX; tx < endX; tx++) {
                 const tile = GameMap.tiles[ty][tx];
                 if (tile.owner < 0) continue;
-
-                const region = GameMap.regions.find(r => r.owner === tile.owner && r.owner >= 0);
+                const region = GameMap.regions.find(r => r.owner === tile.owner);
                 if (!region || !region.color) continue;
-
                 const sx = tx * cellSize * zoom - Camera.x;
-                const sy = ty * cellSize * zoom - Camera.y;
+                const sy2 = ty * cellSize * zoom - Camera.y;
                 const sw = cellSize * zoom;
-
                 ctx.fillStyle = region.color + '30';
-                ctx.fillRect(sx, sy, sw + 0.5, sw + 0.5);
+                ctx.fillRect(sx, sy2, sw + 0.5, sw + 0.5);
             }
         }
-    },
-
-    _drawBuildings(ctx) {
-        // Will be used later for building placement
     },
 
     _drawCastle(ctx, tileX, tileY) {
@@ -1708,7 +1967,6 @@ const Renderer = {
         ctx.fillText('\u{1F3F0}', sx, sy);
         ctx.shadowBlur = 0;
 
-        // Glow ring
         ctx.beginPath();
         ctx.arc(sx, sy, iconSize * 0.6, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(200,168,74,0.4)';
@@ -1716,9 +1974,7 @@ const Renderer = {
         ctx.stroke();
     },
 
-    renderMinimap() {
-        // No minimap for now
-    }
+    renderMinimap() {}
 };
 
 
@@ -1882,6 +2138,11 @@ const Game = {
     _castlePlaced: null, // { x, y } or null
     _worldMapOpen: false,
     _worldMapBuffer: null,
+
+    // Resources
+    resources: { wood: 0, stone: 0, iron: 0, gold: 0, food: 5 },
+    houses: 0,
+    families: 0,
 
     init() {
         document.getElementById('btn-new-game').addEventListener('click', () => this.newGame());
@@ -2160,11 +2421,20 @@ const Game = {
 
         // Switch to isometric mode
         Renderer.setIsoMode(true);
-        Camera.zoom = 2.0; // Start zoomed in for iso view
+        Camera.zoom = 2.0;
 
         this._running = true;
         this._worldMapOpen = false;
         this._worldMapBuffer = null;
+
+        // Reset resources
+        this.resources = { wood: 0, stone: 0, iron: 0, gold: 0, food: 5 };
+        this.houses = 0;
+        this.families = 0;
+
+        // Show HUD
+        document.getElementById('hud-bar').classList.add('active');
+        this._updateHUD();
 
         // Center on castle
         if (this._castlePlaced) {
@@ -2172,6 +2442,16 @@ const Game = {
         }
 
         this._gameLoop();
+    },
+
+    _updateHUD() {
+        document.getElementById('hud-wood').textContent = this.resources.wood;
+        document.getElementById('hud-stone').textContent = this.resources.stone;
+        document.getElementById('hud-iron').textContent = this.resources.iron;
+        document.getElementById('hud-gold').textContent = this.resources.gold;
+        document.getElementById('hud-food').textContent = this.resources.food;
+        document.getElementById('hud-houses').textContent = this.houses;
+        document.getElementById('hud-families').textContent = this.families;
     },
 
     _gameLoop() {
