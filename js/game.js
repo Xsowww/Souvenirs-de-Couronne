@@ -3,6 +3,8 @@ const Game = {
     seed: '',
     _running: false,
     _castlePlaced: null, // { x, y } or null
+    _worldMapOpen: false,
+    _worldMapBuffer: null,
 
     init() {
         document.getElementById('btn-new-game').addEventListener('click', () => this.newGame());
@@ -19,11 +21,29 @@ const Game = {
         // Placement screen
         document.getElementById('btn-confirm-placement').addEventListener('click', () => this.confirmPlacement());
 
+        // World map close
+        document.getElementById('worldmap-overlay').addEventListener('click', (e) => {
+            if (e.target.id === 'worldmap-overlay') this._closeWorldMap();
+        });
+
         // Options
         document.getElementById('opt-map-size').addEventListener('change', (e) => {
             const size = parseInt(e.target.value);
             CONFIG.MAP_WIDTH = size;
             CONFIG.MAP_HEIGHT = size;
+        });
+
+        // Key bindings
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'm' || e.key === 'M') {
+                if (this._running) {
+                    if (this._worldMapOpen) this._closeWorldMap();
+                    else this._openWorldMap();
+                }
+            }
+            if (e.key === 'Escape') {
+                if (this._worldMapOpen) this._closeWorldMap();
+            }
         });
     },
 
@@ -42,10 +62,11 @@ const Game = {
         this.showScreen('loading-screen');
         this._updateLoadingProgress(0, 'Preparation du parchemin...');
 
-        setTimeout(() => this._generateMapAsync(), 50);
+        // Generate terrain async with chunked rows for UI updates
+        setTimeout(() => this._generateTerrainChunked(), 50);
     },
 
-    _generateMapAsync() {
+    _generateTerrainChunked() {
         const messages = [
             'Les cartographes explorent les terres...',
             'Les oceans se forment...',
@@ -54,18 +75,64 @@ const Game = {
             'Les regions se dessinent...',
             'Dernieres touches...'
         ];
-        let lastMsgIdx = -1;
 
-        GameMap.generateTerrain(this.seed, (progress) => {
-            const msgIdx = Math.min(messages.length - 1, Math.floor(progress * messages.length));
-            if (msgIdx !== lastMsgIdx) {
-                lastMsgIdx = msgIdx;
-                this._updateLoadingProgress(progress, messages[msgIdx]);
+        Perlin.seed(this.seed);
+        Perlin.seedRng(this.seed);
+        GameMap.width = CONFIG.MAP_WIDTH;
+        GameMap.height = CONFIG.MAP_HEIGHT;
+        GameMap.tiles = [];
+        GameMap.regions = [];
+
+        const totalRows = GameMap.height;
+        let currentRow = 0;
+        const chunkSize = 20; // rows per frame
+
+        const processChunk = () => {
+            const end = Math.min(currentRow + chunkSize, totalRows);
+            for (let y = currentRow; y < end; y++) {
+                GameMap.tiles[y] = [];
+                for (let x = 0; x < GameMap.width; x++) {
+                    const nx = x / GameMap.width;
+                    const ny = y / GameMap.height;
+                    const elevation = Perlin.octave(x * 0.035, y * 0.035, 6, 0.5);
+                    const moisture = Perlin.octave(x * 0.04 + 200, y * 0.04 + 200, 4, 0.5);
+                    const dx = (nx - 0.5) * 2;
+                    const dy = (ny - 0.5) * 2;
+                    const distFromCenter = Math.sqrt(dx * dx + dy * dy);
+                    const falloff = Math.max(0, 1 - distFromCenter * 1.1);
+                    const finalElev = elevation * 0.7 + falloff * 0.3;
+                    const terrain = GameMap._elevToTerrain(finalElev, moisture);
+
+                    GameMap.tiles[y][x] = {
+                        x, y, terrain,
+                        elevation: finalElev, moisture,
+                        building: null,
+                        owner: -1,
+                        regionId: -1,
+                        visible: true,
+                        explored: true,
+                    };
+                }
             }
-        });
+            currentRow = end;
+            const progress = (currentRow / totalRows) * 0.65;
+            const msgIdx = Math.min(messages.length - 1, Math.floor(progress * messages.length));
+            this._updateLoadingProgress(progress, messages[msgIdx]);
 
-        this._updateLoadingProgress(1.0, 'La carte est prete !');
-        setTimeout(() => this._showPlacementScreen(), 500);
+            if (currentRow < totalRows) {
+                setTimeout(processChunk, 0);
+            } else {
+                // Regions
+                this._updateLoadingProgress(0.7, 'Les regions se dessinent...');
+                setTimeout(() => {
+                    GameMap._generateNaturalRegions();
+                    this._updateLoadingProgress(1.0, 'La carte est prete !');
+                    setTimeout(() => this._showPlacementScreen(), 400);
+                }, 50);
+            }
+        };
+
+        processChunk();
     },
 
     _updateLoadingProgress(progress, message) {
@@ -98,7 +165,6 @@ const Game = {
         btn.classList.remove('ready');
 
         canvas.onmousemove = (e) => {
-            // Only show hover if no castle placed yet
             if (this._castlePlaced) return;
             const cr = canvas.getBoundingClientRect();
             const mx = e.clientX - cr.left;
@@ -119,10 +185,8 @@ const Game = {
 
             const tile = GameMap.getTile(tileX, tileY);
             if (!tile || tile.terrain <= CONFIG.TERRAIN.WATER) return;
-
             if (!GameMap.isValidKingdomSpot(tileX, tileY)) return;
 
-            // Place or move the castle
             this._castlePlaced = { x: tileX, y: tileY };
             GameMap.renderOverviewToCanvas(canvas, tileX, tileY);
             btn.disabled = false;
@@ -154,29 +218,67 @@ const Game = {
         }
     },
 
+    // ==================== 2ND LOADING (after placement) ====================
+
     confirmPlacement() {
         if (!this._castlePlaced) return;
 
-        // Place kingdoms
-        GameMap.placeKingdoms(this._castlePlaced.x, this._castlePlaced.y);
+        // Cleanup placement listeners
+        const placementCanvas = document.getElementById('placement-canvas');
+        placementCanvas.onmousemove = null;
+        placementCanvas.onclick = null;
 
-        // Cleanup placement
-        const canvas = document.getElementById('placement-canvas');
-        canvas.onmousemove = null;
-        canvas.onclick = null;
+        // Show 2nd loading screen
+        this.showScreen('loading-screen');
+        this._updateLoadingProgress(0, 'Fondation du royaume...');
 
-        // Start the map view
-        this._startMapView();
+        const loadSteps = [
+            { progress: 0.15, msg: 'Les seigneurs prennent place...' },
+            { progress: 0.35, msg: 'Les royaumes ennemis se forment...' },
+            { progress: 0.55, msg: 'Les bandits rodent dans les bois...' },
+            { progress: 0.75, msg: 'Preparation du terrain...' },
+            { progress: 0.90, msg: 'Construction du chateau...' },
+            { progress: 1.00, msg: 'Votre royaume est pret !' },
+        ];
+
+        let step = 0;
+        const runStep = () => {
+            if (step === 0) {
+                // Place kingdoms
+                GameMap.placeKingdoms(this._castlePlaced.x, this._castlePlaced.y);
+            }
+            if (step === 3) {
+                // Build terrain buffer (expensive)
+                Renderer.init();
+                Renderer.buildTerrainBuffer();
+            }
+
+            this._updateLoadingProgress(loadSteps[step].progress, loadSteps[step].msg);
+            step++;
+
+            if (step < loadSteps.length) {
+                setTimeout(runStep, 200);
+            } else {
+                setTimeout(() => this._startMapView(), 400);
+            }
+        };
+
+        setTimeout(runStep, 100);
     },
 
     // ==================== MAP VIEW (game) ====================
 
     _startMapView() {
         this.showScreen('game-screen');
-        Renderer.init();
+
+        if (!Renderer.canvas) {
+            Renderer.init();
+        }
         Camera.init(Renderer.canvas);
 
         this._running = true;
+        this._worldMapOpen = false;
+        this._worldMapBuffer = null;
 
         // Center on castle
         if (this._castlePlaced) {
@@ -194,10 +296,152 @@ const Game = {
     },
 
     onMapClick(cellX, cellY) {
-        // For now, just log the cell clicked
         const tile = GameMap.getTile(cellX, cellY);
         if (!tile) return;
-        // Future: building placement, selection, etc.
+    },
+
+    // ==================== WORLD MAP (M key) ====================
+
+    _openWorldMap() {
+        this._worldMapOpen = true;
+        const overlay = document.getElementById('worldmap-overlay');
+        const canvas = document.getElementById('worldmap-canvas');
+        overlay.classList.add('active');
+
+        // Size the canvas
+        const maxSize = Math.min(window.innerWidth - 80, window.innerHeight - 120);
+        canvas.width = maxSize;
+        canvas.height = maxSize;
+
+        // Render the overview with kingdoms shown
+        this._renderWorldMap(canvas);
+    },
+
+    _closeWorldMap() {
+        this._worldMapOpen = false;
+        document.getElementById('worldmap-overlay').classList.remove('active');
+    },
+
+    _renderWorldMap(canvas) {
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+        const scaleX = w / GameMap.width;
+        const scaleY = h / GameMap.height;
+
+        // Terrain base via imageData
+        const imageData = ctx.createImageData(w, h);
+        const data = imageData.data;
+
+        for (let py = 0; py < h; py++) {
+            const ty = Math.floor((py / h) * GameMap.height);
+            for (let px = 0; px < w; px++) {
+                const tx = Math.floor((px / w) * GameMap.width);
+                const tile = GameMap.tiles[ty][tx];
+                const c = GameMap._terrainRGB(tile.terrain, tx, ty);
+                const idx = (py * w + px) * 4;
+                data[idx] = c[0];
+                data[idx + 1] = c[1];
+                data[idx + 2] = c[2];
+                data[idx + 3] = 255;
+            }
+        }
+        ctx.putImageData(imageData, 0, 0);
+
+        // Kingdom overlays
+        for (const region of GameMap.regions) {
+            if (region.owner < 0 || !region.color) continue;
+            ctx.fillStyle = region.color + '40';
+            for (const t of region.tiles) {
+                ctx.fillRect(t.x * scaleX, t.y * scaleY, scaleX + 0.5, scaleY + 0.5);
+            }
+        }
+
+        // Region borders
+        ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+        ctx.lineWidth = 0.3;
+        for (let y = 0; y < GameMap.height; y++) {
+            for (let x = 0; x < GameMap.width; x++) {
+                const tile = GameMap.tiles[y][x];
+                if (tile.regionId < 0) continue;
+                const right = GameMap.getTile(x + 1, y);
+                const bottom = GameMap.getTile(x, y + 1);
+                if (right && right.regionId >= 0 && right.regionId !== tile.regionId) {
+                    ctx.beginPath();
+                    ctx.moveTo((x + 1) * scaleX, y * scaleY);
+                    ctx.lineTo((x + 1) * scaleX, (y + 1) * scaleY);
+                    ctx.stroke();
+                }
+                if (bottom && bottom.regionId >= 0 && bottom.regionId !== tile.regionId) {
+                    ctx.beginPath();
+                    ctx.moveTo(x * scaleX, (y + 1) * scaleY);
+                    ctx.lineTo((x + 1) * scaleX, (y + 1) * scaleY);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Kingdom borders (thicker)
+        ctx.strokeStyle = 'rgba(200,168,74,0.5)';
+        ctx.lineWidth = 1;
+        for (let y = 0; y < GameMap.height; y++) {
+            for (let x = 0; x < GameMap.width; x++) {
+                const tile = GameMap.tiles[y][x];
+                if (tile.owner < 0) continue;
+                const right = GameMap.getTile(x + 1, y);
+                const bottom = GameMap.getTile(x, y + 1);
+                if (right && right.owner !== tile.owner) {
+                    ctx.beginPath();
+                    ctx.moveTo((x + 1) * scaleX, y * scaleY);
+                    ctx.lineTo((x + 1) * scaleX, (y + 1) * scaleY);
+                    ctx.stroke();
+                }
+                if (bottom && bottom.owner !== tile.owner) {
+                    ctx.beginPath();
+                    ctx.moveTo(x * scaleX, (y + 1) * scaleY);
+                    ctx.lineTo((x + 1) * scaleX, (y + 1) * scaleY);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Castle
+        if (this._castlePlaced) {
+            const cx = (this._castlePlaced.x + 0.5) * scaleX;
+            const cy = (this._castlePlaced.y + 0.5) * scaleY;
+            const sz = Math.max(14, scaleX * 3);
+            ctx.font = `${sz}px serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 3;
+            ctx.fillText('\u{1F3F0}', cx, cy);
+            ctx.shadowBlur = 0;
+        }
+
+        // Camera viewport indicator
+        const cellPx = CONFIG.CELL_SIZE;
+        const zoom = Camera.zoom;
+        const vpLeft = (Camera.x / (cellPx * zoom)) * scaleX;
+        const vpTop = (Camera.y / (cellPx * zoom)) * scaleY;
+        const vpW = (Renderer.canvas.width / (cellPx * zoom)) * scaleX;
+        const vpH = (Renderer.canvas.height / (cellPx * zoom)) * scaleY;
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(vpLeft, vpTop, vpW, vpH);
+
+        // Kingdom labels
+        ctx.font = '11px Cinzel, serif';
+        ctx.textAlign = 'center';
+        for (const region of GameMap.regions) {
+            if (region.owner < 0 || !region.name) continue;
+            const cx = region.center.x * scaleX;
+            const cy = region.center.y * scaleY;
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.fillRect(cx - 40, cy + 8, 80, 14);
+            ctx.fillStyle = region.color || '#fff';
+            ctx.fillText(region.name, cx, cy + 18);
+        }
     }
 };
 

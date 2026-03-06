@@ -1,8 +1,8 @@
 // Game configuration constants
 const CONFIG = {
     // Map grid (invisible) - large map
-    MAP_WIDTH: 200,
-    MAP_HEIGHT: 200,
+    MAP_WIDTH: 400,
+    MAP_HEIGHT: 400,
     CELL_SIZE: 16, // pixels per grid cell at zoom 1
 
     // Terrain types

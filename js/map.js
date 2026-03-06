@@ -76,18 +76,18 @@ const GameMap = {
     _generateNaturalRegions() {
         // Voronoi-style: place seed points, assign each land tile to nearest
         this.regions = [];
-        const numRegions = Math.floor((this.width * this.height) / 900);
+        const numRegions = Math.floor((this.width * this.height) / 1200);
+        const minSeedDist = Math.max(16, Math.floor(Math.min(this.width, this.height) / 20));
         const seeds = [];
 
         // Place region seeds on land tiles
-        for (let attempt = 0; attempt < numRegions * 20 && seeds.length < numRegions; attempt++) {
+        for (let attempt = 0; attempt < numRegions * 30 && seeds.length < numRegions; attempt++) {
             const rx = Math.floor(Perlin.random() * this.width);
             const ry = Math.floor(Perlin.random() * this.height);
             const tile = this.tiles[ry][rx];
             if (tile.terrain <= CONFIG.TERRAIN.WATER) continue;
-            // Min distance from other seeds
             const tooClose = seeds.some(s =>
-                Math.sqrt((s.x - rx) ** 2 + (s.y - ry) ** 2) < 12
+                Math.sqrt((s.x - rx) ** 2 + (s.y - ry) ** 2) < minSeedDist
             );
             if (tooClose) continue;
             seeds.push({ x: rx, y: ry });
@@ -202,7 +202,7 @@ const GameMap = {
 
         const enemyNames = ['Royaume de Fer', 'Duche de Flamme', 'Comtat des Ombres', 'Empire Dore'];
         let placed = 0;
-        const minDistBetweenEnemies = 30;
+        const minDistBetweenEnemies = Math.floor(Math.min(this.width, this.height) * 0.15);
 
         for (const region of candidates) {
             if (placed >= 4) break;
