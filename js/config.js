@@ -50,11 +50,22 @@ const CONFIG = {
 
     // Starting resources
     START_RESOURCES: {
-        wood: 0,
+        wood: 10,
         stone: 0,
         iron: 0,
         gold: 0,
         food: 5
+    },
+
+    // Buildings
+    BUILDINGS: {
+        lumberjack: {
+            name: 'Cabane de Bucheron',
+            icon: '\u{1FA93}',
+            cost: { wood: 10 },
+            job: 'Bucheron',
+            description: 'Produit du bois'
+        }
     },
 
     VISION_RADIUS: 6

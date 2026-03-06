@@ -1,15 +1,28 @@
-// Main game controller - minimal: map + placement only
+// Main game controller
 const Game = {
     seed: '',
     _running: false,
-    _castlePlaced: null, // { x, y } or null
+    _castlePlaced: null,
     _worldMapOpen: false,
     _worldMapBuffer: null,
 
     // Resources
-    resources: { wood: 0, stone: 0, iron: 0, gold: 0, food: 5 },
+    resources: { wood: 10, stone: 0, iron: 0, gold: 0, food: 5 },
     houses: 0,
-    families: 0,
+
+    // Families: [{ name, man, woman, job }]
+    families: [],
+
+    // Buildings placed: [{ type, x, y }]
+    buildings: [],
+
+    // Build mode
+    _buildMode: false,
+    _selectedBuild: null,
+
+    // Info panel
+    _infoPanelOpen: false,
+    _infoTab: 'buildings',
 
     init() {
         document.getElementById('btn-new-game').addEventListener('click', () => this.newGame());
@@ -23,31 +36,48 @@ const Game = {
             }
         });
 
-        // Placement screen
         document.getElementById('btn-confirm-placement').addEventListener('click', () => this.confirmPlacement());
 
-        // World map close
         document.getElementById('worldmap-overlay').addEventListener('click', (e) => {
             if (e.target.id === 'worldmap-overlay') this._closeWorldMap();
         });
 
-        // Options
         document.getElementById('opt-map-size').addEventListener('change', (e) => {
             const size = parseInt(e.target.value);
             CONFIG.MAP_WIDTH = size;
             CONFIG.MAP_HEIGHT = size;
         });
 
+        // Info panel close
+        document.getElementById('info-close').addEventListener('click', () => this._closeInfoPanel());
+
+        // Info panel tabs
+        document.querySelectorAll('.info-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                this._infoTab = tab.dataset.tab;
+                document.querySelectorAll('.info-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                this._renderInfoContent();
+            });
+        });
+
         // Key bindings
         window.addEventListener('keydown', (e) => {
             if (e.key === 'm' || e.key === 'M') {
-                if (this._running) {
+                if (this._running && !this._infoPanelOpen) {
                     if (this._worldMapOpen) this._closeWorldMap();
                     else this._openWorldMap();
                 }
             }
+            if (e.key === 'b' || e.key === 'B') {
+                if (this._running && !this._worldMapOpen) {
+                    this._toggleBuildMenu();
+                }
+            }
             if (e.key === 'Escape') {
                 if (this._worldMapOpen) this._closeWorldMap();
+                else if (this._buildMode) this._closeBuildMenu();
+                else if (this._infoPanelOpen) this._closeInfoPanel();
             }
         });
     },
@@ -67,7 +97,6 @@ const Game = {
         this.showScreen('loading-screen');
         this._updateLoadingProgress(0, 'Preparation du parchemin...');
 
-        // Generate terrain async with chunked rows for UI updates
         setTimeout(() => this._generateTerrainChunked(), 50);
     },
 
@@ -90,7 +119,7 @@ const Game = {
 
         const totalRows = GameMap.height;
         let currentRow = 0;
-        const chunkSize = 20; // rows per frame
+        const chunkSize = 20;
 
         const processChunk = () => {
             const end = Math.min(currentRow + chunkSize, totalRows);
@@ -127,7 +156,6 @@ const Game = {
             if (currentRow < totalRows) {
                 setTimeout(processChunk, 0);
             } else {
-                // Regions
                 this._updateLoadingProgress(0.7, 'Les regions se dessinent...');
                 setTimeout(() => {
                     GameMap._generateNaturalRegions();
@@ -228,17 +256,15 @@ const Game = {
         }
     },
 
-    // ==================== 2ND LOADING (after placement) ====================
+    // ==================== 2ND LOADING ====================
 
     confirmPlacement() {
         if (!this._castlePlaced) return;
 
-        // Cleanup placement listeners
         const placementCanvas = document.getElementById('placement-canvas');
         placementCanvas.onmousemove = null;
         placementCanvas.onclick = null;
 
-        // Show 2nd loading screen
         this.showScreen('loading-screen');
         this._updateLoadingProgress(0, 'Fondation du royaume...');
 
@@ -254,11 +280,9 @@ const Game = {
         let step = 0;
         const runStep = () => {
             if (step === 0) {
-                // Place kingdoms
                 GameMap.placeKingdoms(this._castlePlaced.x, this._castlePlaced.y);
             }
             if (step === 3) {
-                // Build terrain buffer (expensive)
                 Renderer.init();
                 Renderer.buildTerrainBuffer();
             }
@@ -286,29 +310,52 @@ const Game = {
         }
         Camera.init(Renderer.canvas);
 
-        // Switch to isometric mode
         Renderer.setIsoMode(true);
         Camera.zoom = 2.0;
 
         this._running = true;
         this._worldMapOpen = false;
         this._worldMapBuffer = null;
+        this._buildMode = false;
+        this._selectedBuild = null;
+        this._infoPanelOpen = false;
 
-        // Reset resources
-        this.resources = { wood: 0, stone: 0, iron: 0, gold: 0, food: 5 };
+        // Init resources
+        this.resources = { ...CONFIG.START_RESOURCES };
+        this.buildings = [];
         this.houses = 0;
-        this.families = 0;
+
+        // Start with 1 family
+        this.families = [
+            this._generateFamily()
+        ];
 
         // Show HUD
         document.getElementById('hud-bar').classList.add('active');
         this._updateHUD();
 
-        // Center on castle
+        // Build the build menu items
+        this._buildBuildMenu();
+
         if (this._castlePlaced) {
             Camera.centerOnCell(this._castlePlaced.x, this._castlePlaced.y);
         }
 
         this._gameLoop();
+    },
+
+    _generateFamily() {
+        const manNames = ['Guillaume', 'Henri', 'Robert', 'Arnaud', 'Pierre', 'Jean', 'Thibaut', 'Gaultier', 'Renaud', 'Baudouin'];
+        const womanNames = ['Marguerite', 'Isabelle', 'Aliénor', 'Blanche', 'Mathilde', 'Jeanne', 'Adele', 'Beatrice', 'Constance', 'Heloise'];
+        const surnames = ['Dupont', 'Leblanc', 'Moreau', 'Lefebvre', 'Chevalier', 'Duval', 'Fontaine', 'Lambert', 'Marchand', 'Beaumont'];
+        const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+        const surname = pick(surnames);
+        return {
+            name: 'Famille ' + surname,
+            man: pick(manNames) + ' ' + surname,
+            woman: pick(womanNames) + ' ' + surname,
+            job: null // unassigned
+        };
     },
 
     _updateHUD() {
@@ -318,7 +365,247 @@ const Game = {
         document.getElementById('hud-gold').textContent = this.resources.gold;
         document.getElementById('hud-food').textContent = this.resources.food;
         document.getElementById('hud-houses').textContent = this.houses;
-        document.getElementById('hud-families').textContent = this.families;
+        document.getElementById('hud-families').textContent = this.families.length;
+    },
+
+    // ==================== BUILD MENU ====================
+
+    _buildBuildMenu() {
+        const menu = document.getElementById('build-menu');
+        menu.innerHTML = '';
+
+        for (const [key, bld] of Object.entries(CONFIG.BUILDINGS)) {
+            const item = document.createElement('div');
+            item.className = 'build-item';
+            item.dataset.type = key;
+
+            const costStr = Object.entries(bld.cost).map(([r, v]) => `${v} ${r}`).join(', ');
+            item.innerHTML = `<span class="build-icon">${bld.icon}</span><span class="build-name">${bld.name}</span><span class="build-cost">${costStr}</span>`;
+
+            item.addEventListener('click', () => {
+                if (item.classList.contains('disabled')) return;
+                this._selectBuild(key);
+            });
+
+            menu.appendChild(item);
+        }
+    },
+
+    _toggleBuildMenu() {
+        if (this._buildMode) {
+            this._closeBuildMenu();
+        } else {
+            this._openBuildMenu();
+        }
+    },
+
+    _openBuildMenu() {
+        this._buildMode = true;
+        this._selectedBuild = null;
+        this._closeInfoPanel();
+        const menu = document.getElementById('build-menu');
+        menu.classList.add('active');
+        this._refreshBuildMenu();
+    },
+
+    _closeBuildMenu() {
+        this._buildMode = false;
+        this._selectedBuild = null;
+        document.getElementById('build-menu').classList.remove('active');
+        document.getElementById('build-hint').classList.remove('active');
+        document.getElementById('build-hint').textContent = '';
+        Renderer.canvas.style.cursor = 'grab';
+    },
+
+    _refreshBuildMenu() {
+        const menu = document.getElementById('build-menu');
+        for (const item of menu.children) {
+            const type = item.dataset.type;
+            const bld = CONFIG.BUILDINGS[type];
+            const canAfford = this._canAfford(bld.cost);
+            item.classList.toggle('disabled', !canAfford);
+            item.classList.toggle('selected', this._selectedBuild === type);
+        }
+    },
+
+    _canAfford(cost) {
+        for (const [res, amount] of Object.entries(cost)) {
+            if ((this.resources[res] || 0) < amount) return false;
+        }
+        return true;
+    },
+
+    _selectBuild(type) {
+        const bld = CONFIG.BUILDINGS[type];
+        if (!this._canAfford(bld.cost)) return;
+
+        if (this._selectedBuild === type) {
+            this._selectedBuild = null;
+            document.getElementById('build-hint').classList.remove('active');
+            Renderer.canvas.style.cursor = 'grab';
+        } else {
+            this._selectedBuild = type;
+            const hint = document.getElementById('build-hint');
+            hint.textContent = `${bld.name} - Cliquez sur la carte pour placer`;
+            hint.classList.add('active');
+            Renderer.canvas.style.cursor = 'crosshair';
+        }
+        this._refreshBuildMenu();
+    },
+
+    _placeBuilding(cellX, cellY) {
+        const type = this._selectedBuild;
+        if (!type) return;
+
+        const bld = CONFIG.BUILDINGS[type];
+        if (!this._canAfford(bld.cost)) return;
+
+        const tile = GameMap.getTile(cellX, cellY);
+        if (!tile) return;
+        if (tile.terrain <= CONFIG.TERRAIN.WATER || tile.terrain >= CONFIG.TERRAIN.MOUNTAIN) return;
+        if (tile.building) return;
+
+        // Check it's in the player's region or nearby
+        if (tile.owner !== 0) return;
+
+        // Spend resources
+        for (const [res, amount] of Object.entries(bld.cost)) {
+            this.resources[res] -= amount;
+        }
+
+        // Place
+        tile.building = type;
+        this.buildings.push({ type, x: cellX, y: cellY });
+
+        // Rebuild terrain buffer to clear old state
+        Renderer._bufferDirty = true;
+
+        this._updateHUD();
+        this._refreshBuildMenu();
+
+        // Exit build mode
+        this._closeBuildMenu();
+    },
+
+    // ==================== INFO PANEL (cabin click) ====================
+
+    _openInfoPanel() {
+        this._infoPanelOpen = true;
+        this._closeBuildMenu();
+        document.getElementById('info-panel').classList.add('active');
+        this._renderInfoContent();
+    },
+
+    _closeInfoPanel() {
+        this._infoPanelOpen = false;
+        document.getElementById('info-panel').classList.remove('active');
+    },
+
+    _renderInfoContent() {
+        const content = document.getElementById('info-content');
+        if (this._infoTab === 'buildings') {
+            this._renderBuildingsTab(content);
+        } else {
+            this._renderFamiliesTab(content);
+        }
+    },
+
+    _renderBuildingsTab(container) {
+        // Count buildings by type
+        const counts = {};
+        for (const b of this.buildings) {
+            counts[b.type] = (counts[b.type] || 0) + 1;
+        }
+
+        let html = '';
+
+        // Always show the main cabin
+        html += `<div class="info-building-row"><span class="ib-icon">\u{1F3F0}</span><span class="ib-name">Chateau (Cabane de base)</span><span class="ib-count">1</span></div>`;
+
+        for (const [key, bld] of Object.entries(CONFIG.BUILDINGS)) {
+            const count = counts[key] || 0;
+            html += `<div class="info-building-row"><span class="ib-icon">${bld.icon}</span><span class="ib-name">${bld.name}</span><span class="ib-count">${count}</span></div>`;
+        }
+
+        if (this.buildings.length === 0) {
+            html += `<div class="info-empty">Aucune construction supplementaire.<br>Appuyez sur B pour construire.</div>`;
+        }
+
+        container.innerHTML = html;
+    },
+
+    _renderFamiliesTab(container) {
+        if (this.families.length === 0) {
+            container.innerHTML = '<div class="info-empty">Aucune famille dans le royaume.</div>';
+            return;
+        }
+
+        // Available jobs based on buildings
+        const availableJobs = this._getAvailableJobs();
+
+        let html = '';
+        for (let i = 0; i < this.families.length; i++) {
+            const fam = this.families[i];
+            const jobOptions = this._buildJobOptions(fam.job, availableJobs);
+
+            html += `<div class="info-family-row">
+                <div>
+                    <div class="info-family-name">${fam.name}</div>
+                    <div class="info-family-members">${fam.man} & ${fam.woman}</div>
+                </div>
+                <select class="info-family-job" data-family="${i}">
+                    <option value=""${!fam.job ? ' selected' : ''}>Sans metier</option>
+                    ${jobOptions}
+                </select>
+            </div>`;
+        }
+
+        container.innerHTML = html;
+
+        // Add change listeners
+        container.querySelectorAll('.info-family-job').forEach(sel => {
+            sel.addEventListener('change', (e) => {
+                const idx = parseInt(e.target.dataset.family);
+                const newJob = e.target.value || null;
+                this.families[idx].job = newJob;
+                // Re-render to update slot counts
+                this._renderInfoContent();
+            });
+        });
+    },
+
+    _getAvailableJobs() {
+        // Count buildings and how many families are assigned to each job
+        const jobs = [];
+        const buildCounts = {};
+        for (const b of this.buildings) {
+            buildCounts[b.type] = (buildCounts[b.type] || 0) + 1;
+        }
+
+        for (const [key, bld] of Object.entries(CONFIG.BUILDINGS)) {
+            const totalSlots = buildCounts[key] || 0;
+            const assigned = this.families.filter(f => f.job === key).length;
+            if (totalSlots > 0) {
+                jobs.push({
+                    type: key,
+                    name: bld.job,
+                    slots: totalSlots,
+                    assigned
+                });
+            }
+        }
+        return jobs;
+    },
+
+    _buildJobOptions(currentJob, availableJobs) {
+        let html = '';
+        for (const job of availableJobs) {
+            const isCurrent = currentJob === job.type;
+            const freeSlots = job.slots - job.assigned + (isCurrent ? 1 : 0);
+            const disabled = freeSlots <= 0 && !isCurrent;
+            html += `<option value="${job.type}"${isCurrent ? ' selected' : ''}${disabled ? ' disabled' : ''}>${job.name} (${job.assigned}/${job.slots})</option>`;
+        }
+        return html;
     },
 
     _gameLoop() {
@@ -331,6 +618,25 @@ const Game = {
     onMapClick(cellX, cellY) {
         const tile = GameMap.getTile(cellX, cellY);
         if (!tile) return;
+
+        // If in build mode and a building is selected, place it
+        if (this._buildMode && this._selectedBuild) {
+            this._placeBuilding(cellX, cellY);
+            return;
+        }
+
+        // If clicking the castle, open info panel
+        if (this._castlePlaced && cellX === this._castlePlaced.x && cellY === this._castlePlaced.y) {
+            if (this._infoPanelOpen) this._closeInfoPanel();
+            else this._openInfoPanel();
+            return;
+        }
+
+        // If clicking a building, also open info
+        if (tile.building) {
+            this._openInfoPanel();
+            return;
+        }
     },
 
     // ==================== WORLD MAP (M key) ====================
@@ -341,12 +647,10 @@ const Game = {
         const canvas = document.getElementById('worldmap-canvas');
         overlay.classList.add('active');
 
-        // Size the canvas
         const maxSize = Math.min(window.innerWidth - 80, window.innerHeight - 120);
         canvas.width = maxSize;
         canvas.height = maxSize;
 
-        // Render the overview with kingdoms shown
         this._renderWorldMap(canvas);
     },
 
@@ -362,7 +666,6 @@ const Game = {
         const scaleX = w / GameMap.width;
         const scaleY = h / GameMap.height;
 
-        // Terrain base via imageData
         const imageData = ctx.createImageData(w, h);
         const data = imageData.data;
 
@@ -381,7 +684,6 @@ const Game = {
         }
         ctx.putImageData(imageData, 0, 0);
 
-        // Kingdom overlays
         for (const region of GameMap.regions) {
             if (region.owner < 0 || !region.color) continue;
             ctx.fillStyle = region.color + '40';
@@ -390,7 +692,6 @@ const Game = {
             }
         }
 
-        // Region borders
         ctx.strokeStyle = 'rgba(0,0,0,0.1)';
         ctx.lineWidth = 0.3;
         for (let y = 0; y < GameMap.height; y++) {
@@ -414,7 +715,6 @@ const Game = {
             }
         }
 
-        // Kingdom borders (thicker)
         ctx.strokeStyle = 'rgba(200,168,74,0.5)';
         ctx.lineWidth = 1;
         for (let y = 0; y < GameMap.height; y++) {
@@ -438,7 +738,6 @@ const Game = {
             }
         }
 
-        // Castle
         if (this._castlePlaced) {
             const cx = (this._castlePlaced.x + 0.5) * scaleX;
             const cy = (this._castlePlaced.y + 0.5) * scaleY;
@@ -452,7 +751,6 @@ const Game = {
             ctx.shadowBlur = 0;
         }
 
-        // Camera viewport indicator
         const cellPx = CONFIG.CELL_SIZE;
         const zoom = Camera.zoom;
         const vpLeft = (Camera.x / (cellPx * zoom)) * scaleX;
@@ -463,7 +761,6 @@ const Game = {
         ctx.lineWidth = 1.5;
         ctx.strokeRect(vpLeft, vpTop, vpW, vpH);
 
-        // Kingdom labels
         ctx.font = '11px Cinzel, serif';
         ctx.textAlign = 'center';
         for (const region of GameMap.regions) {

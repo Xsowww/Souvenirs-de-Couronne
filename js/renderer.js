@@ -353,7 +353,14 @@ const Renderer = {
             }
         }
 
-        // Draw cabin on top of everything
+        // Draw placed buildings
+        if (typeof Game !== 'undefined') {
+            for (const b of Game.buildings) {
+                this._drawIsoBuilding(ctx, b.type, b.x, b.y);
+            }
+        }
+
+        // Draw main cabin on top of everything
         if (typeof Game !== 'undefined' && Game._castlePlaced) {
             this._drawIsoCabin(ctx, Game._castlePlaced.x, Game._castlePlaced.y);
         }
@@ -472,7 +479,142 @@ const Renderer = {
         ctx.fill();
     },
 
-    // Semi-3D cabin with isometric perspective
+    // Draw a placed building (semi-3D)
+    _drawIsoBuilding(ctx, type, tileX, tileY) {
+        if (type === 'lumberjack') {
+            this._drawIsoLumberjack(ctx, tileX, tileY);
+        }
+    },
+
+    // Semi-3D lumberjack cabin (smaller than main cabin)
+    _drawIsoLumberjack(ctx, tileX, tileY) {
+        const cellSize = CONFIG.CELL_SIZE;
+        const zoom = Camera.zoom;
+        const tileW = cellSize * zoom;
+        const tileH = tileW * 0.5;
+        const elevScale = tileH * 2.0;
+
+        const camCellX = Camera.x / (cellSize * zoom);
+        const camCellY = Camera.y / (cellSize * zoom);
+
+        const originX = this.canvas.width / 2;
+        const originY = this.canvas.height * 0.25;
+
+        const elev = this._getElevAt(tileX + 0.5, tileY + 0.5);
+        const relX = tileX + 0.5 - camCellX;
+        const relY = tileY + 0.5 - camCellY;
+        const sx = originX + (relX - relY) * tileW * 0.5;
+        const sy = originY + (relX + relY) * tileH * 0.5 - elev * elevScale;
+
+        const s = zoom * 0.9;
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.beginPath();
+        ctx.ellipse(sx, sy + 1 * s, 9 * s, 3.5 * s, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Left wall (dark wood)
+        const wallH = 8 * s;
+        const wallTop = sy - wallH;
+        ctx.fillStyle = '#4a3018';
+        ctx.beginPath();
+        ctx.moveTo(sx - 8 * s, sy);
+        ctx.lineTo(sx - 8 * s, wallTop);
+        ctx.lineTo(sx, wallTop - 2 * s);
+        ctx.lineTo(sx, sy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Plank lines
+        ctx.strokeStyle = '#3a2510';
+        ctx.lineWidth = 0.3 * s;
+        for (let p = 1; p <= 3; p++) {
+            const py = wallTop + (wallH / 4) * p;
+            ctx.beginPath();
+            ctx.moveTo(sx - 8 * s, py);
+            ctx.lineTo(sx, py - 2 * s * (p / 4));
+            ctx.stroke();
+        }
+
+        // Right wall (lighter)
+        ctx.fillStyle = '#5a3d1e';
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx, wallTop - 2 * s);
+        ctx.lineTo(sx + 8 * s, wallTop);
+        ctx.lineTo(sx + 8 * s, sy);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = '#4a2e14';
+        ctx.lineWidth = 0.3 * s;
+        for (let p = 1; p <= 3; p++) {
+            const py = wallTop + (wallH / 4) * p;
+            ctx.beginPath();
+            ctx.moveTo(sx, py - 2 * s * (p / 4));
+            ctx.lineTo(sx + 8 * s, py);
+            ctx.stroke();
+        }
+
+        // Door on right wall
+        const doorW = 3 * s;
+        const doorH = 5 * s;
+        ctx.fillStyle = '#3a2510';
+        ctx.fillRect(sx + 3 * s, sy - doorH, doorW, doorH);
+
+        // Roof - left face
+        ctx.fillStyle = '#6a3a12';
+        ctx.beginPath();
+        ctx.moveTo(sx - 10 * s, wallTop);
+        ctx.lineTo(sx, wallTop - 7 * s);
+        ctx.lineTo(sx + 1 * s, wallTop - 2 * s);
+        ctx.lineTo(sx - 8 * s, wallTop);
+        ctx.closePath();
+        ctx.fill();
+
+        // Roof - right face
+        ctx.fillStyle = '#7a4516';
+        ctx.beginPath();
+        ctx.moveTo(sx, wallTop - 7 * s);
+        ctx.lineTo(sx + 10 * s, wallTop);
+        ctx.lineTo(sx + 8 * s, wallTop);
+        ctx.lineTo(sx + 1 * s, wallTop - 2 * s);
+        ctx.closePath();
+        ctx.fill();
+
+        // Log pile on the side
+        for (let i = 0; i < 3; i++) {
+            ctx.fillStyle = i % 2 === 0 ? '#5a3a18' : '#4a2e12';
+            const logY = sy - 1 * s - i * 1.8 * s;
+            ctx.beginPath();
+            ctx.ellipse(sx - 11 * s, logY, 3 * s, 1 * s, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#3a2008';
+            ctx.lineWidth = 0.3 * s;
+            ctx.stroke();
+        }
+
+        // Axe leaning on side
+        const axeX = sx + 10 * s;
+        const axeY = sy;
+        ctx.strokeStyle = '#5a3a18';
+        ctx.lineWidth = 1 * s;
+        ctx.beginPath();
+        ctx.moveTo(axeX, axeY);
+        ctx.lineTo(axeX - 2 * s, axeY - 8 * s);
+        ctx.stroke();
+        // Axe head
+        ctx.fillStyle = '#8a8a8a';
+        ctx.beginPath();
+        ctx.moveTo(axeX - 2 * s, axeY - 8 * s);
+        ctx.lineTo(axeX - 4 * s, axeY - 9 * s);
+        ctx.lineTo(axeX - 3 * s, axeY - 6.5 * s);
+        ctx.closePath();
+        ctx.fill();
+    },
+
+    // Semi-3D main cabin with isometric perspective
     _drawIsoCabin(ctx, tileX, tileY) {
         const cellSize = CONFIG.CELL_SIZE;
         const zoom = Camera.zoom;
