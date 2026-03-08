@@ -407,11 +407,15 @@ body {
     transform: translateX(-50%);
     z-index: 5;
     font-family: 'Cinzel', serif;
-    font-size: 0.75rem;
-    color: rgba(200,168,74,0.5);
+    font-size: 0.85rem;
+    color: rgba(232,212,138,0.85);
     letter-spacing: 2px;
     pointer-events: none;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.7);
+    background: rgba(10,6,2,0.55);
+    padding: 6px 16px;
+    border-radius: 4px;
+    border: 1px solid rgba(200,168,74,0.2);
 }
 
 /* ===== HUD BAR ===== */
@@ -484,16 +488,15 @@ body {
 }
 .time-widget {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 2px;
+    gap: 10px;
     background: linear-gradient(180deg, rgba(42,26,12,0.95) 0%, rgba(18,10,4,0.95) 100%);
     border: 1px solid var(--gold-dark);
     border-top: none;
     border-radius: 0 0 8px 8px;
-    padding: 4px 14px 6px;
+    padding: 4px 16px 5px;
     box-shadow: 0 3px 12px rgba(0,0,0,0.6), inset 0 1px 0 rgba(200,168,74,0.08);
-    min-width: 120px;
 }
 .time-date {
     display: flex;
@@ -1716,26 +1719,33 @@ const Renderer = {
     setIsoMode(enabled) { this._isoMode = false; },
 
     buildTerrainBuffer() {
-        const w = GameMap.width;
-        const h = GameMap.height;
+        const tw = GameMap.width;
+        const th = GameMap.height;
+        const scale = 3; // 3 pixels per tile — sharper terrain, still smooth edges
+        const w = tw * scale;
+        const h = th * scale;
 
-        // 1 pixel per tile — upscaled with bilinear smoothing = no grid
         this._terrainBuffer = document.createElement('canvas');
         this._terrainBuffer.width = w;
         this._terrainBuffer.height = h;
+        this._terrainScale = scale;
         const ctx = this._terrainBuffer.getContext('2d');
         const imgd = ctx.createImageData(w, h);
         const data = imgd.data;
 
-        for (let ty = 0; ty < h; ty++) {
-            for (let tx = 0; tx < w; tx++) {
+        for (let ty = 0; ty < th; ty++) {
+            for (let tx = 0; tx < tw; tx++) {
                 const tile = GameMap.tiles[ty][tx];
                 const rgb = GameMap._terrainRGB(tile.terrain, tx, ty);
-                const idx = (ty * w + tx) * 4;
-                data[idx]     = rgb[0];
-                data[idx + 1] = rgb[1];
-                data[idx + 2] = rgb[2];
-                data[idx + 3] = 255;
+                for (let py = 0; py < scale; py++) {
+                    for (let px = 0; px < scale; px++) {
+                        const idx = ((ty * scale + py) * w + (tx * scale + px)) * 4;
+                        data[idx]     = rgb[0];
+                        data[idx + 1] = rgb[1];
+                        data[idx + 2] = rgb[2];
+                        data[idx + 3] = 255;
+                    }
+                }
             }
         }
         ctx.putImageData(imgd, 0, 0);
@@ -1748,8 +1758,8 @@ const Renderer = {
         const oimgd = octx.createImageData(w, h);
         const od = oimgd.data;
 
-        for (let ty = 0; ty < h; ty++) {
-            for (let tx = 0; tx < w; tx++) {
+        for (let ty = 0; ty < th; ty++) {
+            for (let tx = 0; tx < tw; tx++) {
                 const tile = GameMap.tiles[ty][tx];
                 if (tile.owner < 0) continue;
                 const region = GameMap.regions.find(r => r.owner === tile.owner);
@@ -1758,8 +1768,12 @@ const Renderer = {
                 const r = parseInt(hex.substring(0, 2), 16);
                 const g = parseInt(hex.substring(2, 4), 16);
                 const b = parseInt(hex.substring(4, 6), 16);
-                const idx = (ty * w + tx) * 4;
-                od[idx] = r; od[idx+1] = g; od[idx+2] = b; od[idx+3] = 55;
+                for (let py = 0; py < scale; py++) {
+                    for (let px = 0; px < scale; px++) {
+                        const idx = ((ty * scale + py) * w + (tx * scale + px)) * 4;
+                        od[idx] = r; od[idx+1] = g; od[idx+2] = b; od[idx+3] = 55;
+                    }
+                }
             }
         }
         octx.putImageData(oimgd, 0, 0);
@@ -1782,11 +1796,12 @@ const Renderer = {
         ctx.fillStyle = '#0a1520';
         ctx.fillRect(0, 0, cw, ch);
 
-        // Source rect in tile-space (1px = 1 tile in buffer)
-        const srcX = Camera.x / (cs * zoom);
-        const srcY = Camera.y / (cs * zoom);
-        const srcW = cw / (cs * zoom);
-        const srcH = ch / (cs * zoom);
+        // Source rect in buffer-space (scale px = 1 tile in buffer)
+        const sc = this._terrainScale || 3;
+        const srcX = Camera.x / (cs * zoom) * sc;
+        const srcY = Camera.y / (cs * zoom) * sc;
+        const srcW = cw / (cs * zoom) * sc;
+        const srcH = ch / (cs * zoom) * sc;
 
         // Smooth terrain (bilinear upscale → no grid!)
         ctx.imageSmoothingEnabled = true;
@@ -2558,13 +2573,22 @@ const Game = {
         const type = this._selectedBuild;
         if (!type) return;
         const bld = CONFIG.BUILDINGS[type];
-        if (!this._canAfford(bld.cost)) return;
+        if (!this._canAfford(bld.cost)) { this._showBuildMsg('Ressources insuffisantes'); return; }
         const tile = GameMap.getTile(cellX, cellY);
         if (!tile) return;
-        if (tile.terrain <= CONFIG.TERRAIN.WATER || tile.terrain >= CONFIG.TERRAIN.SNOW_PEAK) return;
-        if (tile.building) return;
-        if (bld.terrain && !bld.terrain.includes(tile.terrain)) return;
-        if (tile.owner !== 0) return;
+        if (tile.owner !== 0) { this._showBuildMsg('Hors de votre territoire'); return; }
+        if (tile.terrain <= CONFIG.TERRAIN.WATER || tile.terrain >= CONFIG.TERRAIN.SNOW_PEAK) { this._showBuildMsg('Terrain inadapte'); return; }
+        if (tile.building) { this._showBuildMsg('Case deja occupee'); return; }
+        if (bld.terrain && !bld.terrain.includes(tile.terrain)) {
+            const names = bld.terrain.map(t => {
+                if (t === 7) return 'collines';
+                if (t === 8) return 'montagnes';
+                if (t === 5) return 'foret';
+                return 'terrain ' + t;
+            });
+            this._showBuildMsg('Necessite: ' + names.join(' ou '));
+            return;
+        }
 
         for (const [r,a] of Object.entries(bld.cost)) this.resources[r] -= a;
         tile.building = type;
@@ -2572,6 +2596,19 @@ const Game = {
         if (type === 'house') this._checkRecruitFamily();
         Renderer._bufferDirty = true;
         this._updateHUD(); this._refreshBuildMenu(); this._closeBuildMenu();
+    },
+    _showBuildMsg(msg) {
+        let el = document.getElementById('build-msg');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'build-msg';
+            el.style.cssText = 'position:absolute;bottom:60px;left:50%;transform:translateX(-50%);z-index:20;font-family:Cinzel,serif;font-size:0.85rem;color:#e8a0a0;background:rgba(60,10,10,0.85);padding:6px 16px;border-radius:4px;border:1px solid rgba(180,50,50,0.4);pointer-events:none;transition:opacity 0.3s;';
+            document.getElementById('game-screen').appendChild(el);
+        }
+        el.textContent = msg;
+        el.style.opacity = '1';
+        clearTimeout(this._buildMsgTimer);
+        this._buildMsgTimer = setTimeout(() => { el.style.opacity = '0'; }, 2000);
     },
     _checkRecruitFamily() { if (this.families.length < this.getMaxFamilies()) this.families.push(this._generateFamily()); },
 
