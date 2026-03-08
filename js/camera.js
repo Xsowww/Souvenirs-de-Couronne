@@ -64,32 +64,7 @@ const Camera = {
     },
 
     screenToCell(sx, sy) {
-        // In isometric mode, reverse the iso projection
-        if (typeof Renderer !== 'undefined' && Renderer._isoMode) {
-            const cellSize = CONFIG.CELL_SIZE;
-            const zoom = this.zoom;
-            const tileW = cellSize * zoom;
-            const tileH = tileW * 0.5;
-
-            const originX = this.canvas.width / 2;
-            const originY = this.canvas.height * 0.25;
-
-            const camCellX = this.x / (cellSize * zoom);
-            const camCellY = this.y / (cellSize * zoom);
-
-            // Reverse iso: sx = originX + (relX - relY) * tileW * 0.5
-            //              sy = originY + (relX + relY) * tileH * 0.5
-            const a = (sx - originX) / (tileW * 0.5);
-            const b = (sy - originY) / (tileH * 0.5);
-            const relX = (a + b) / 2;
-            const relY = (b - a) / 2;
-
-            return {
-                x: Math.floor(relX + camCellX),
-                y: Math.floor(relY + camCellY)
-            };
-        }
-
+        // Top-down: direct pixel to tile mapping
         const worldX = (sx + this.x) / (CONFIG.CELL_SIZE * this.zoom);
         const worldY = (sy + this.y) / (CONFIG.CELL_SIZE * this.zoom);
         return {

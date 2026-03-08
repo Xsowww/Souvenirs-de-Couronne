@@ -33,11 +33,11 @@ const Game = {
 
     // Time system
     _gameMinute: 0,
-    _gameHour: 6,  // Start at 6:00 AM
+    _gameHour: 6,
     _gameDay: 1,
-    _timeSpeed: 1,  // 0=paused, 1=normal, 2=fast, 3=very fast
+    _timeSpeed: 1,  // 0=paused, 1=normal, 2=x2
     _lastTimeUpdate: 0,
-    _timeSpeedMultipliers: [0, 1, 3, 6],
+    _prevSpeed: 1,
 
     init() {
         document.getElementById('btn-new-game').addEventListener('click', () => this.newGame());
@@ -79,11 +79,8 @@ const Game = {
         // Building detail panel close
         document.getElementById('building-detail-close').addEventListener('click', () => this._closeBuildingDetail());
 
-        // Time controls
-        document.getElementById('btn-pause').addEventListener('click', () => this._togglePause());
-        document.getElementById('btn-speed1').addEventListener('click', () => this._setTimeSpeed(1));
-        document.getElementById('btn-speed2').addEventListener('click', () => this._setTimeSpeed(2));
-        document.getElementById('btn-speed3').addEventListener('click', () => this._setTimeSpeed(3));
+        // Time controls — buttons added when game screen is active, not at init
+        // (bound in _startMapView instead)
 
         // Key bindings
         window.addEventListener('keydown', (e) => {
@@ -110,7 +107,6 @@ const Game = {
             }
             if (e.key === '1' && this._running) this._setTimeSpeed(1);
             if (e.key === '2' && this._running) this._setTimeSpeed(2);
-            if (e.key === '3' && this._running) this._setTimeSpeed(3);
         });
     },
 
@@ -342,8 +338,8 @@ const Game = {
         }
         Camera.init(Renderer.canvas);
 
-        Renderer.setIsoMode(true);
-        Camera.zoom = 2.0;
+        Renderer.setIsoMode(false);
+        Camera.zoom = 2.5;
 
         this._running = true;
         this._worldMapOpen = false;
@@ -376,6 +372,14 @@ const Game = {
         document.getElementById('hud-bar').classList.add('active');
         this._updateHUD();
         this._updateTimeHUD();
+
+        // Bind time controls (safe: done after screen is shown)
+        const btnPause  = document.getElementById('btn-pause');
+        const btnPlay   = document.getElementById('btn-play');
+        const btnFast   = document.getElementById('btn-fast');
+        if (btnPause)  btnPause.onclick  = () => this._togglePause();
+        if (btnPlay)   btnPlay.onclick   = () => this._setTimeSpeed(1);
+        if (btnFast)   btnFast.onclick   = () => this._setTimeSpeed(2);
 
         // Build the build menu items
         this._buildBuildMenu();
@@ -443,7 +447,8 @@ const Game = {
         if (this._timeSpeed === 0) return;
 
         const now = Date.now();
-        const effectiveInterval = this._tickInterval / this._timeSpeedMultipliers[this._timeSpeed];
+        const multiplier = this._timeSpeed === 2 ? 2 : 1;
+        const effectiveInterval = this._tickInterval / multiplier;
         if (now - this._lastTick < effectiveInterval) return;
         this._lastTick = now;
 
@@ -906,23 +911,23 @@ const Game = {
 
     _updateGameTime() {
         const now = Date.now();
-        if (this._lastTimeUpdate === 0) {
+        if (!this._lastTimeUpdate) {
             this._lastTimeUpdate = now;
             return;
         }
 
         if (this._timeSpeed === 0) {
             this._lastTimeUpdate = now;
-            return; // Paused
+            return; // Paused — freeze clock
         }
 
-        const deltaMs = now - this._lastTimeUpdate;
+        const deltaMs    = now - this._lastTimeUpdate;
         this._lastTimeUpdate = now;
 
-        // 1 real second = 1 game minute at speed 1
-        const gameMinutesElapsed = (deltaMs / 1000) * this._timeSpeedMultipliers[this._timeSpeed];
-
-        this._gameMinute += gameMinutesElapsed;
+        // Speed 1 → 1 real second = 1 game minute
+        // Speed 2 → 2x faster
+        const multiplier = this._timeSpeed === 2 ? 2 : 1;
+        this._gameMinute += (deltaMs / 1000) * multiplier;
 
         while (this._gameMinute >= 60) {
             this._gameMinute -= 60;
@@ -937,24 +942,22 @@ const Game = {
     },
 
     _updateTimeHUD() {
-        const hourStr = String(Math.floor(this._gameHour)).padStart(2, '0');
-        const minStr = String(Math.floor(this._gameMinute)).padStart(2, '0');
-        const timeEl = document.getElementById('hud-time');
-        const dayEl = document.getElementById('hud-day');
-        if (timeEl) timeEl.textContent = `${hourStr}:${minStr}`;
-        if (dayEl) dayEl.textContent = `Jour ${this._gameDay}`;
+        const h   = String(Math.floor(this._gameHour)).padStart(2, '0');
+        const m   = String(Math.floor(this._gameMinute)).padStart(2, '0');
+        const tel = document.getElementById('hud-time');
+        const del = document.getElementById('hud-day');
+        if (tel) tel.textContent = `${h}:${m}`;
+        if (del) del.textContent = `Jour ${this._gameDay}`;
 
-        // Update speed buttons appearance
-        const pauseBtn = document.getElementById('btn-pause');
-        const speed1Btn = document.getElementById('btn-speed1');
-        const speed2Btn = document.getElementById('btn-speed2');
-        const speed3Btn = document.getElementById('btn-speed3');
-        if (pauseBtn) {
-            pauseBtn.classList.toggle('active-speed', this._timeSpeed === 0);
-            speed1Btn.classList.toggle('active-speed', this._timeSpeed === 1);
-            speed2Btn.classList.toggle('active-speed', this._timeSpeed === 2);
-            speed3Btn.classList.toggle('active-speed', this._timeSpeed === 3);
-        }
+        const paused = this._timeSpeed === 0;
+        const fast   = this._timeSpeed === 2;
+
+        const btnPause = document.getElementById('btn-pause');
+        const btnPlay  = document.getElementById('btn-play');
+        const btnFast  = document.getElementById('btn-fast');
+        if (btnPause) btnPause.classList.toggle('time-btn-active', paused);
+        if (btnPlay)  btnPlay.classList.toggle('time-btn-active', !paused && !fast);
+        if (btnFast)  btnFast.classList.toggle('time-btn-active', fast && !paused);
     },
 
     _setTimeSpeed(speed) {

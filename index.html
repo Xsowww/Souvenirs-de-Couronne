@@ -477,60 +477,79 @@ body {
     text-shadow: 0 1px 2px rgba(0,0,0,0.6);
 }
 
-/* ===== TIME & SPEED CONTROLS ===== */
+/* ===== TIME WIDGET (medieval) ===== */
 .hud-center {
     display: flex;
     align-items: center;
-    gap: 12px;
 }
-.hud-time-block {
+.time-widget {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    background: linear-gradient(180deg, rgba(42,26,12,0.95) 0%, rgba(18,10,4,0.95) 100%);
+    border: 1px solid var(--gold-dark);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 4px 14px 6px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.6), inset 0 1px 0 rgba(200,168,74,0.08);
+    min-width: 120px;
+}
+.time-date {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 5px;
 }
-.hud-day {
+.time-ornament {
+    color: var(--gold-dark);
+    font-size: 0.55rem;
+    opacity: 0.7;
+}
+.time-day {
     font-family: 'Cinzel', serif;
-    font-size: 0.78rem;
-    color: var(--gold);
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-}
-.hud-clock {
-    font-family: 'Cinzel', serif;
-    font-size: 0.9rem;
-    color: var(--gold-light);
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-    min-width: 48px;
-    text-align: center;
-}
-.hud-speed-controls {
-    display: flex;
-    gap: 3px;
-}
-.speed-btn {
-    background: rgba(26,16,8,0.8);
-    border: 1px solid rgba(200,168,74,0.3);
+    font-size: 0.68rem;
     color: var(--parchment-dark);
-    font-size: 0.75rem;
-    padding: 2px 7px;
-    cursor: pointer;
-    transition: all 0.15s;
-    border-radius: 3px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+.time-clock {
+    font-family: 'Cinzel', serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--gold-light);
+    letter-spacing: 3px;
+    text-shadow: 0 0 10px rgba(200,168,74,0.3), 0 1px 2px rgba(0,0,0,0.8);
     line-height: 1;
 }
-.speed-btn:hover {
+.time-controls {
+    display: flex;
+    gap: 4px;
+    margin-top: 2px;
+}
+.time-btn {
+    background: rgba(26,16,8,0.7);
+    border: 1px solid rgba(138,106,26,0.35);
+    color: #6a5a3a;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: all 0.12s;
+    border-radius: 3px;
+    font-family: 'Cinzel', serif;
+    line-height: 1.4;
+    letter-spacing: 0.5px;
+}
+.time-btn:hover {
+    border-color: var(--gold);
+    color: var(--parchment);
+    background: rgba(200,168,74,0.08);
+}
+.time-btn.time-btn-active {
     border-color: var(--gold);
     color: var(--gold-light);
-    background: rgba(200,168,74,0.1);
-}
-.speed-btn.active-speed {
-    border-color: var(--gold);
-    color: var(--gold);
-    background: rgba(200,168,74,0.15);
-    box-shadow: 0 0 6px rgba(200,168,74,0.2);
+    background: linear-gradient(180deg, rgba(80,56,12,0.8) 0%, rgba(42,26,4,0.8) 100%);
+    box-shadow: 0 0 6px rgba(200,168,74,0.18), inset 0 1px 0 rgba(200,168,74,0.12);
+    text-shadow: 0 0 8px rgba(200,168,74,0.5);
 }
 
 /* ===== BUILD MENU ===== */
@@ -962,15 +981,18 @@ body {
                 </div>
             </div>
             <div class="hud-center">
-                <div class="hud-time-block">
-                    <span class="hud-day" id="hud-day">Jour 1</span>
-                    <span class="hud-clock" id="hud-time">06:00</span>
-                </div>
-                <div class="hud-speed-controls">
-                    <button class="speed-btn" id="btn-pause" title="Pause (Espace)">&#x23F8;</button>
-                    <button class="speed-btn active-speed" id="btn-speed1" title="x1 (1)">&#x25B6;</button>
-                    <button class="speed-btn" id="btn-speed2" title="x3 (2)">&#x23E9;</button>
-                    <button class="speed-btn" id="btn-speed3" title="x6 (3)">&#x23ED;</button>
+                <div class="time-widget">
+                    <div class="time-date">
+                        <span class="time-ornament">&#x2736;</span>
+                        <span class="time-day" id="hud-day">Jour 1</span>
+                        <span class="time-ornament">&#x2736;</span>
+                    </div>
+                    <span class="time-clock" id="hud-time">06:00</span>
+                    <div class="time-controls">
+                        <button class="time-btn" id="btn-pause" title="Pause (Espace)">&#x23F8;</button>
+                        <button class="time-btn time-btn-active" id="btn-play" title="Normal (1)">&#x25B6;</button>
+                        <button class="time-btn" id="btn-fast" title="Rapide x2 (2)">&#x00BB;&#x00BB;</button>
+                    </div>
                 </div>
             </div>
             <div class="hud-right">
@@ -1012,7 +1034,7 @@ body {
             <div class="bd-content" id="building-detail-content"></div>
         </div>
 
-        <div id="map-hint">[ ZQSD ] Deplacer &nbsp; [ B ] Construire &nbsp; [ M ] Carte &nbsp; [ Espace ] Pause &nbsp; [ 1-2-3 ] Vitesse</div>
+        <div id="map-hint">[ ZQSD ] Deplacer &nbsp;&middot;&nbsp; [ B ] Construire &nbsp;&middot;&nbsp; [ M ] Carte &nbsp;&middot;&nbsp; [ Espace ] Pause &nbsp;&middot;&nbsp; [ 1 ] Normal &nbsp;&middot;&nbsp; [ 2 ] Rapide</div>
     </div>
 
     <!-- World Map Overlay -->
