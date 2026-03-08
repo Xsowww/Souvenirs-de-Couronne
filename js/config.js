@@ -50,7 +50,7 @@ const CONFIG = {
 
     // Starting resources
     START_RESOURCES: {
-        wood: 10,
+        wood: 15,
         stone: 0,
         iron: 0,
         gold: 0,
@@ -81,53 +81,53 @@ const CONFIG = {
         house: {
             name: 'Maison de Villageois',
             icon: '\u{1F3E0}',
-            cost: { wood: 8, stone: 3 },
+            cost: { wood: 8 },
             job: null, // no job - provides housing
             description: 'Accueille une famille supplementaire',
             production: null,
             terrain: null,
             upgrades: [
-                { name: 'Niveau 2', cost: { wood: 12, stone: 8 }, bonus: 'Accueille 2 familles' },
-                { name: 'Niveau 3', cost: { wood: 20, stone: 15, iron: 5 }, bonus: 'Accueille 3 familles' }
+                { name: 'Niveau 2', cost: { wood: 12, stone: 5 }, bonus: 'Accueille 2 familles' },
+                { name: 'Niveau 3', cost: { wood: 20, stone: 12, iron: 3 }, bonus: 'Accueille 3 familles' }
             ]
         },
         mine: {
             name: 'Mine',
             icon: '\u{26CF}',
-            cost: { wood: 12, stone: 5 },
+            cost: { wood: 12 },
             job: 'Mineur',
             description: 'Recolte pierre, lingots de fer et d\'or',
             production: { stone: 2, iron: 1 },
             terrain: [7, 8], // hills and mountains only
             upgrades: [
-                { name: 'Niveau 2', cost: { wood: 15, stone: 10, iron: 5 }, productionBonus: { stone: 1, iron: 1 } },
-                { name: 'Niveau 3', cost: { wood: 20, stone: 20, iron: 10 }, productionBonus: { stone: 2, iron: 1, gold: 1 } }
+                { name: 'Niveau 2', cost: { wood: 15, stone: 8 }, productionBonus: { stone: 1, iron: 1 } },
+                { name: 'Niveau 3', cost: { wood: 20, stone: 15, iron: 5 }, productionBonus: { stone: 2, iron: 1, gold: 1 } }
             ]
         },
         warehouse: {
             name: 'Entrepot',
             icon: '\u{1F3ED}',
-            cost: { wood: 15, stone: 10 },
+            cost: { wood: 12, stone: 5 },
             job: null,
             description: 'Augmente le stockage de +50',
             production: null,
             terrain: null,
             upgrades: [
-                { name: 'Niveau 2', cost: { wood: 20, stone: 15, iron: 5 }, bonus: '+75 stockage' },
-                { name: 'Niveau 3', cost: { wood: 30, stone: 25, iron: 10 }, bonus: '+100 stockage' }
+                { name: 'Niveau 2', cost: { wood: 18, stone: 10, iron: 3 }, bonus: '+75 stockage' },
+                { name: 'Niveau 3', cost: { wood: 25, stone: 20, iron: 8 }, bonus: '+100 stockage' }
             ]
         },
         foundry: {
             name: 'Fonderie',
             icon: '\u{1F525}',
-            cost: { wood: 15, stone: 12, iron: 3 },
+            cost: { wood: 15, stone: 8 },
             job: 'Fondeur',
             description: 'Fond les lingots en fer ou or brut',
             production: { iron: 2, gold: 1 },
             terrain: null,
             upgrades: [
-                { name: 'Niveau 2', cost: { wood: 20, stone: 15, iron: 8 }, productionBonus: { iron: 1, gold: 1 } },
-                { name: 'Niveau 3', cost: { wood: 30, stone: 25, iron: 15, gold: 5 }, productionBonus: { iron: 2, gold: 2 } }
+                { name: 'Niveau 2', cost: { wood: 20, stone: 12, iron: 5 }, productionBonus: { iron: 1, gold: 1 } },
+                { name: 'Niveau 3', cost: { wood: 30, stone: 20, iron: 12, gold: 3 }, productionBonus: { iron: 2, gold: 2 } }
             ]
         }
     },
