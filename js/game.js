@@ -10,10 +10,10 @@ const Game = {
     resources: { wood: 10, stone: 0, iron: 0, gold: 0, food: 5 },
     houses: 0,
 
-    // Families: [{ name, man, woman, job }]
+    // Families: [{ name, man, woman, job, buildingIdx }]
     families: [],
 
-    // Buildings placed: [{ type, x, y }]
+    // Buildings placed: [{ type, x, y, level, familyIdx }]
     buildings: [],
 
     // Build mode
@@ -23,6 +23,13 @@ const Game = {
     // Info panel
     _infoPanelOpen: false,
     _infoTab: 'buildings',
+
+    // Building detail panel
+    _selectedBuilding: null, // index into this.buildings or 'castle'
+
+    // Production timer
+    _lastTick: 0,
+    _tickInterval: 5000, // ms between production ticks
 
     init() {
         document.getElementById('btn-new-game').addEventListener('click', () => this.newGame());
@@ -61,6 +68,9 @@ const Game = {
             });
         });
 
+        // Building detail panel close
+        document.getElementById('building-detail-close').addEventListener('click', () => this._closeBuildingDetail());
+
         // Key bindings
         window.addEventListener('keydown', (e) => {
             if (e.key === 'm' || e.key === 'M') {
@@ -77,6 +87,7 @@ const Game = {
             if (e.key === 'Escape') {
                 if (this._worldMapOpen) this._closeWorldMap();
                 else if (this._buildMode) this._closeBuildMenu();
+                else if (this._selectedBuilding !== null) this._closeBuildingDetail();
                 else if (this._infoPanelOpen) this._closeInfoPanel();
             }
         });
@@ -319,6 +330,8 @@ const Game = {
         this._buildMode = false;
         this._selectedBuild = null;
         this._infoPanelOpen = false;
+        this._selectedBuilding = null;
+        this._lastTick = Date.now();
 
         // Init resources
         this.resources = { ...CONFIG.START_RESOURCES };
@@ -346,7 +359,7 @@ const Game = {
 
     _generateFamily() {
         const manNames = ['Guillaume', 'Henri', 'Robert', 'Arnaud', 'Pierre', 'Jean', 'Thibaut', 'Gaultier', 'Renaud', 'Baudouin'];
-        const womanNames = ['Marguerite', 'Isabelle', 'Aliénor', 'Blanche', 'Mathilde', 'Jeanne', 'Adele', 'Beatrice', 'Constance', 'Heloise'];
+        const womanNames = ['Marguerite', 'Isabelle', 'Alienor', 'Blanche', 'Mathilde', 'Jeanne', 'Adele', 'Beatrice', 'Constance', 'Heloise'];
         const surnames = ['Dupont', 'Leblanc', 'Moreau', 'Lefebvre', 'Chevalier', 'Duval', 'Fontaine', 'Lambert', 'Marchand', 'Beaumont'];
         const pick = arr => arr[Math.floor(Math.random() * arr.length)];
         const surname = pick(surnames);
@@ -354,17 +367,92 @@ const Game = {
             name: 'Famille ' + surname,
             man: pick(manNames) + ' ' + surname,
             woman: pick(womanNames) + ' ' + surname,
-            job: null // unassigned
+            job: null,
+            buildingIdx: -1 // index into this.buildings, -1 = unassigned
         };
     },
 
+    // ==================== STORAGE ====================
+
+    getStorageCapacity() {
+        let cap = CONFIG.STORAGE.BASE_CAPACITY;
+        for (const b of this.buildings) {
+            if (b.type === 'warehouse') {
+                const lvl = b.level || 1;
+                if (lvl === 1) cap += CONFIG.STORAGE.PER_WAREHOUSE;
+                else if (lvl === 2) cap += 75;
+                else cap += 100;
+            }
+        }
+        return cap;
+    },
+
+    _addResource(res, amount) {
+        const cap = this.getStorageCapacity();
+        this.resources[res] = Math.min(cap, (this.resources[res] || 0) + amount);
+    },
+
+    // ==================== HOUSING ====================
+
+    getMaxFamilies() {
+        // 1 base (castle) + houses
+        let count = 1;
+        for (const b of this.buildings) {
+            if (b.type === 'house') {
+                const lvl = b.level || 1;
+                count += lvl; // lvl 1=1, lvl 2=2, lvl 3=3
+            }
+        }
+        return count;
+    },
+
+    // ==================== PRODUCTION TICK ====================
+
+    _productionTick() {
+        const now = Date.now();
+        if (now - this._lastTick < this._tickInterval) return;
+        this._lastTick = now;
+
+        for (let i = 0; i < this.buildings.length; i++) {
+            const b = this.buildings[i];
+            const def = CONFIG.BUILDINGS[b.type];
+            if (!def || !def.production) continue;
+
+            // Only produce if a family is assigned
+            if (b.familyIdx === undefined || b.familyIdx < 0) continue;
+            const fam = this.families[b.familyIdx];
+            if (!fam) continue;
+
+            // Base production
+            for (const [res, amount] of Object.entries(def.production)) {
+                this._addResource(res, amount);
+            }
+
+            // Upgrade bonuses
+            const lvl = b.level || 1;
+            if (lvl > 1 && def.upgrades) {
+                for (let u = 0; u < lvl - 1 && u < def.upgrades.length; u++) {
+                    const bonus = def.upgrades[u].productionBonus;
+                    if (bonus) {
+                        for (const [res, amount] of Object.entries(bonus)) {
+                            this._addResource(res, amount);
+                        }
+                    }
+                }
+            }
+        }
+
+        this._updateHUD();
+    },
+
     _updateHUD() {
-        document.getElementById('hud-wood').textContent = this.resources.wood;
-        document.getElementById('hud-stone').textContent = this.resources.stone;
-        document.getElementById('hud-iron').textContent = this.resources.iron;
-        document.getElementById('hud-gold').textContent = this.resources.gold;
+        const cap = this.getStorageCapacity();
+        document.getElementById('hud-wood').textContent = this.resources.wood + '/' + cap;
+        document.getElementById('hud-stone').textContent = this.resources.stone + '/' + cap;
+        document.getElementById('hud-iron').textContent = this.resources.iron + '/' + cap;
+        document.getElementById('hud-gold').textContent = this.resources.gold + '/' + cap;
         document.getElementById('hud-food').textContent = this.resources.food;
-        document.getElementById('hud-houses').textContent = this.houses;
+        document.getElementById('hud-houses').textContent = this.getMaxFamilies();
         document.getElementById('hud-families').textContent = this.families.length;
     },
 
@@ -403,6 +491,7 @@ const Game = {
         this._buildMode = true;
         this._selectedBuild = null;
         this._closeInfoPanel();
+        this._closeBuildingDetail();
         const menu = document.getElementById('build-menu');
         menu.classList.add('active');
         this._refreshBuildMenu();
@@ -445,9 +534,14 @@ const Game = {
             Renderer.canvas.style.cursor = 'grab';
         } else {
             this._selectedBuild = type;
-            const hint = document.getElementById('build-hint');
-            hint.textContent = `${bld.name} - Cliquez sur la carte pour placer`;
-            hint.classList.add('active');
+            let hint = `${bld.name} - Cliquez sur la carte pour placer`;
+            if (bld.terrain) {
+                const terrNames = bld.terrain.map(t => CONFIG.TERRAIN_NAMES[t]).join(', ');
+                hint += ` (${terrNames} uniquement)`;
+            }
+            const hintEl = document.getElementById('build-hint');
+            hintEl.textContent = hint;
+            hintEl.classList.add('active');
             Renderer.canvas.style.cursor = 'crosshair';
         }
         this._refreshBuildMenu();
@@ -462,10 +556,13 @@ const Game = {
 
         const tile = GameMap.getTile(cellX, cellY);
         if (!tile) return;
-        if (tile.terrain <= CONFIG.TERRAIN.WATER || tile.terrain >= CONFIG.TERRAIN.MOUNTAIN) return;
+        if (tile.terrain <= CONFIG.TERRAIN.WATER || tile.terrain >= CONFIG.TERRAIN.SNOW_PEAK) return;
         if (tile.building) return;
 
-        // Check it's in the player's region or nearby
+        // Check terrain restriction
+        if (bld.terrain && !bld.terrain.includes(tile.terrain)) return;
+
+        // Check it's in the player's region
         if (tile.owner !== 0) return;
 
         // Spend resources
@@ -475,7 +572,13 @@ const Game = {
 
         // Place
         tile.building = type;
-        this.buildings.push({ type, x: cellX, y: cellY });
+        const buildingData = { type, x: cellX, y: cellY, level: 1, familyIdx: -1 };
+        this.buildings.push(buildingData);
+
+        // Houses: check if we can recruit a new family
+        if (type === 'house') {
+            this._checkRecruitFamily();
+        }
 
         // Rebuild terrain buffer to clear old state
         Renderer._bufferDirty = true;
@@ -487,11 +590,19 @@ const Game = {
         this._closeBuildMenu();
     },
 
-    // ==================== INFO PANEL (cabin click) ====================
+    _checkRecruitFamily() {
+        const maxFam = this.getMaxFamilies();
+        if (this.families.length < maxFam) {
+            this.families.push(this._generateFamily());
+        }
+    },
+
+    // ==================== INFO PANEL (castle click) ====================
 
     _openInfoPanel() {
         this._infoPanelOpen = true;
         this._closeBuildMenu();
+        this._closeBuildingDetail();
         document.getElementById('info-panel').classList.add('active');
         this._renderInfoContent();
     },
@@ -511,21 +622,21 @@ const Game = {
     },
 
     _renderBuildingsTab(container) {
-        // Count buildings by type
         const counts = {};
         for (const b of this.buildings) {
             counts[b.type] = (counts[b.type] || 0) + 1;
         }
 
         let html = '';
-
-        // Always show the main cabin
         html += `<div class="info-building-row"><span class="ib-icon">\u{1F3F0}</span><span class="ib-name">Chateau (Cabane de base)</span><span class="ib-count">1</span></div>`;
 
         for (const [key, bld] of Object.entries(CONFIG.BUILDINGS)) {
             const count = counts[key] || 0;
             html += `<div class="info-building-row"><span class="ib-icon">${bld.icon}</span><span class="ib-name">${bld.name}</span><span class="ib-count">${count}</span></div>`;
         }
+
+        const cap = this.getStorageCapacity();
+        html += `<div class="info-building-row" style="margin-top:8px;border-top:1px solid rgba(200,168,74,0.2);padding-top:8px;"><span class="ib-icon">\u{1F4E6}</span><span class="ib-name">Capacite de stockage</span><span class="ib-count">${cap}</span></div>`;
 
         if (this.buildings.length === 0) {
             html += `<div class="info-empty">Aucune construction supplementaire.<br>Appuyez sur B pour construire.</div>`;
@@ -540,42 +651,26 @@ const Game = {
             return;
         }
 
-        // Available jobs based on buildings
-        const availableJobs = this._getAvailableJobs();
-
         let html = '';
         for (let i = 0; i < this.families.length; i++) {
             const fam = this.families[i];
-            const jobOptions = this._buildJobOptions(fam.job, availableJobs);
+            const assignedTo = fam.buildingIdx >= 0 ? this.buildings[fam.buildingIdx] : null;
+            const jobName = assignedTo ? CONFIG.BUILDINGS[assignedTo.type].job || 'Habitant' : 'Sans emploi';
+            const buildName = assignedTo ? CONFIG.BUILDINGS[assignedTo.type].name : '';
 
             html += `<div class="info-family-row">
                 <div>
                     <div class="info-family-name">${fam.name}</div>
                     <div class="info-family-members">${fam.man} & ${fam.woman}</div>
+                    <div class="info-family-members" style="color:${assignedTo ? '#c8a84a' : '#6a5a3a'}">${jobName}${buildName ? ' - ' + buildName : ''}</div>
                 </div>
-                <select class="info-family-job" data-family="${i}">
-                    <option value=""${!fam.job ? ' selected' : ''}>Sans metier</option>
-                    ${jobOptions}
-                </select>
             </div>`;
         }
 
         container.innerHTML = html;
-
-        // Add change listeners
-        container.querySelectorAll('.info-family-job').forEach(sel => {
-            sel.addEventListener('change', (e) => {
-                const idx = parseInt(e.target.dataset.family);
-                const newJob = e.target.value || null;
-                this.families[idx].job = newJob;
-                // Re-render to update slot counts
-                this._renderInfoContent();
-            });
-        });
     },
 
     _getAvailableJobs() {
-        // Count buildings and how many families are assigned to each job
         const jobs = [];
         const buildCounts = {};
         for (const b of this.buildings) {
@@ -608,9 +703,177 @@ const Game = {
         return html;
     },
 
+    // ==================== BUILDING DETAIL PANEL ====================
+
+    _openBuildingDetail(buildingIdx) {
+        this._selectedBuilding = buildingIdx;
+        this._closeBuildMenu();
+        this._closeInfoPanel();
+        document.getElementById('building-detail').classList.add('active');
+        this._renderBuildingDetail();
+    },
+
+    _closeBuildingDetail() {
+        this._selectedBuilding = null;
+        document.getElementById('building-detail').classList.remove('active');
+    },
+
+    _renderBuildingDetail() {
+        const panel = document.getElementById('building-detail');
+        const content = document.getElementById('building-detail-content');
+        const titleEl = document.getElementById('building-detail-title');
+
+        if (this._selectedBuilding === 'castle') {
+            titleEl.textContent = '\u{1F3F0} Chateau';
+            let html = `<div class="bd-section"><div class="bd-label">Description</div><div class="bd-value">Le coeur de votre royaume. Centre de commandement.</div></div>`;
+            html += `<div class="bd-section"><div class="bd-label">Familles</div><div class="bd-value">${this.families.length} / ${this.getMaxFamilies()}</div></div>`;
+            html += `<div class="bd-section"><div class="bd-label">Stockage</div><div class="bd-value">${this.getStorageCapacity()} max</div></div>`;
+            content.innerHTML = html;
+            return;
+        }
+
+        const bIdx = this._selectedBuilding;
+        if (bIdx === null || bIdx < 0 || bIdx >= this.buildings.length) return;
+
+        const b = this.buildings[bIdx];
+        const def = CONFIG.BUILDINGS[b.type];
+        if (!def) return;
+
+        const lvl = b.level || 1;
+        titleEl.textContent = `${def.icon} ${def.name} (Niv. ${lvl})`;
+
+        let html = '';
+
+        // Description
+        html += `<div class="bd-section"><div class="bd-label">Description</div><div class="bd-value">${def.description}</div></div>`;
+
+        // Production info
+        if (def.production) {
+            let prodStr = '';
+            const totalProd = { ...def.production };
+            // Add upgrade bonuses
+            if (lvl > 1 && def.upgrades) {
+                for (let u = 0; u < lvl - 1 && u < def.upgrades.length; u++) {
+                    const bonus = def.upgrades[u].productionBonus;
+                    if (bonus) {
+                        for (const [r, a] of Object.entries(bonus)) {
+                            totalProd[r] = (totalProd[r] || 0) + a;
+                        }
+                    }
+                }
+            }
+            prodStr = Object.entries(totalProd).map(([r, a]) => `+${a} ${r}`).join(', ');
+            const isActive = b.familyIdx >= 0;
+            html += `<div class="bd-section"><div class="bd-label">Production (par cycle)</div><div class="bd-value" style="color:${isActive ? '#a8d8a8' : '#d8a8a8'}">${prodStr}${isActive ? '' : ' (INACTIVE - pas de famille)'}</div></div>`;
+        }
+
+        // Special info for warehouse
+        if (b.type === 'warehouse') {
+            const bonusStr = lvl === 1 ? '+50' : lvl === 2 ? '+75' : '+100';
+            html += `<div class="bd-section"><div class="bd-label">Bonus stockage</div><div class="bd-value">${bonusStr} capacite</div></div>`;
+        }
+
+        // Special info for house
+        if (b.type === 'house') {
+            html += `<div class="bd-section"><div class="bd-label">Logement</div><div class="bd-value">+${lvl} famille(s)</div></div>`;
+        }
+
+        // Assigned family
+        const assignedFam = b.familyIdx >= 0 ? this.families[b.familyIdx] : null;
+        if (def.job) {
+            html += `<div class="bd-section"><div class="bd-label">Famille assignee</div>`;
+            html += `<select class="bd-family-select" id="bd-family-select">`;
+            html += `<option value="-1"${!assignedFam ? ' selected' : ''}>Aucune</option>`;
+            for (let i = 0; i < this.families.length; i++) {
+                const f = this.families[i];
+                // Show families that are unassigned or assigned to this building
+                const isFree = f.buildingIdx < 0 || f.buildingIdx === bIdx;
+                if (!isFree) continue;
+                html += `<option value="${i}"${b.familyIdx === i ? ' selected' : ''}>${f.name}</option>`;
+            }
+            html += `</select></div>`;
+        }
+
+        // Upgrade
+        if (def.upgrades && lvl - 1 < def.upgrades.length) {
+            const nextUpgrade = def.upgrades[lvl - 1];
+            const costStr = Object.entries(nextUpgrade.cost).map(([r, v]) => `${v} ${r}`).join(', ');
+            const canUpgrade = this._canAfford(nextUpgrade.cost);
+            html += `<div class="bd-section bd-upgrade"><div class="bd-label">Amelioration : ${nextUpgrade.name}</div><div class="bd-value">Cout : ${costStr}</div>`;
+            if (nextUpgrade.productionBonus) {
+                const bonusStr = Object.entries(nextUpgrade.productionBonus).map(([r, a]) => `+${a} ${r}`).join(', ');
+                html += `<div class="bd-value">Bonus : ${bonusStr}</div>`;
+            }
+            if (nextUpgrade.bonus) {
+                html += `<div class="bd-value">Bonus : ${nextUpgrade.bonus}</div>`;
+            }
+            html += `<button class="bd-upgrade-btn${canUpgrade ? '' : ' disabled'}" id="bd-upgrade-btn"${canUpgrade ? '' : ' disabled'}>Ameliorer</button></div>`;
+        } else {
+            html += `<div class="bd-section"><div class="bd-label" style="color:#c8a84a;">Niveau maximum atteint</div></div>`;
+        }
+
+        content.innerHTML = html;
+
+        // Bind events
+        const famSelect = document.getElementById('bd-family-select');
+        if (famSelect) {
+            famSelect.addEventListener('change', (e) => {
+                const newFamIdx = parseInt(e.target.value);
+                // Unassign old family
+                if (b.familyIdx >= 0 && this.families[b.familyIdx]) {
+                    this.families[b.familyIdx].buildingIdx = -1;
+                    this.families[b.familyIdx].job = null;
+                }
+                // Assign new family
+                b.familyIdx = newFamIdx;
+                if (newFamIdx >= 0 && this.families[newFamIdx]) {
+                    this.families[newFamIdx].buildingIdx = bIdx;
+                    this.families[newFamIdx].job = b.type;
+                }
+                this._renderBuildingDetail();
+            });
+        }
+
+        const upgradeBtn = document.getElementById('bd-upgrade-btn');
+        if (upgradeBtn && !upgradeBtn.disabled) {
+            upgradeBtn.addEventListener('click', () => {
+                this._upgradeBuilding(bIdx);
+            });
+        }
+    },
+
+    _upgradeBuilding(bIdx) {
+        const b = this.buildings[bIdx];
+        const def = CONFIG.BUILDINGS[b.type];
+        const lvl = b.level || 1;
+        if (!def.upgrades || lvl - 1 >= def.upgrades.length) return;
+
+        const upgrade = def.upgrades[lvl - 1];
+        if (!this._canAfford(upgrade.cost)) return;
+
+        // Spend resources
+        for (const [res, amount] of Object.entries(upgrade.cost)) {
+            this.resources[res] -= amount;
+        }
+
+        b.level = lvl + 1;
+
+        // If house was upgraded, check for new family recruitment
+        if (b.type === 'house') {
+            this._checkRecruitFamily();
+        }
+
+        Renderer._bufferDirty = true;
+        this._updateHUD();
+        this._renderBuildingDetail();
+    },
+
+    // ==================== GAME LOOP ====================
+
     _gameLoop() {
         if (!this._running) return;
         Camera.update();
+        this._productionTick();
         Renderer.render();
         requestAnimationFrame(() => this._gameLoop());
     },
@@ -625,17 +888,32 @@ const Game = {
             return;
         }
 
-        // If clicking the castle, open info panel
+        // If clicking the castle, open building detail for castle
         if (this._castlePlaced && cellX === this._castlePlaced.x && cellY === this._castlePlaced.y) {
-            if (this._infoPanelOpen) this._closeInfoPanel();
-            else this._openInfoPanel();
+            if (this._selectedBuilding === 'castle') {
+                this._closeBuildingDetail();
+            } else {
+                this._openBuildingDetail('castle');
+            }
             return;
         }
 
-        // If clicking a building, also open info
+        // If clicking a building, open detail for that building
         if (tile.building) {
-            this._openInfoPanel();
-            return;
+            const bIdx = this.buildings.findIndex(b => b.x === cellX && b.y === cellY);
+            if (bIdx >= 0) {
+                if (this._selectedBuilding === bIdx) {
+                    this._closeBuildingDetail();
+                } else {
+                    this._openBuildingDetail(bIdx);
+                }
+                return;
+            }
+        }
+
+        // Clicking empty space closes panels
+        if (this._selectedBuilding !== null) {
+            this._closeBuildingDetail();
         }
     },
 

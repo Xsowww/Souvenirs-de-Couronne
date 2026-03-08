@@ -355,14 +355,49 @@ const Renderer = {
 
         // Draw placed buildings
         if (typeof Game !== 'undefined') {
-            for (const b of Game.buildings) {
+            for (let i = 0; i < Game.buildings.length; i++) {
+                const b = Game.buildings[i];
                 this._drawIsoBuilding(ctx, b.type, b.x, b.y);
+
+                // Level badge
+                if (b.level > 1) {
+                    const pos = this._isoScreenPos(b.x, b.y);
+                    const badgeS = pos.zoom * 3;
+                    ctx.fillStyle = 'rgba(200,168,74,0.9)';
+                    ctx.beginPath();
+                    ctx.arc(pos.sx + 10 * pos.zoom, pos.sy - 12 * pos.zoom, badgeS, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#1a100a';
+                    ctx.font = `bold ${Math.round(badgeS * 1.3)}px Cinzel,serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(b.level, pos.sx + 10 * pos.zoom, pos.sy - 12 * pos.zoom);
+                }
+
+                // Selection ring
+                if (Game._selectedBuilding === i) {
+                    const pos = this._isoScreenPos(b.x, b.y);
+                    ctx.beginPath();
+                    ctx.ellipse(pos.sx, pos.sy + 1 * pos.zoom, 12 * pos.zoom, 5 * pos.zoom, 0, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(200,168,74,0.7)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
             }
         }
 
         // Draw main cabin on top of everything
         if (typeof Game !== 'undefined' && Game._castlePlaced) {
             this._drawIsoCabin(ctx, Game._castlePlaced.x, Game._castlePlaced.y);
+            // Castle selection ring
+            if (Game._selectedBuilding === 'castle') {
+                const pos = this._isoScreenPos(Game._castlePlaced.x, Game._castlePlaced.y);
+                ctx.beginPath();
+                ctx.ellipse(pos.sx, pos.sy + 1 * pos.zoom, 18 * pos.zoom, 7 * pos.zoom, 0, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(200,168,74,0.7)';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+            }
         }
     },
 
@@ -479,10 +514,37 @@ const Renderer = {
         ctx.fill();
     },
 
+    // Helper: get iso screen pos for a tile center
+    _isoScreenPos(tileX, tileY) {
+        const cellSize = CONFIG.CELL_SIZE;
+        const zoom = Camera.zoom;
+        const tileW = cellSize * zoom;
+        const tileH = tileW * 0.5;
+        const elevScale = tileH * 2.0;
+
+        const camCellX = Camera.x / (cellSize * zoom);
+        const camCellY = Camera.y / (cellSize * zoom);
+
+        const originX = this.canvas.width / 2;
+        const originY = this.canvas.height * 0.25;
+
+        const elev = this._getElevAt(tileX + 0.5, tileY + 0.5);
+        const relX = tileX + 0.5 - camCellX;
+        const relY = tileY + 0.5 - camCellY;
+        const sx = originX + (relX - relY) * tileW * 0.5;
+        const sy = originY + (relX + relY) * tileH * 0.5 - elev * elevScale;
+
+        return { sx, sy, zoom };
+    },
+
     // Draw a placed building (semi-3D)
     _drawIsoBuilding(ctx, type, tileX, tileY) {
-        if (type === 'lumberjack') {
-            this._drawIsoLumberjack(ctx, tileX, tileY);
+        switch (type) {
+            case 'lumberjack': this._drawIsoLumberjack(ctx, tileX, tileY); break;
+            case 'house': this._drawIsoHouse(ctx, tileX, tileY); break;
+            case 'mine': this._drawIsoMine(ctx, tileX, tileY); break;
+            case 'warehouse': this._drawIsoWarehouse(ctx, tileX, tileY); break;
+            case 'foundry': this._drawIsoFoundry(ctx, tileX, tileY); break;
         }
     },
 
@@ -612,6 +674,347 @@ const Renderer = {
         ctx.lineTo(axeX - 3 * s, axeY - 6.5 * s);
         ctx.closePath();
         ctx.fill();
+    },
+
+    // Semi-3D villager house
+    _drawIsoHouse(ctx, tileX, tileY) {
+        const { sx, sy, zoom } = this._isoScreenPos(tileX, tileY);
+        const s = zoom * 0.85;
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.beginPath();
+        ctx.ellipse(sx, sy + 1 * s, 8 * s, 3 * s, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Left wall (warm plaster)
+        const wallH = 7 * s;
+        const wallTop = sy - wallH;
+        ctx.fillStyle = '#c4a872';
+        ctx.beginPath();
+        ctx.moveTo(sx - 7 * s, sy);
+        ctx.lineTo(sx - 7 * s, wallTop);
+        ctx.lineTo(sx, wallTop - 2 * s);
+        ctx.lineTo(sx, sy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Right wall (lighter plaster)
+        ctx.fillStyle = '#d4b882';
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx, wallTop - 2 * s);
+        ctx.lineTo(sx + 7 * s, wallTop);
+        ctx.lineTo(sx + 7 * s, sy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Door
+        ctx.fillStyle = '#4a3018';
+        ctx.fillRect(sx + 2 * s, sy - 5 * s, 3 * s, 5 * s);
+
+        // Window on left wall
+        ctx.fillStyle = '#a8c8e8';
+        ctx.fillRect(sx - 5.5 * s, wallTop + 2 * s, 2.5 * s, 2.5 * s);
+        ctx.strokeStyle = '#4a3018';
+        ctx.lineWidth = 0.3 * s;
+        ctx.strokeRect(sx - 5.5 * s, wallTop + 2 * s, 2.5 * s, 2.5 * s);
+
+        // Roof - thatch style
+        ctx.fillStyle = '#8a6a32';
+        ctx.beginPath();
+        ctx.moveTo(sx - 9 * s, wallTop);
+        ctx.lineTo(sx, wallTop - 6 * s);
+        ctx.lineTo(sx + 1 * s, wallTop - 2 * s);
+        ctx.lineTo(sx - 7 * s, wallTop);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#9a7a3e';
+        ctx.beginPath();
+        ctx.moveTo(sx, wallTop - 6 * s);
+        ctx.lineTo(sx + 9 * s, wallTop);
+        ctx.lineTo(sx + 7 * s, wallTop);
+        ctx.lineTo(sx + 1 * s, wallTop - 2 * s);
+        ctx.closePath();
+        ctx.fill();
+
+        // Chimney
+        ctx.fillStyle = '#6a6460';
+        ctx.fillRect(sx + 5 * s, wallTop - 4 * s, 2 * s, 4 * s);
+    },
+
+    // Semi-3D mine entrance
+    _drawIsoMine(ctx, tileX, tileY) {
+        const { sx, sy, zoom } = this._isoScreenPos(tileX, tileY);
+        const s = zoom * 0.9;
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.beginPath();
+        ctx.ellipse(sx, sy + 1 * s, 9 * s, 3.5 * s, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Rock face / cave mouth
+        ctx.fillStyle = '#5a5450';
+        ctx.beginPath();
+        ctx.moveTo(sx - 8 * s, sy);
+        ctx.lineTo(sx - 6 * s, sy - 10 * s);
+        ctx.lineTo(sx + 6 * s, sy - 10 * s);
+        ctx.lineTo(sx + 8 * s, sy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Cave entrance (dark)
+        ctx.fillStyle = '#1a1008';
+        ctx.beginPath();
+        ctx.moveTo(sx - 4 * s, sy);
+        ctx.lineTo(sx - 3 * s, sy - 6 * s);
+        ctx.lineTo(sx + 3 * s, sy - 6 * s);
+        ctx.lineTo(sx + 4 * s, sy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Wooden beams
+        ctx.strokeStyle = '#5a3a18';
+        ctx.lineWidth = 1.5 * s;
+        ctx.beginPath();
+        ctx.moveTo(sx - 4 * s, sy);
+        ctx.lineTo(sx - 3 * s, sy - 6 * s);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(sx + 4 * s, sy);
+        ctx.lineTo(sx + 3 * s, sy - 6 * s);
+        ctx.stroke();
+        // Top beam
+        ctx.beginPath();
+        ctx.moveTo(sx - 3.5 * s, sy - 6 * s);
+        ctx.lineTo(sx + 3.5 * s, sy - 6 * s);
+        ctx.stroke();
+
+        // Cart with ore
+        ctx.fillStyle = '#5a3a18';
+        ctx.fillRect(sx + 5 * s, sy - 2 * s, 5 * s, 2.5 * s);
+        // Ore in cart
+        ctx.fillStyle = '#8a8a8a';
+        ctx.beginPath();
+        ctx.arc(sx + 6.5 * s, sy - 2.5 * s, 1.2 * s, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#9a7a3a';
+        ctx.beginPath();
+        ctx.arc(sx + 8 * s, sy - 2.5 * s, 1 * s, 0, Math.PI * 2);
+        ctx.fill();
+        // Wheel
+        ctx.strokeStyle = '#3a2510';
+        ctx.lineWidth = 0.8 * s;
+        ctx.beginPath();
+        ctx.arc(sx + 6.5 * s, sy + 0.5 * s, 1.2 * s, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(sx + 8.5 * s, sy + 0.5 * s, 1.2 * s, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Pickaxe
+        ctx.strokeStyle = '#5a3a18';
+        ctx.lineWidth = 0.8 * s;
+        ctx.beginPath();
+        ctx.moveTo(sx - 7 * s, sy);
+        ctx.lineTo(sx - 9 * s, sy - 7 * s);
+        ctx.stroke();
+        ctx.fillStyle = '#707070';
+        ctx.beginPath();
+        ctx.moveTo(sx - 9 * s, sy - 7 * s);
+        ctx.lineTo(sx - 11 * s, sy - 8 * s);
+        ctx.lineTo(sx - 9.5 * s, sy - 5.5 * s);
+        ctx.closePath();
+        ctx.fill();
+    },
+
+    // Semi-3D warehouse
+    _drawIsoWarehouse(ctx, tileX, tileY) {
+        const { sx, sy, zoom } = this._isoScreenPos(tileX, tileY);
+        const s = zoom * 1.0;
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.beginPath();
+        ctx.ellipse(sx, sy + 1 * s, 10 * s, 4 * s, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Left wall (stone/wood)
+        const wallH = 9 * s;
+        const wallTop = sy - wallH;
+        ctx.fillStyle = '#6a5a3a';
+        ctx.beginPath();
+        ctx.moveTo(sx - 10 * s, sy);
+        ctx.lineTo(sx - 10 * s, wallTop);
+        ctx.lineTo(sx, wallTop - 1 * s);
+        ctx.lineTo(sx, sy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Right wall
+        ctx.fillStyle = '#7a6a4a';
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx, wallTop - 1 * s);
+        ctx.lineTo(sx + 10 * s, wallTop);
+        ctx.lineTo(sx + 10 * s, sy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Stone texture lines
+        ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+        ctx.lineWidth = 0.3 * s;
+        for (let p = 1; p <= 3; p++) {
+            const py = wallTop + (wallH / 4) * p;
+            ctx.beginPath();
+            ctx.moveTo(sx - 10 * s, py);
+            ctx.lineTo(sx, py - 1 * s * (p / 4));
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(sx, py - 1 * s * (p / 4));
+            ctx.lineTo(sx + 10 * s, py);
+            ctx.stroke();
+        }
+
+        // Large door on right wall
+        ctx.fillStyle = '#4a3018';
+        ctx.fillRect(sx + 2 * s, sy - 7 * s, 6 * s, 7 * s);
+        ctx.strokeStyle = '#3a2008';
+        ctx.lineWidth = 0.4 * s;
+        ctx.strokeRect(sx + 2 * s, sy - 7 * s, 6 * s, 7 * s);
+        // Door cross
+        ctx.beginPath();
+        ctx.moveTo(sx + 5 * s, sy - 7 * s);
+        ctx.lineTo(sx + 5 * s, sy);
+        ctx.stroke();
+
+        // Flat roof
+        ctx.fillStyle = '#5a4a2a';
+        ctx.beginPath();
+        ctx.moveTo(sx - 11 * s, wallTop);
+        ctx.lineTo(sx, wallTop - 2.5 * s);
+        ctx.lineTo(sx + 11 * s, wallTop);
+        ctx.lineTo(sx, wallTop + 1 * s);
+        ctx.closePath();
+        ctx.fill();
+
+        // Crates inside (visible through door)
+        ctx.fillStyle = '#5a3a18';
+        ctx.fillRect(sx + 3 * s, sy - 3 * s, 2 * s, 2 * s);
+        ctx.fillRect(sx + 5.5 * s, sy - 3 * s, 2 * s, 2 * s);
+        ctx.fillStyle = '#6a4a28';
+        ctx.fillRect(sx + 4 * s, sy - 5 * s, 2 * s, 2 * s);
+    },
+
+    // Semi-3D foundry with fire glow
+    _drawIsoFoundry(ctx, tileX, tileY) {
+        const { sx, sy, zoom } = this._isoScreenPos(tileX, tileY);
+        const s = zoom * 0.95;
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.22)';
+        ctx.beginPath();
+        ctx.ellipse(sx, sy + 1 * s, 9 * s, 3.5 * s, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Left wall (dark stone)
+        const wallH = 9 * s;
+        const wallTop = sy - wallH;
+        ctx.fillStyle = '#4a4440';
+        ctx.beginPath();
+        ctx.moveTo(sx - 8 * s, sy);
+        ctx.lineTo(sx - 8 * s, wallTop);
+        ctx.lineTo(sx, wallTop - 2 * s);
+        ctx.lineTo(sx, sy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Right wall
+        ctx.fillStyle = '#5a5450';
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx, wallTop - 2 * s);
+        ctx.lineTo(sx + 8 * s, wallTop);
+        ctx.lineTo(sx + 8 * s, sy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Furnace opening (fire glow)
+        ctx.fillStyle = '#1a0800';
+        ctx.fillRect(sx + 2 * s, sy - 5 * s, 4 * s, 4 * s);
+
+        // Fire glow (animated)
+        const now = Date.now();
+        const flicker = Math.sin(now / 150) * 0.15 + 0.85;
+        ctx.fillStyle = `rgba(255,${Math.round(120 * flicker)},${Math.round(20 * flicker)},${0.7 * flicker})`;
+        ctx.beginPath();
+        ctx.arc(sx + 4 * s, sy - 3 * s, 1.5 * s, 0, Math.PI * 2);
+        ctx.fill();
+        // Glow spread
+        ctx.fillStyle = `rgba(255,80,10,${0.1 * flicker})`;
+        ctx.beginPath();
+        ctx.arc(sx + 4 * s, sy - 3 * s, 4 * s, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Chimney (tall, with smoke)
+        const chimX = sx - 4 * s;
+        const chimW = 3 * s;
+        const chimH = 12 * s;
+        const chimTop = wallTop - 4 * s;
+        ctx.fillStyle = '#4a4440';
+        ctx.fillRect(chimX, chimTop - chimH + 4 * s, chimW, chimH);
+        ctx.fillStyle = '#3a3430';
+        ctx.fillRect(chimX + chimW, chimTop - chimH + 4 * s, chimW * 0.35, chimH);
+        // Cap
+        ctx.fillStyle = '#3a3430';
+        ctx.fillRect(chimX - 0.5 * s, chimTop - chimH + 4 * s, chimW + 1.5 * s, 1.5 * s);
+
+        // Smoke
+        for (let i = 0; i < 5; i++) {
+            const smokeAge = (now / 500 + i * 1.3) % 7;
+            const smokeX2 = chimX + chimW * 0.5 + Math.sin(now / 600 + i * 2) * 2.5 * s;
+            const smokeY2 = chimTop - chimH + 4 * s - smokeAge * 2.5 * s;
+            const smokeR = (1 + smokeAge * 0.5) * s;
+            const alpha = Math.max(0, 0.35 - smokeAge * 0.05);
+            ctx.fillStyle = `rgba(100,100,100,${alpha})`;
+            ctx.beginPath();
+            ctx.arc(smokeX2, smokeY2, smokeR, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Roof
+        ctx.fillStyle = '#3a3430';
+        ctx.beginPath();
+        ctx.moveTo(sx - 10 * s, wallTop);
+        ctx.lineTo(sx, wallTop - 6 * s);
+        ctx.lineTo(sx + 1 * s, wallTop - 2 * s);
+        ctx.lineTo(sx - 8 * s, wallTop);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#4a3e38';
+        ctx.beginPath();
+        ctx.moveTo(sx, wallTop - 6 * s);
+        ctx.lineTo(sx + 10 * s, wallTop);
+        ctx.lineTo(sx + 8 * s, wallTop);
+        ctx.lineTo(sx + 1 * s, wallTop - 2 * s);
+        ctx.closePath();
+        ctx.fill();
+
+        // Anvil near the building
+        ctx.fillStyle = '#5a5a5a';
+        ctx.beginPath();
+        ctx.moveTo(sx + 9 * s, sy - 1 * s);
+        ctx.lineTo(sx + 8 * s, sy - 3 * s);
+        ctx.lineTo(sx + 12 * s, sy - 3 * s);
+        ctx.lineTo(sx + 11 * s, sy - 1 * s);
+        ctx.closePath();
+        ctx.fill();
+        // Anvil top (wider)
+        ctx.fillStyle = '#6a6a6a';
+        ctx.fillRect(sx + 7.5 * s, sy - 4 * s, 5 * s, 1.2 * s);
     },
 
     // Semi-3D main cabin with isometric perspective
