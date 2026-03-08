@@ -1688,14 +1688,17 @@ const GameMap = {
 };
 
 
+
 // === js/renderer.js ===
-// Smooth isometric renderer - no visible tile grid
+// Top-down smooth renderer — no tiles, no grid, pure bird's eye
 const Renderer = {
     canvas: null,
     ctx: null,
     _terrainBuffer: null,
+    _overlayBuffer: null,
     _bufferDirty: true,
     _isoMode: false,
+    _dayTransition: null, // {startTime, day}
 
     init() {
         this.canvas = document.getElementById('game-canvas');
@@ -1708,1279 +1711,332 @@ const Renderer = {
     resize() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
-        this._bufferDirty = true;
     },
 
-    setIsoMode(enabled) {
-        this._isoMode = enabled;
-    },
+    setIsoMode(enabled) { this._isoMode = false; },
 
-    // Build the full terrain as an offscreen image (for top-down/placement)
     buildTerrainBuffer() {
         const w = GameMap.width;
         const h = GameMap.height;
-        const cellSize = CONFIG.CELL_SIZE;
-        const bufW = w * cellSize;
-        const bufH = h * cellSize;
 
+        // 1 pixel per tile — upscaled with bilinear smoothing = no grid
         this._terrainBuffer = document.createElement('canvas');
-        this._terrainBuffer.width = bufW;
-        this._terrainBuffer.height = bufH;
+        this._terrainBuffer.width = w;
+        this._terrainBuffer.height = h;
         const ctx = this._terrainBuffer.getContext('2d');
-
-        const imageData = ctx.createImageData(bufW, bufH);
-        const data = imageData.data;
+        const imgd = ctx.createImageData(w, h);
+        const data = imgd.data;
 
         for (let ty = 0; ty < h; ty++) {
             for (let tx = 0; tx < w; tx++) {
                 const tile = GameMap.tiles[ty][tx];
                 const rgb = GameMap._terrainRGB(tile.terrain, tx, ty);
-                const startX = tx * cellSize;
-                const startY = ty * cellSize;
-
-                for (let py = startY; py < startY + cellSize; py++) {
-                    for (let px = startX; px < startX + cellSize; px++) {
-                        const idx = (py * bufW + px) * 4;
-                        const micro = ((px * 13 + py * 7) & 7) - 3.5;
-                        data[idx] = Math.max(0, Math.min(255, rgb[0] + micro));
-                        data[idx + 1] = Math.max(0, Math.min(255, rgb[1] + micro));
-                        data[idx + 2] = Math.max(0, Math.min(255, rgb[2] + micro));
-                        data[idx + 3] = 255;
-                    }
-                }
+                const idx = (ty * w + tx) * 4;
+                data[idx]     = rgb[0];
+                data[idx + 1] = rgb[1];
+                data[idx + 2] = rgb[2];
+                data[idx + 3] = 255;
             }
         }
+        ctx.putImageData(imgd, 0, 0);
 
-        ctx.putImageData(imageData, 0, 0);
+        // Territory overlay buffer
+        this._overlayBuffer = document.createElement('canvas');
+        this._overlayBuffer.width = w;
+        this._overlayBuffer.height = h;
+        const octx = this._overlayBuffer.getContext('2d');
+        const oimgd = octx.createImageData(w, h);
+        const od = oimgd.data;
 
-        // Subtle region borders
-        ctx.strokeStyle = 'rgba(0,0,0,0.08)';
-        ctx.lineWidth = 1;
         for (let ty = 0; ty < h; ty++) {
             for (let tx = 0; tx < w; tx++) {
-                const tile = GameMap.tiles[ty][tx];
-                if (tile.regionId < 0) continue;
-                const right = GameMap.getTile(tx + 1, ty);
-                const bottom = GameMap.getTile(tx, ty + 1);
-                if (right && right.regionId >= 0 && right.regionId !== tile.regionId) {
-                    const px = (tx + 1) * cellSize;
-                    ctx.beginPath();
-                    ctx.moveTo(px, ty * cellSize);
-                    ctx.lineTo(px, (ty + 1) * cellSize);
-                    ctx.stroke();
-                }
-                if (bottom && bottom.regionId >= 0 && bottom.regionId !== tile.regionId) {
-                    const py2 = (ty + 1) * cellSize;
-                    ctx.beginPath();
-                    ctx.moveTo(tx * cellSize, py2);
-                    ctx.lineTo((tx + 1) * cellSize, py2);
-                    ctx.stroke();
-                }
-            }
-        }
-
-        // Trees and rocks on buffer (for top-down mode only)
-        this._drawTreesOnBuffer(ctx, cellSize);
-        this._drawRocksOnBuffer(ctx, cellSize);
-
-        this._bufferDirty = false;
-    },
-
-    _drawTreesOnBuffer(ctx, cellSize) {
-        for (let ty = 0; ty < GameMap.height; ty++) {
-            for (let tx = 0; tx < GameMap.width; tx++) {
-                const tile = GameMap.tiles[ty][tx];
-                if (tile.terrain !== CONFIG.TERRAIN.FOREST &&
-                    tile.terrain !== CONFIG.TERRAIN.DENSE_FOREST) continue;
-
-                const hash = ((tx * 7919 + ty * 6271) & 0xFFFF) / 0xFFFF;
-                const count = tile.terrain === CONFIG.TERRAIN.DENSE_FOREST ? 3 : (hash > 0.4 ? 2 : 1);
-                const cx = tx * cellSize;
-                const cy = ty * cellSize;
-
-                for (let i = 0; i < count; i++) {
-                    const h2 = ((tx * (i + 3) * 3571 + ty * 2819) & 0xFFFF) / 0xFFFF;
-                    const ox = cx + h2 * (cellSize - 6) + 3;
-                    const oy = cy + ((h2 * 7919) % 1) * (cellSize - 8) + 4;
-                    const size = 3 + h2 * 3;
-                    ctx.fillStyle = '#3a2510';
-                    ctx.fillRect(ox - 0.5, oy, 1.5, size * 0.4);
-                    const green = tile.terrain === CONFIG.TERRAIN.DENSE_FOREST ?
-                        `rgb(${20 + h2 * 15},${48 + h2 * 20},${22 + h2 * 10})` :
-                        `rgb(${32 + h2 * 20},${72 + h2 * 25},${30 + h2 * 15})`;
-                    ctx.fillStyle = green;
-                    ctx.beginPath();
-                    ctx.arc(ox, oy - size * 0.1, size * 0.5, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-        }
-    },
-
-    _drawRocksOnBuffer(ctx, cellSize) {
-        for (let ty = 0; ty < GameMap.height; ty++) {
-            for (let tx = 0; tx < GameMap.width; tx++) {
-                const tile = GameMap.tiles[ty][tx];
-                if (tile.terrain !== CONFIG.TERRAIN.MOUNTAIN &&
-                    tile.terrain !== CONFIG.TERRAIN.HILLS) continue;
-                const hash = ((tx * 3571 + ty * 2819) & 0xFFFF) / 0xFFFF;
-                if (hash > 0.4) continue;
-                const cx = tx * cellSize + cellSize / 2;
-                const cy = ty * cellSize + cellSize / 2;
-                const size = 2 + hash * 3;
-                ctx.fillStyle = tile.terrain === CONFIG.TERRAIN.MOUNTAIN ?
-                    `rgb(${90 + hash * 30},${86 + hash * 30},${80 + hash * 30})` :
-                    `rgb(${120 + hash * 20},${105 + hash * 20},${80 + hash * 20})`;
-                ctx.beginPath();
-                ctx.moveTo(cx - size, cy + size * 0.3);
-                ctx.lineTo(cx - size * 0.3, cy - size);
-                ctx.lineTo(cx + size * 0.5, cy - size * 0.7);
-                ctx.lineTo(cx + size, cy + size * 0.3);
-                ctx.closePath();
-                ctx.fill();
-            }
-        }
-    },
-
-    render() {
-        if (this._isoMode) {
-            this._renderIso();
-        } else {
-            this._renderTopDown();
-        }
-    },
-
-    _renderTopDown() {
-        if (!this._terrainBuffer || this._bufferDirty) {
-            this.buildTerrainBuffer();
-        }
-
-        const ctx = this.ctx;
-        const cw = this.canvas.width;
-        const ch = this.canvas.height;
-
-        ctx.fillStyle = '#0a1520';
-        ctx.fillRect(0, 0, cw, ch);
-
-        const zoom = Camera.zoom;
-        const srcX = Camera.x / zoom;
-        const srcY = Camera.y / zoom;
-        const srcW = cw / zoom;
-        const srcH = ch / zoom;
-
-        ctx.imageSmoothingEnabled = zoom < 1;
-        ctx.drawImage(this._terrainBuffer, srcX, srcY, srcW, srcH, 0, 0, cw, ch);
-
-        this._drawKingdomOverlays(ctx, cw, ch);
-
-        if (typeof Game !== 'undefined' && Game._castlePlaced) {
-            this._drawCastle(ctx, Game._castlePlaced.x, Game._castlePlaced.y);
-        }
-    },
-
-    // ==================== SMOOTH ISOMETRIC RENDERING ====================
-
-    // Get interpolated elevation at fractional world position
-    _getElevAt(wx, wy) {
-        const ix = Math.floor(wx);
-        const iy = Math.floor(wy);
-        const fx = wx - ix;
-        const fy = wy - iy;
-
-        const e00 = this._tileElev(ix, iy);
-        const e10 = this._tileElev(ix + 1, iy);
-        const e01 = this._tileElev(ix, iy + 1);
-        const e11 = this._tileElev(ix + 1, iy + 1);
-
-        const top = e00 + (e10 - e00) * fx;
-        const bot = e01 + (e11 - e01) * fx;
-        return top + (bot - top) * fy;
-    },
-
-    _tileElev(x, y) {
-        const t = GameMap.getTile(x, y);
-        return t ? t.elevation : -0.5;
-    },
-
-    _renderIso() {
-        const ctx = this.ctx;
-        const cw = this.canvas.width;
-        const ch = this.canvas.height;
-
-        ctx.fillStyle = '#0a1520';
-        ctx.fillRect(0, 0, cw, ch);
-
-        const cellSize = CONFIG.CELL_SIZE;
-        const zoom = Camera.zoom;
-        const tileW = cellSize * zoom;
-        const tileH = tileW * 0.5;
-
-        const camCellX = Camera.x / (cellSize * zoom);
-        const camCellY = Camera.y / (cellSize * zoom);
-
-        const originX = cw / 2;
-        const originY = ch * 0.25;
-
-        // Determine visible range (generous padding)
-        const viewRange = Math.ceil(Math.max(cw, ch) / tileH) + 6;
-        const startCX = Math.floor(camCellX) - Math.ceil(viewRange / 2);
-        const startCY = Math.floor(camCellY) - Math.ceil(viewRange / 2);
-        const endCX = startCX + viewRange;
-        const endCY = startCY + viewRange;
-
-        // Draw terrain back to front (painter's algorithm via diagonal sweep)
-        for (let sum = startCX + startCY; sum <= endCX + endCY; sum++) {
-            for (let tx = Math.max(startCX, sum - endCY); tx <= Math.min(endCX, sum - startCY); tx++) {
-                const ty = sum - tx;
-                if (tx < 0 || ty < 0 || tx >= GameMap.width || ty >= GameMap.height) continue;
-
-                const tile = GameMap.tiles[ty][tx];
-                const relX = tx - camCellX;
-                const relY = ty - camCellY;
-
-                // Smooth elevation from corners
-                const eTopLeft = this._getElevAt(tx, ty);
-                const eTopRight = this._getElevAt(tx + 1, ty);
-                const eBotRight = this._getElevAt(tx + 1, ty + 1);
-                const eBotLeft = this._getElevAt(tx, ty + 1);
-                const eCenter = (eTopLeft + eTopRight + eBotRight + eBotLeft) * 0.25;
-
-                const elevScale = tileH * 2.0;
-
-                // Iso corners (no grid lines - smooth)
-                const toIso = (rx, ry, elev) => ({
-                    x: originX + (rx - ry) * tileW * 0.5,
-                    y: originY + (rx + ry) * tileH * 0.5 - elev * elevScale
-                });
-
-                const topPt = toIso(relX, relY, eTopLeft);
-                const rightPt = toIso(relX + 1, relY, eTopRight);
-                const botPt = toIso(relX + 1, relY + 1, eBotRight);
-                const leftPt = toIso(relX, relY + 1, eBotLeft);
-
-                // Cull offscreen
-                const minSX = Math.min(topPt.x, rightPt.x, botPt.x, leftPt.x);
-                const maxSX = Math.max(topPt.x, rightPt.x, botPt.x, leftPt.x);
-                const minSY = Math.min(topPt.y, rightPt.y, botPt.y, leftPt.y);
-                const maxSY = Math.max(topPt.y, rightPt.y, botPt.y, leftPt.y);
-                if (maxSX < -tileW || minSX > cw + tileW || maxSY < -tileH * 4 || minSY > ch + tileH * 4) continue;
-
-                const rgb = GameMap._terrainRGB(tile.terrain, tx, ty);
-
-                // Light based on slope (normal approximation)
-                const slopeX = (eTopRight + eBotRight - eTopLeft - eBotLeft) * 0.5;
-                const slopeY = (eBotLeft + eBotRight - eTopLeft - eTopRight) * 0.5;
-                const light = 1.0 + slopeX * 0.3 - slopeY * 0.2;
-                const lr = Math.max(0, Math.min(255, Math.round(rgb[0] * light)));
-                const lg = Math.max(0, Math.min(255, Math.round(rgb[1] * light)));
-                const lb = Math.max(0, Math.min(255, Math.round(rgb[2] * light)));
-
-                // Draw top face (smooth quad)
-                ctx.fillStyle = `rgb(${lr},${lg},${lb})`;
-                ctx.beginPath();
-                ctx.moveTo(topPt.x, topPt.y);
-                ctx.lineTo(rightPt.x, rightPt.y);
-                ctx.lineTo(botPt.x, botPt.y);
-                ctx.lineTo(leftPt.x, leftPt.y);
-                ctx.closePath();
-                ctx.fill();
-
-                // Side faces for depth effect (only draw visible sides)
-                const sideDepth = tileH * 0.6;
-
-                // Left side (bottom-left edge visible)
-                if (eBotLeft > -0.3 || eTopLeft > -0.3) {
-                    const sH = Math.max(sideDepth * 0.3, sideDepth + eCenter * sideDepth * 0.5);
-                    ctx.fillStyle = `rgb(${Math.round(lr*0.6)},${Math.round(lg*0.6)},${Math.round(lb*0.6)})`;
-                    ctx.beginPath();
-                    ctx.moveTo(leftPt.x, leftPt.y);
-                    ctx.lineTo(botPt.x, botPt.y);
-                    ctx.lineTo(botPt.x, botPt.y + sH);
-                    ctx.lineTo(leftPt.x, leftPt.y + sH);
-                    ctx.closePath();
-                    ctx.fill();
-                }
-
-                // Right side (bottom-right edge visible)
-                if (eBotRight > -0.3 || eTopRight > -0.3) {
-                    const sH = Math.max(sideDepth * 0.3, sideDepth + eCenter * sideDepth * 0.5);
-                    ctx.fillStyle = `rgb(${Math.round(lr*0.75)},${Math.round(lg*0.75)},${Math.round(lb*0.75)})`;
-                    ctx.beginPath();
-                    ctx.moveTo(rightPt.x, rightPt.y);
-                    ctx.lineTo(botPt.x, botPt.y);
-                    ctx.lineTo(botPt.x, botPt.y + sH);
-                    ctx.lineTo(rightPt.x, rightPt.y + sH);
-                    ctx.closePath();
-                    ctx.fill();
-                }
-
-                // Kingdom overlay on top face
-                if (tile.owner >= 0) {
-                    const region = GameMap.regions.find(r => r.owner === tile.owner);
-                    if (region && region.color) {
-                        ctx.fillStyle = region.color + '25';
-                        ctx.beginPath();
-                        ctx.moveTo(topPt.x, topPt.y);
-                        ctx.lineTo(rightPt.x, rightPt.y);
-                        ctx.lineTo(botPt.x, botPt.y);
-                        ctx.lineTo(leftPt.x, leftPt.y);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-                }
-
-                // Center point for placing objects
-                const centerPt = toIso(relX + 0.5, relY + 0.5, eCenter);
-
-                // Iso trees (semi-3D)
-                if (tile.terrain === CONFIG.TERRAIN.FOREST || tile.terrain === CONFIG.TERRAIN.DENSE_FOREST) {
-                    this._drawIsoTree(ctx, centerPt.x, centerPt.y, tile, tx, ty, zoom);
-                }
-
-                // Iso rocks (semi-3D)
-                if (tile.terrain === CONFIG.TERRAIN.MOUNTAIN || tile.terrain === CONFIG.TERRAIN.HILLS) {
-                    this._drawIsoRock(ctx, centerPt.x, centerPt.y, tile, tx, ty, zoom);
-                }
-            }
-        }
-
-        // Draw placed buildings
-        if (typeof Game !== 'undefined') {
-            for (let i = 0; i < Game.buildings.length; i++) {
-                const b = Game.buildings[i];
-                this._drawIsoBuilding(ctx, b.type, b.x, b.y);
-
-                // Level badge
-                if (b.level > 1) {
-                    const pos = this._isoScreenPos(b.x, b.y);
-                    const badgeS = pos.zoom * 3;
-                    ctx.fillStyle = 'rgba(200,168,74,0.9)';
-                    ctx.beginPath();
-                    ctx.arc(pos.sx + 10 * pos.zoom, pos.sy - 12 * pos.zoom, badgeS, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.fillStyle = '#1a100a';
-                    ctx.font = `bold ${Math.round(badgeS * 1.3)}px Cinzel,serif`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(b.level, pos.sx + 10 * pos.zoom, pos.sy - 12 * pos.zoom);
-                }
-
-                // Selection ring
-                if (Game._selectedBuilding === i) {
-                    const pos = this._isoScreenPos(b.x, b.y);
-                    ctx.beginPath();
-                    ctx.ellipse(pos.sx, pos.sy + 1 * pos.zoom, 12 * pos.zoom, 5 * pos.zoom, 0, 0, Math.PI * 2);
-                    ctx.strokeStyle = 'rgba(200,168,74,0.7)';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                }
-            }
-        }
-
-        // Draw main cabin on top of everything
-        if (typeof Game !== 'undefined' && Game._castlePlaced) {
-            this._drawIsoCabin(ctx, Game._castlePlaced.x, Game._castlePlaced.y);
-            // Castle selection ring
-            if (Game._selectedBuilding === 'castle') {
-                const pos = this._isoScreenPos(Game._castlePlaced.x, Game._castlePlaced.y);
-                ctx.beginPath();
-                ctx.ellipse(pos.sx, pos.sy + 1 * pos.zoom, 18 * pos.zoom, 7 * pos.zoom, 0, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(200,168,74,0.7)';
-                ctx.lineWidth = 2.5;
-                ctx.stroke();
-            }
-        }
-    },
-
-    // Semi-3D tree with trunk, shadow, layered canopy
-    _drawIsoTree(ctx, sx, sy, tile, tx, ty, zoom) {
-        const hash = ((tx * 7919 + ty * 6271) & 0xFFFF) / 0xFFFF;
-        const isDense = tile.terrain === CONFIG.TERRAIN.DENSE_FOREST;
-        const count = isDense ? (hash > 0.3 ? 3 : 2) : (hash > 0.5 ? 2 : 1);
-
-        for (let i = 0; i < count; i++) {
-            const th = ((tx * (i + 3) * 3571 + ty * 2819) & 0xFFFF) / 0xFFFF;
-            const treeH = (5 + th * 6) * zoom;
-            const ox = (th - 0.5) * 8 * zoom;
-            const oy = (((th * 7919) % 1) - 0.5) * 4 * zoom;
-            const treeSx = sx + ox;
-            const treeSy = sy + oy;
-            const trunkW = 1.5 * zoom;
-            const canopyR = treeH * 0.3;
-
-            // Shadow on ground
-            ctx.fillStyle = 'rgba(0,0,0,0.15)';
-            ctx.beginPath();
-            ctx.ellipse(treeSx + 2 * zoom, treeSy + 1 * zoom, canopyR * 0.8, canopyR * 0.35, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Trunk (3D - front face)
-            ctx.fillStyle = '#4a3018';
-            ctx.fillRect(treeSx - trunkW * 0.5, treeSy - treeH * 0.5, trunkW, treeH * 0.55);
-            // Trunk side highlight
-            ctx.fillStyle = '#5a3d1e';
-            ctx.fillRect(treeSx - trunkW * 0.5, treeSy - treeH * 0.5, trunkW * 0.4, treeH * 0.55);
-
-            // Canopy layers (bottom to top for depth)
-            for (let layer = 0; layer < 3; layer++) {
-                const layerY = treeSy - treeH * (0.45 + layer * 0.18);
-                const layerR = canopyR * (1.0 - layer * 0.2);
-                const shade = layer * 12;
-
-                if (isDense) {
-                    ctx.fillStyle = `rgb(${18 + th * 12 + shade},${40 + th * 18 + shade},${20 + th * 8})`;
-                } else {
-                    ctx.fillStyle = `rgb(${28 + th * 18 + shade},${62 + th * 22 + shade},${26 + th * 12})`;
-                }
-                ctx.beginPath();
-                ctx.ellipse(treeSx, layerY, layerR, layerR * 0.65, 0, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            // Highlight on top canopy
-            ctx.fillStyle = isDense ? 'rgba(60,100,40,0.3)' : 'rgba(80,130,50,0.3)';
-            ctx.beginPath();
-            ctx.ellipse(treeSx - canopyR * 0.15, treeSy - treeH * 0.78, canopyR * 0.3, canopyR * 0.2, -0.3, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    },
-
-    // Semi-3D rock with faces and highlights
-    _drawIsoRock(ctx, sx, sy, tile, tx, ty, zoom) {
-        const hash = ((tx * 3571 + ty * 2819) & 0xFFFF) / 0xFFFF;
-        if (hash > 0.45) return;
-
-        const isMtn = tile.terrain === CONFIG.TERRAIN.MOUNTAIN;
-        const rockH = (4 + hash * 6) * zoom;
-        const rockW = (3 + hash * 4) * zoom;
-
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.15)';
-        ctx.beginPath();
-        ctx.ellipse(sx + 1.5 * zoom, sy + 1 * zoom, rockW * 0.7, rockW * 0.3, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Base color
-        const br = isMtn ? 85 + hash * 35 : 115 + hash * 25;
-        const bg = isMtn ? 80 + hash * 35 : 100 + hash * 25;
-        const bb = isMtn ? 75 + hash * 30 : 75 + hash * 20;
-
-        // Front face (darker)
-        ctx.fillStyle = `rgb(${Math.round(br * 0.8)},${Math.round(bg * 0.8)},${Math.round(bb * 0.8)})`;
-        ctx.beginPath();
-        ctx.moveTo(sx - rockW, sy);
-        ctx.lineTo(sx - rockW * 0.4, sy - rockH);
-        ctx.lineTo(sx + rockW * 0.5, sy - rockH * 0.85);
-        ctx.lineTo(sx + rockW, sy);
-        ctx.closePath();
-        ctx.fill();
-
-        // Top face (lighter)
-        ctx.fillStyle = `rgb(${Math.round(br)},${Math.round(bg)},${Math.round(bb)})`;
-        ctx.beginPath();
-        ctx.moveTo(sx - rockW * 0.4, sy - rockH);
-        ctx.lineTo(sx + rockW * 0.1, sy - rockH * 1.1);
-        ctx.lineTo(sx + rockW * 0.7, sy - rockH * 0.9);
-        ctx.lineTo(sx + rockW * 0.5, sy - rockH * 0.85);
-        ctx.closePath();
-        ctx.fill();
-
-        // Right face
-        ctx.fillStyle = `rgb(${Math.round(br * 0.65)},${Math.round(bg * 0.65)},${Math.round(bb * 0.65)})`;
-        ctx.beginPath();
-        ctx.moveTo(sx + rockW * 0.5, sy - rockH * 0.85);
-        ctx.lineTo(sx + rockW * 0.7, sy - rockH * 0.9);
-        ctx.lineTo(sx + rockW * 1.05, sy - rockH * 0.1);
-        ctx.lineTo(sx + rockW, sy);
-        ctx.closePath();
-        ctx.fill();
-
-        // Highlight
-        ctx.fillStyle = 'rgba(255,255,255,0.08)';
-        ctx.beginPath();
-        ctx.moveTo(sx - rockW * 0.3, sy - rockH * 0.9);
-        ctx.lineTo(sx, sy - rockH * 1.05);
-        ctx.lineTo(sx + rockW * 0.15, sy - rockH * 0.8);
-        ctx.closePath();
-        ctx.fill();
-    },
-
-    // Helper: get iso screen pos for a tile center
-    _isoScreenPos(tileX, tileY) {
-        const cellSize = CONFIG.CELL_SIZE;
-        const zoom = Camera.zoom;
-        const tileW = cellSize * zoom;
-        const tileH = tileW * 0.5;
-        const elevScale = tileH * 2.0;
-
-        const camCellX = Camera.x / (cellSize * zoom);
-        const camCellY = Camera.y / (cellSize * zoom);
-
-        const originX = this.canvas.width / 2;
-        const originY = this.canvas.height * 0.25;
-
-        const elev = this._getElevAt(tileX + 0.5, tileY + 0.5);
-        const relX = tileX + 0.5 - camCellX;
-        const relY = tileY + 0.5 - camCellY;
-        const sx = originX + (relX - relY) * tileW * 0.5;
-        const sy = originY + (relX + relY) * tileH * 0.5 - elev * elevScale;
-
-        return { sx, sy, zoom };
-    },
-
-    // Draw a placed building (semi-3D)
-    _drawIsoBuilding(ctx, type, tileX, tileY) {
-        switch (type) {
-            case 'lumberjack': this._drawIsoLumberjack(ctx, tileX, tileY); break;
-            case 'house': this._drawIsoHouse(ctx, tileX, tileY); break;
-            case 'mine': this._drawIsoMine(ctx, tileX, tileY); break;
-            case 'warehouse': this._drawIsoWarehouse(ctx, tileX, tileY); break;
-            case 'foundry': this._drawIsoFoundry(ctx, tileX, tileY); break;
-        }
-    },
-
-    // Semi-3D lumberjack cabin (smaller than main cabin)
-    _drawIsoLumberjack(ctx, tileX, tileY) {
-        const cellSize = CONFIG.CELL_SIZE;
-        const zoom = Camera.zoom;
-        const tileW = cellSize * zoom;
-        const tileH = tileW * 0.5;
-        const elevScale = tileH * 2.0;
-
-        const camCellX = Camera.x / (cellSize * zoom);
-        const camCellY = Camera.y / (cellSize * zoom);
-
-        const originX = this.canvas.width / 2;
-        const originY = this.canvas.height * 0.25;
-
-        const elev = this._getElevAt(tileX + 0.5, tileY + 0.5);
-        const relX = tileX + 0.5 - camCellX;
-        const relY = tileY + 0.5 - camCellY;
-        const sx = originX + (relX - relY) * tileW * 0.5;
-        const sy = originY + (relX + relY) * tileH * 0.5 - elev * elevScale;
-
-        const s = zoom * 0.9;
-
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.beginPath();
-        ctx.ellipse(sx, sy + 1 * s, 9 * s, 3.5 * s, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Left wall (dark wood)
-        const wallH = 8 * s;
-        const wallTop = sy - wallH;
-        ctx.fillStyle = '#4a3018';
-        ctx.beginPath();
-        ctx.moveTo(sx - 8 * s, sy);
-        ctx.lineTo(sx - 8 * s, wallTop);
-        ctx.lineTo(sx, wallTop - 2 * s);
-        ctx.lineTo(sx, sy);
-        ctx.closePath();
-        ctx.fill();
-
-        // Plank lines
-        ctx.strokeStyle = '#3a2510';
-        ctx.lineWidth = 0.3 * s;
-        for (let p = 1; p <= 3; p++) {
-            const py = wallTop + (wallH / 4) * p;
-            ctx.beginPath();
-            ctx.moveTo(sx - 8 * s, py);
-            ctx.lineTo(sx, py - 2 * s * (p / 4));
-            ctx.stroke();
-        }
-
-        // Right wall (lighter)
-        ctx.fillStyle = '#5a3d1e';
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(sx, wallTop - 2 * s);
-        ctx.lineTo(sx + 8 * s, wallTop);
-        ctx.lineTo(sx + 8 * s, sy);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.strokeStyle = '#4a2e14';
-        ctx.lineWidth = 0.3 * s;
-        for (let p = 1; p <= 3; p++) {
-            const py = wallTop + (wallH / 4) * p;
-            ctx.beginPath();
-            ctx.moveTo(sx, py - 2 * s * (p / 4));
-            ctx.lineTo(sx + 8 * s, py);
-            ctx.stroke();
-        }
-
-        // Door on right wall
-        const doorW = 3 * s;
-        const doorH = 5 * s;
-        ctx.fillStyle = '#3a2510';
-        ctx.fillRect(sx + 3 * s, sy - doorH, doorW, doorH);
-
-        // Roof - left face
-        ctx.fillStyle = '#6a3a12';
-        ctx.beginPath();
-        ctx.moveTo(sx - 10 * s, wallTop);
-        ctx.lineTo(sx, wallTop - 7 * s);
-        ctx.lineTo(sx + 1 * s, wallTop - 2 * s);
-        ctx.lineTo(sx - 8 * s, wallTop);
-        ctx.closePath();
-        ctx.fill();
-
-        // Roof - right face
-        ctx.fillStyle = '#7a4516';
-        ctx.beginPath();
-        ctx.moveTo(sx, wallTop - 7 * s);
-        ctx.lineTo(sx + 10 * s, wallTop);
-        ctx.lineTo(sx + 8 * s, wallTop);
-        ctx.lineTo(sx + 1 * s, wallTop - 2 * s);
-        ctx.closePath();
-        ctx.fill();
-
-        // Log pile on the side
-        for (let i = 0; i < 3; i++) {
-            ctx.fillStyle = i % 2 === 0 ? '#5a3a18' : '#4a2e12';
-            const logY = sy - 1 * s - i * 1.8 * s;
-            ctx.beginPath();
-            ctx.ellipse(sx - 11 * s, logY, 3 * s, 1 * s, 0.2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#3a2008';
-            ctx.lineWidth = 0.3 * s;
-            ctx.stroke();
-        }
-
-        // Axe leaning on side
-        const axeX = sx + 10 * s;
-        const axeY = sy;
-        ctx.strokeStyle = '#5a3a18';
-        ctx.lineWidth = 1 * s;
-        ctx.beginPath();
-        ctx.moveTo(axeX, axeY);
-        ctx.lineTo(axeX - 2 * s, axeY - 8 * s);
-        ctx.stroke();
-        // Axe head
-        ctx.fillStyle = '#8a8a8a';
-        ctx.beginPath();
-        ctx.moveTo(axeX - 2 * s, axeY - 8 * s);
-        ctx.lineTo(axeX - 4 * s, axeY - 9 * s);
-        ctx.lineTo(axeX - 3 * s, axeY - 6.5 * s);
-        ctx.closePath();
-        ctx.fill();
-    },
-
-    // Semi-3D villager house
-    _drawIsoHouse(ctx, tileX, tileY) {
-        const { sx, sy, zoom } = this._isoScreenPos(tileX, tileY);
-        const s = zoom * 0.85;
-
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.18)';
-        ctx.beginPath();
-        ctx.ellipse(sx, sy + 1 * s, 8 * s, 3 * s, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Left wall (warm plaster)
-        const wallH = 7 * s;
-        const wallTop = sy - wallH;
-        ctx.fillStyle = '#c4a872';
-        ctx.beginPath();
-        ctx.moveTo(sx - 7 * s, sy);
-        ctx.lineTo(sx - 7 * s, wallTop);
-        ctx.lineTo(sx, wallTop - 2 * s);
-        ctx.lineTo(sx, sy);
-        ctx.closePath();
-        ctx.fill();
-
-        // Right wall (lighter plaster)
-        ctx.fillStyle = '#d4b882';
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(sx, wallTop - 2 * s);
-        ctx.lineTo(sx + 7 * s, wallTop);
-        ctx.lineTo(sx + 7 * s, sy);
-        ctx.closePath();
-        ctx.fill();
-
-        // Door
-        ctx.fillStyle = '#4a3018';
-        ctx.fillRect(sx + 2 * s, sy - 5 * s, 3 * s, 5 * s);
-
-        // Window on left wall
-        ctx.fillStyle = '#a8c8e8';
-        ctx.fillRect(sx - 5.5 * s, wallTop + 2 * s, 2.5 * s, 2.5 * s);
-        ctx.strokeStyle = '#4a3018';
-        ctx.lineWidth = 0.3 * s;
-        ctx.strokeRect(sx - 5.5 * s, wallTop + 2 * s, 2.5 * s, 2.5 * s);
-
-        // Roof - thatch style
-        ctx.fillStyle = '#8a6a32';
-        ctx.beginPath();
-        ctx.moveTo(sx - 9 * s, wallTop);
-        ctx.lineTo(sx, wallTop - 6 * s);
-        ctx.lineTo(sx + 1 * s, wallTop - 2 * s);
-        ctx.lineTo(sx - 7 * s, wallTop);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.fillStyle = '#9a7a3e';
-        ctx.beginPath();
-        ctx.moveTo(sx, wallTop - 6 * s);
-        ctx.lineTo(sx + 9 * s, wallTop);
-        ctx.lineTo(sx + 7 * s, wallTop);
-        ctx.lineTo(sx + 1 * s, wallTop - 2 * s);
-        ctx.closePath();
-        ctx.fill();
-
-        // Chimney
-        ctx.fillStyle = '#6a6460';
-        ctx.fillRect(sx + 5 * s, wallTop - 4 * s, 2 * s, 4 * s);
-    },
-
-    // Semi-3D mine entrance
-    _drawIsoMine(ctx, tileX, tileY) {
-        const { sx, sy, zoom } = this._isoScreenPos(tileX, tileY);
-        const s = zoom * 0.9;
-
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.beginPath();
-        ctx.ellipse(sx, sy + 1 * s, 9 * s, 3.5 * s, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Rock face / cave mouth
-        ctx.fillStyle = '#5a5450';
-        ctx.beginPath();
-        ctx.moveTo(sx - 8 * s, sy);
-        ctx.lineTo(sx - 6 * s, sy - 10 * s);
-        ctx.lineTo(sx + 6 * s, sy - 10 * s);
-        ctx.lineTo(sx + 8 * s, sy);
-        ctx.closePath();
-        ctx.fill();
-
-        // Cave entrance (dark)
-        ctx.fillStyle = '#1a1008';
-        ctx.beginPath();
-        ctx.moveTo(sx - 4 * s, sy);
-        ctx.lineTo(sx - 3 * s, sy - 6 * s);
-        ctx.lineTo(sx + 3 * s, sy - 6 * s);
-        ctx.lineTo(sx + 4 * s, sy);
-        ctx.closePath();
-        ctx.fill();
-
-        // Wooden beams
-        ctx.strokeStyle = '#5a3a18';
-        ctx.lineWidth = 1.5 * s;
-        ctx.beginPath();
-        ctx.moveTo(sx - 4 * s, sy);
-        ctx.lineTo(sx - 3 * s, sy - 6 * s);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(sx + 4 * s, sy);
-        ctx.lineTo(sx + 3 * s, sy - 6 * s);
-        ctx.stroke();
-        // Top beam
-        ctx.beginPath();
-        ctx.moveTo(sx - 3.5 * s, sy - 6 * s);
-        ctx.lineTo(sx + 3.5 * s, sy - 6 * s);
-        ctx.stroke();
-
-        // Cart with ore
-        ctx.fillStyle = '#5a3a18';
-        ctx.fillRect(sx + 5 * s, sy - 2 * s, 5 * s, 2.5 * s);
-        // Ore in cart
-        ctx.fillStyle = '#8a8a8a';
-        ctx.beginPath();
-        ctx.arc(sx + 6.5 * s, sy - 2.5 * s, 1.2 * s, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#9a7a3a';
-        ctx.beginPath();
-        ctx.arc(sx + 8 * s, sy - 2.5 * s, 1 * s, 0, Math.PI * 2);
-        ctx.fill();
-        // Wheel
-        ctx.strokeStyle = '#3a2510';
-        ctx.lineWidth = 0.8 * s;
-        ctx.beginPath();
-        ctx.arc(sx + 6.5 * s, sy + 0.5 * s, 1.2 * s, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(sx + 8.5 * s, sy + 0.5 * s, 1.2 * s, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Pickaxe
-        ctx.strokeStyle = '#5a3a18';
-        ctx.lineWidth = 0.8 * s;
-        ctx.beginPath();
-        ctx.moveTo(sx - 7 * s, sy);
-        ctx.lineTo(sx - 9 * s, sy - 7 * s);
-        ctx.stroke();
-        ctx.fillStyle = '#707070';
-        ctx.beginPath();
-        ctx.moveTo(sx - 9 * s, sy - 7 * s);
-        ctx.lineTo(sx - 11 * s, sy - 8 * s);
-        ctx.lineTo(sx - 9.5 * s, sy - 5.5 * s);
-        ctx.closePath();
-        ctx.fill();
-    },
-
-    // Semi-3D warehouse
-    _drawIsoWarehouse(ctx, tileX, tileY) {
-        const { sx, sy, zoom } = this._isoScreenPos(tileX, tileY);
-        const s = zoom * 1.0;
-
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.beginPath();
-        ctx.ellipse(sx, sy + 1 * s, 10 * s, 4 * s, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Left wall (stone/wood)
-        const wallH = 9 * s;
-        const wallTop = sy - wallH;
-        ctx.fillStyle = '#6a5a3a';
-        ctx.beginPath();
-        ctx.moveTo(sx - 10 * s, sy);
-        ctx.lineTo(sx - 10 * s, wallTop);
-        ctx.lineTo(sx, wallTop - 1 * s);
-        ctx.lineTo(sx, sy);
-        ctx.closePath();
-        ctx.fill();
-
-        // Right wall
-        ctx.fillStyle = '#7a6a4a';
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(sx, wallTop - 1 * s);
-        ctx.lineTo(sx + 10 * s, wallTop);
-        ctx.lineTo(sx + 10 * s, sy);
-        ctx.closePath();
-        ctx.fill();
-
-        // Stone texture lines
-        ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-        ctx.lineWidth = 0.3 * s;
-        for (let p = 1; p <= 3; p++) {
-            const py = wallTop + (wallH / 4) * p;
-            ctx.beginPath();
-            ctx.moveTo(sx - 10 * s, py);
-            ctx.lineTo(sx, py - 1 * s * (p / 4));
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(sx, py - 1 * s * (p / 4));
-            ctx.lineTo(sx + 10 * s, py);
-            ctx.stroke();
-        }
-
-        // Large door on right wall
-        ctx.fillStyle = '#4a3018';
-        ctx.fillRect(sx + 2 * s, sy - 7 * s, 6 * s, 7 * s);
-        ctx.strokeStyle = '#3a2008';
-        ctx.lineWidth = 0.4 * s;
-        ctx.strokeRect(sx + 2 * s, sy - 7 * s, 6 * s, 7 * s);
-        // Door cross
-        ctx.beginPath();
-        ctx.moveTo(sx + 5 * s, sy - 7 * s);
-        ctx.lineTo(sx + 5 * s, sy);
-        ctx.stroke();
-
-        // Flat roof
-        ctx.fillStyle = '#5a4a2a';
-        ctx.beginPath();
-        ctx.moveTo(sx - 11 * s, wallTop);
-        ctx.lineTo(sx, wallTop - 2.5 * s);
-        ctx.lineTo(sx + 11 * s, wallTop);
-        ctx.lineTo(sx, wallTop + 1 * s);
-        ctx.closePath();
-        ctx.fill();
-
-        // Crates inside (visible through door)
-        ctx.fillStyle = '#5a3a18';
-        ctx.fillRect(sx + 3 * s, sy - 3 * s, 2 * s, 2 * s);
-        ctx.fillRect(sx + 5.5 * s, sy - 3 * s, 2 * s, 2 * s);
-        ctx.fillStyle = '#6a4a28';
-        ctx.fillRect(sx + 4 * s, sy - 5 * s, 2 * s, 2 * s);
-    },
-
-    // Semi-3D foundry with fire glow
-    _drawIsoFoundry(ctx, tileX, tileY) {
-        const { sx, sy, zoom } = this._isoScreenPos(tileX, tileY);
-        const s = zoom * 0.95;
-
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.22)';
-        ctx.beginPath();
-        ctx.ellipse(sx, sy + 1 * s, 9 * s, 3.5 * s, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Left wall (dark stone)
-        const wallH = 9 * s;
-        const wallTop = sy - wallH;
-        ctx.fillStyle = '#4a4440';
-        ctx.beginPath();
-        ctx.moveTo(sx - 8 * s, sy);
-        ctx.lineTo(sx - 8 * s, wallTop);
-        ctx.lineTo(sx, wallTop - 2 * s);
-        ctx.lineTo(sx, sy);
-        ctx.closePath();
-        ctx.fill();
-
-        // Right wall
-        ctx.fillStyle = '#5a5450';
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(sx, wallTop - 2 * s);
-        ctx.lineTo(sx + 8 * s, wallTop);
-        ctx.lineTo(sx + 8 * s, sy);
-        ctx.closePath();
-        ctx.fill();
-
-        // Furnace opening (fire glow)
-        ctx.fillStyle = '#1a0800';
-        ctx.fillRect(sx + 2 * s, sy - 5 * s, 4 * s, 4 * s);
-
-        // Fire glow (animated)
-        const now = Date.now();
-        const flicker = Math.sin(now / 150) * 0.15 + 0.85;
-        ctx.fillStyle = `rgba(255,${Math.round(120 * flicker)},${Math.round(20 * flicker)},${0.7 * flicker})`;
-        ctx.beginPath();
-        ctx.arc(sx + 4 * s, sy - 3 * s, 1.5 * s, 0, Math.PI * 2);
-        ctx.fill();
-        // Glow spread
-        ctx.fillStyle = `rgba(255,80,10,${0.1 * flicker})`;
-        ctx.beginPath();
-        ctx.arc(sx + 4 * s, sy - 3 * s, 4 * s, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Chimney (tall, with smoke)
-        const chimX = sx - 4 * s;
-        const chimW = 3 * s;
-        const chimH = 12 * s;
-        const chimTop = wallTop - 4 * s;
-        ctx.fillStyle = '#4a4440';
-        ctx.fillRect(chimX, chimTop - chimH + 4 * s, chimW, chimH);
-        ctx.fillStyle = '#3a3430';
-        ctx.fillRect(chimX + chimW, chimTop - chimH + 4 * s, chimW * 0.35, chimH);
-        // Cap
-        ctx.fillStyle = '#3a3430';
-        ctx.fillRect(chimX - 0.5 * s, chimTop - chimH + 4 * s, chimW + 1.5 * s, 1.5 * s);
-
-        // Smoke
-        for (let i = 0; i < 5; i++) {
-            const smokeAge = (now / 500 + i * 1.3) % 7;
-            const smokeX2 = chimX + chimW * 0.5 + Math.sin(now / 600 + i * 2) * 2.5 * s;
-            const smokeY2 = chimTop - chimH + 4 * s - smokeAge * 2.5 * s;
-            const smokeR = (1 + smokeAge * 0.5) * s;
-            const alpha = Math.max(0, 0.35 - smokeAge * 0.05);
-            ctx.fillStyle = `rgba(100,100,100,${alpha})`;
-            ctx.beginPath();
-            ctx.arc(smokeX2, smokeY2, smokeR, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Roof
-        ctx.fillStyle = '#3a3430';
-        ctx.beginPath();
-        ctx.moveTo(sx - 10 * s, wallTop);
-        ctx.lineTo(sx, wallTop - 6 * s);
-        ctx.lineTo(sx + 1 * s, wallTop - 2 * s);
-        ctx.lineTo(sx - 8 * s, wallTop);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.fillStyle = '#4a3e38';
-        ctx.beginPath();
-        ctx.moveTo(sx, wallTop - 6 * s);
-        ctx.lineTo(sx + 10 * s, wallTop);
-        ctx.lineTo(sx + 8 * s, wallTop);
-        ctx.lineTo(sx + 1 * s, wallTop - 2 * s);
-        ctx.closePath();
-        ctx.fill();
-
-        // Anvil near the building
-        ctx.fillStyle = '#5a5a5a';
-        ctx.beginPath();
-        ctx.moveTo(sx + 9 * s, sy - 1 * s);
-        ctx.lineTo(sx + 8 * s, sy - 3 * s);
-        ctx.lineTo(sx + 12 * s, sy - 3 * s);
-        ctx.lineTo(sx + 11 * s, sy - 1 * s);
-        ctx.closePath();
-        ctx.fill();
-        // Anvil top (wider)
-        ctx.fillStyle = '#6a6a6a';
-        ctx.fillRect(sx + 7.5 * s, sy - 4 * s, 5 * s, 1.2 * s);
-    },
-
-    // Semi-3D main cabin with isometric perspective
-    _drawIsoCabin(ctx, tileX, tileY) {
-        const cellSize = CONFIG.CELL_SIZE;
-        const zoom = Camera.zoom;
-        const tileW = cellSize * zoom;
-        const tileH = tileW * 0.5;
-        const elevScale = tileH * 2.0;
-
-        const camCellX = Camera.x / (cellSize * zoom);
-        const camCellY = Camera.y / (cellSize * zoom);
-
-        const originX = this.canvas.width / 2;
-        const originY = this.canvas.height * 0.25;
-
-        const elev = this._getElevAt(tileX + 0.5, tileY + 0.5);
-        const relX = tileX + 0.5 - camCellX;
-        const relY = tileY + 0.5 - camCellY;
-        const sx = originX + (relX - relY) * tileW * 0.5;
-        const sy = originY + (relX + relY) * tileH * 0.5 - elev * elevScale;
-
-        const s = zoom * 1.3;
-
-        // === Shadow ===
-        ctx.fillStyle = 'rgba(0,0,0,0.25)';
-        ctx.beginPath();
-        ctx.ellipse(sx, sy + 2 * s, 14 * s, 5 * s, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // === Foundation (stone base) ===
-        const foundH = 3 * s;
-        ctx.fillStyle = '#6a6460';
-        ctx.beginPath();
-        ctx.moveTo(sx - 12 * s, sy);
-        ctx.lineTo(sx + 12 * s, sy);
-        ctx.lineTo(sx + 12 * s, sy + foundH);
-        ctx.lineTo(sx - 12 * s, sy + foundH);
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = '#5a5450';
-        ctx.beginPath();
-        ctx.moveTo(sx + 12 * s, sy);
-        ctx.lineTo(sx + 15 * s, sy - 2 * s);
-        ctx.lineTo(sx + 15 * s, sy - 2 * s + foundH);
-        ctx.lineTo(sx + 12 * s, sy + foundH);
-        ctx.closePath();
-        ctx.fill();
-
-        // === Left wall (darker) ===
-        const wallH = 14 * s;
-        const wallTop = sy - wallH;
-        ctx.fillStyle = '#5a3d1e';
-        ctx.beginPath();
-        ctx.moveTo(sx - 12 * s, sy);
-        ctx.lineTo(sx - 12 * s, wallTop);
-        ctx.lineTo(sx, wallTop - 3 * s);
-        ctx.lineTo(sx, sy);
-        ctx.closePath();
-        ctx.fill();
-
-        // Wood plank lines on left wall
-        ctx.strokeStyle = '#4a2e14';
-        ctx.lineWidth = 0.4 * s;
-        for (let p = 1; p <= 4; p++) {
-            const py = wallTop + (wallH / 5) * p;
-            ctx.beginPath();
-            ctx.moveTo(sx - 12 * s, py);
-            ctx.lineTo(sx, py - 3 * s * (p / 5));
-            ctx.stroke();
-        }
-
-        // === Right wall (lighter) ===
-        ctx.fillStyle = '#6a4a28';
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(sx, wallTop - 3 * s);
-        ctx.lineTo(sx + 12 * s, wallTop);
-        ctx.lineTo(sx + 12 * s, sy);
-        ctx.closePath();
-        ctx.fill();
-
-        // Plank lines on right wall
-        ctx.strokeStyle = '#5a3a1c';
-        ctx.lineWidth = 0.4 * s;
-        for (let p = 1; p <= 4; p++) {
-            const py = wallTop + (wallH / 5) * p;
-            ctx.beginPath();
-            ctx.moveTo(sx, py - 3 * s * (p / 5));
-            ctx.lineTo(sx + 12 * s, py);
-            ctx.stroke();
-        }
-
-        // === Door (on right wall) ===
-        const doorW = 4 * s;
-        const doorH = 7 * s;
-        const doorX = sx + 5 * s;
-        ctx.fillStyle = '#3a2510';
-        ctx.fillRect(doorX, sy - doorH, doorW, doorH);
-        ctx.strokeStyle = '#2a1a08';
-        ctx.lineWidth = 0.3 * s;
-        ctx.strokeRect(doorX, sy - doorH, doorW, doorH);
-        // Handle
-        ctx.fillStyle = '#c8a84a';
-        ctx.beginPath();
-        ctx.arc(doorX + doorW * 0.75, sy - doorH * 0.4, 0.6 * s, 0, Math.PI * 2);
-        ctx.fill();
-
-        // === Windows ===
-        const winS = 3 * s;
-        // Left wall window
-        const lwx = sx - 7 * s;
-        const lwy = wallTop + wallH * 0.3;
-        ctx.fillStyle = '#a8c8e8';
-        ctx.fillRect(lwx, lwy, winS, winS);
-        ctx.strokeStyle = '#3a2510';
-        ctx.lineWidth = 0.3 * s;
-        ctx.strokeRect(lwx, lwy, winS, winS);
-        ctx.beginPath();
-        ctx.moveTo(lwx + winS / 2, lwy);
-        ctx.lineTo(lwx + winS / 2, lwy + winS);
-        ctx.moveTo(lwx, lwy + winS / 2);
-        ctx.lineTo(lwx + winS, lwy + winS / 2);
-        ctx.stroke();
-        // Window glow
-        ctx.fillStyle = 'rgba(200,180,120,0.15)';
-        ctx.fillRect(lwx, lwy, winS, winS);
-
-        // === Roof ===
-        const roofPeak = wallTop - 10 * s;
-        // Left roof face
-        ctx.fillStyle = '#7a3a12';
-        ctx.beginPath();
-        ctx.moveTo(sx - 14 * s, wallTop);
-        ctx.lineTo(sx, roofPeak);
-        ctx.lineTo(sx + 2 * s, wallTop - 3 * s);
-        ctx.lineTo(sx - 12 * s, wallTop);
-        ctx.closePath();
-        ctx.fill();
-
-        // Right roof face (lighter)
-        ctx.fillStyle = '#8b4513';
-        ctx.beginPath();
-        ctx.moveTo(sx, roofPeak);
-        ctx.lineTo(sx + 14 * s, wallTop);
-        ctx.lineTo(sx + 12 * s, wallTop);
-        ctx.lineTo(sx + 2 * s, wallTop - 3 * s);
-        ctx.closePath();
-        ctx.fill();
-
-        // Roof ridge
-        ctx.strokeStyle = '#5a2d0a';
-        ctx.lineWidth = 1 * s;
-        ctx.beginPath();
-        ctx.moveTo(sx, roofPeak);
-        ctx.lineTo(sx + 2 * s, wallTop - 3 * s);
-        ctx.stroke();
-
-        // === Chimney ===
-        const chimW = 3 * s;
-        const chimH = 8 * s;
-        const chimX = sx + 7 * s;
-        const chimY = wallTop - 5 * s;
-        ctx.fillStyle = '#6a6460';
-        ctx.fillRect(chimX, chimY - chimH, chimW, chimH);
-        ctx.fillStyle = '#5a5450';
-        ctx.fillRect(chimX + chimW, chimY - chimH, chimW * 0.4, chimH);
-        // Cap
-        ctx.fillStyle = '#4a4440';
-        ctx.fillRect(chimX - 0.5 * s, chimY - chimH, chimW + 1.5 * s, 1.5 * s);
-
-        // Smoke
-        const now = Date.now();
-        for (let i = 0; i < 4; i++) {
-            const smokeAge = (now / 600 + i * 1.5) % 6;
-            const smokeX2 = chimX + chimW * 0.5 + Math.sin(now / 700 + i * 2.1) * 2.5 * s;
-            const smokeY2 = chimY - chimH - smokeAge * 3 * s;
-            const smokeR = (1.2 + smokeAge * 0.6) * s;
-            const alpha = Math.max(0, 0.3 - smokeAge * 0.05);
-            ctx.fillStyle = `rgba(180,180,180,${alpha})`;
-            ctx.beginPath();
-            ctx.arc(smokeX2, smokeY2, smokeR, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // === Flag ===
-        const flagX = sx - 10 * s;
-        const flagY = wallTop;
-        const poleH = 16 * s;
-        ctx.strokeStyle = '#3a2510';
-        ctx.lineWidth = 1 * s;
-        ctx.beginPath();
-        ctx.moveTo(flagX, flagY);
-        ctx.lineTo(flagX, flagY - poleH);
-        ctx.stroke();
-        // Pole top ball
-        ctx.fillStyle = '#c8a84a';
-        ctx.beginPath();
-        ctx.arc(flagX, flagY - poleH, 1 * s, 0, Math.PI * 2);
-        ctx.fill();
-        // Flag cloth (animated)
-        const wave = Math.sin(now / 400) * 1.5 * s;
-        ctx.fillStyle = '#3a7ad5';
-        ctx.beginPath();
-        ctx.moveTo(flagX, flagY - poleH + 1 * s);
-        ctx.quadraticCurveTo(flagX + 4 * s + wave, flagY - poleH + 2.5 * s, flagX + 7 * s + wave * 0.5, flagY - poleH + 2 * s);
-        ctx.lineTo(flagX + 6.5 * s + wave, flagY - poleH + 6 * s);
-        ctx.quadraticCurveTo(flagX + 3 * s + wave * 0.5, flagY - poleH + 5.5 * s, flagX, flagY - poleH + 6 * s);
-        ctx.closePath();
-        ctx.fill();
-        // Cross on flag
-        ctx.strokeStyle = '#e8d48a';
-        ctx.lineWidth = 0.5 * s;
-        const fcx = flagX + 3.5 * s + wave * 0.5;
-        const fcy = flagY - poleH + 3.5 * s;
-        ctx.beginPath();
-        ctx.moveTo(fcx, fcy - 1.5 * s);
-        ctx.lineTo(fcx, fcy + 1.5 * s);
-        ctx.moveTo(fcx - 1.5 * s, fcy);
-        ctx.lineTo(fcx + 1.5 * s, fcy);
-        ctx.stroke();
-
-        // === Glow ring ===
-        ctx.beginPath();
-        ctx.ellipse(sx, sy + 1 * s, 16 * s, 6 * s, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(200,168,74,0.3)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-    },
-
-    _drawKingdomOverlays(ctx, cw, ch) {
-        const cellSize = CONFIG.CELL_SIZE;
-        const zoom = Camera.zoom;
-        const startX = Math.max(0, Math.floor(Camera.x / (cellSize * zoom)));
-        const startY = Math.max(0, Math.floor(Camera.y / (cellSize * zoom)));
-        const endX = Math.min(GameMap.width, Math.ceil((Camera.x + cw) / (cellSize * zoom)));
-        const endY = Math.min(GameMap.height, Math.ceil((Camera.y + ch) / (cellSize * zoom)));
-
-        for (let ty = startY; ty < endY; ty++) {
-            for (let tx = startX; tx < endX; tx++) {
                 const tile = GameMap.tiles[ty][tx];
                 if (tile.owner < 0) continue;
                 const region = GameMap.regions.find(r => r.owner === tile.owner);
                 if (!region || !region.color) continue;
-                const sx = tx * cellSize * zoom - Camera.x;
-                const sy2 = ty * cellSize * zoom - Camera.y;
-                const sw = cellSize * zoom;
-                ctx.fillStyle = region.color + '30';
-                ctx.fillRect(sx, sy2, sw + 0.5, sw + 0.5);
+                const hex = region.color.replace('#', '');
+                const r = parseInt(hex.substring(0, 2), 16);
+                const g = parseInt(hex.substring(2, 4), 16);
+                const b = parseInt(hex.substring(4, 6), 16);
+                const idx = (ty * w + tx) * 4;
+                od[idx] = r; od[idx+1] = g; od[idx+2] = b; od[idx+3] = 55;
+            }
+        }
+        octx.putImageData(oimgd, 0, 0);
+        this._bufferDirty = false;
+    },
+
+    render() {
+        this._renderTopDown();
+    },
+
+    _renderTopDown() {
+        if (!this._terrainBuffer || this._bufferDirty) this.buildTerrainBuffer();
+
+        const ctx = this.ctx;
+        const cw = this.canvas.width;
+        const ch = this.canvas.height;
+        const zoom = Camera.zoom;
+        const cs = CONFIG.CELL_SIZE;
+
+        ctx.fillStyle = '#0a1520';
+        ctx.fillRect(0, 0, cw, ch);
+
+        // Source rect in tile-space (1px = 1 tile in buffer)
+        const srcX = Camera.x / (cs * zoom);
+        const srcY = Camera.y / (cs * zoom);
+        const srcW = cw / (cs * zoom);
+        const srcH = ch / (cs * zoom);
+
+        // Smooth terrain (bilinear upscale → no grid!)
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(this._terrainBuffer, srcX, srcY, srcW, srcH, 0, 0, cw, ch);
+        ctx.drawImage(this._overlayBuffer, srcX, srcY, srcW, srcH, 0, 0, cw, ch);
+        ctx.imageSmoothingEnabled = false;
+
+        // Visible tile range
+        const stx = Math.max(0, Math.floor(srcX) - 1);
+        const sty = Math.max(0, Math.floor(srcY) - 1);
+        const etx = Math.min(GameMap.width, Math.ceil(srcX + srcW) + 1);
+        const ety = Math.min(GameMap.height, Math.ceil(srcY + srcH) + 1);
+
+        // Trees & rocks
+        for (let ty = sty; ty < ety; ty++) {
+            for (let tx = stx; tx < etx; tx++) {
+                const tile = GameMap.tiles[ty][tx];
+                const sx = (tx + 0.5) * cs * zoom - Camera.x;
+                const sy = (ty + 0.5) * cs * zoom - Camera.y;
+
+                if (tile.terrain === CONFIG.TERRAIN.FOREST || tile.terrain === CONFIG.TERRAIN.DENSE_FOREST)
+                    this._drawTree(ctx, sx, sy, zoom, tile.terrain === CONFIG.TERRAIN.DENSE_FOREST, tx, ty);
+                if (tile.terrain === CONFIG.TERRAIN.HILLS || tile.terrain === CONFIG.TERRAIN.MOUNTAIN)
+                    this._drawRock(ctx, sx, sy, zoom, tile.terrain === CONFIG.TERRAIN.MOUNTAIN, tx, ty);
+            }
+        }
+
+        // Buildings
+        if (typeof Game !== 'undefined') {
+            for (let i = 0; i < Game.buildings.length; i++) {
+                const b = Game.buildings[i];
+                const sx = (b.x + 0.5) * cs * zoom - Camera.x;
+                const sy = (b.y + 0.5) * cs * zoom - Camera.y;
+                const s = cs * zoom;
+                this._drawBuilding(ctx, b.type, sx, sy, s);
+
+                if (b.level > 1) {
+                    const r = Math.max(5, s * 0.17);
+                    const bx = sx + s * 0.36, by = sy - s * 0.36;
+                    ctx.fillStyle = 'rgba(200,168,74,0.95)';
+                    ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#1a100a';
+                    ctx.font = `bold ${Math.round(r*1.3)}px Cinzel,serif`;
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(b.level, bx, by);
+                }
+                if (Game._selectedBuilding === i) {
+                    ctx.beginPath(); ctx.arc(sx, sy, s * 0.52, 0, Math.PI*2);
+                    ctx.strokeStyle = 'rgba(200,168,74,0.85)'; ctx.lineWidth = 2; ctx.stroke();
+                }
+            }
+        }
+
+        // Castle
+        if (typeof Game !== 'undefined' && Game._castlePlaced) {
+            const s = cs * zoom;
+            const sx = (Game._castlePlaced.x + 0.5) * s - Camera.x;
+            const sy = (Game._castlePlaced.y + 0.5) * s - Camera.y;
+            this._drawCastle(ctx, sx, sy, s);
+            if (Game._selectedBuilding === 'castle') {
+                ctx.beginPath(); ctx.arc(sx, sy, s * 0.68, 0, Math.PI*2);
+                ctx.strokeStyle = 'rgba(200,168,74,0.85)'; ctx.lineWidth = 2.5; ctx.stroke();
+            }
+        }
+
+        // Day transition overlay
+        if (this._dayTransition) {
+            const elapsed = Date.now() - this._dayTransition.startTime;
+            const duration = 2500;
+            if (elapsed < duration) {
+                const t = elapsed / duration;
+                let alpha;
+                if (t < 0.3) alpha = t / 0.3;
+                else if (t < 0.7) alpha = 1;
+                else alpha = 1 - (t - 0.7) / 0.3;
+                alpha *= 0.75;
+
+                ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+                ctx.fillRect(0, 0, cw, ch);
+
+                if (t > 0.2 && t < 0.8) {
+                    const textAlpha = t < 0.35 ? (t-0.2)/0.15 : t > 0.65 ? (0.8-t)/0.15 : 1;
+                    ctx.globalAlpha = textAlpha;
+                    ctx.fillStyle = '#c8a84a';
+                    ctx.font = `bold ${Math.round(cw * 0.035)}px Cinzel, serif`;
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(`Jour ${this._dayTransition.day}`, cw/2, ch/2 - cw*0.015);
+                    ctx.fillStyle = '#8a7a5a';
+                    ctx.font = `${Math.round(cw * 0.015)}px MedievalSharp, serif`;
+                    ctx.fillText('Un nouveau jour se leve...', cw/2, ch/2 + cw*0.025);
+                    ctx.globalAlpha = 1;
+                }
+            } else {
+                this._dayTransition = null;
             }
         }
     },
 
-    _drawCastle(ctx, tileX, tileY) {
-        const cellSize = CONFIG.CELL_SIZE;
-        const zoom = Camera.zoom;
-        const sx = tileX * cellSize * zoom - Camera.x + (cellSize * zoom) / 2;
-        const sy = tileY * cellSize * zoom - Camera.y + (cellSize * zoom) / 2;
-        const iconSize = Math.max(16, cellSize * zoom * 1.5);
-
-        ctx.font = `${iconSize}px serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'rgba(0,0,0,0.6)';
-        ctx.shadowBlur = 6;
-        ctx.fillText('\u{1F3F0}', sx, sy);
-        ctx.shadowBlur = 0;
-
-        ctx.beginPath();
-        ctx.arc(sx, sy, iconSize * 0.6, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(200,168,74,0.4)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+    showDayTransition(day) {
+        this._dayTransition = { startTime: Date.now(), day: day };
     },
 
+    // ── Trees (top-down canopy circles) ──
+    _drawTree(ctx, sx, sy, zoom, isDense, tx, ty) {
+        const s = CONFIG.CELL_SIZE * zoom;
+        const hash = ((tx * 7919 + ty * 6271) & 0xFFFF) / 0xFFFF;
+        const count = isDense ? (hash > 0.35 ? 3 : 2) : (hash > 0.55 ? 2 : 1);
+
+        for (let i = 0; i < count; i++) {
+            const h2 = ((tx * (i+3) * 3571 + ty * 2819) & 0xFFFF) / 0xFFFF;
+            const ox = (h2 - 0.5) * s * 0.55;
+            const oy = (((h2 * 7919) % 1) - 0.5) * s * 0.55;
+            const r = (0.18 + h2 * 0.13) * s;
+            const tsx = sx + ox, tsy = sy + oy;
+
+            ctx.fillStyle = 'rgba(0,0,0,0.18)';
+            ctx.beginPath(); ctx.arc(tsx + r*0.18, tsy + r*0.18, r*0.9, 0, Math.PI*2); ctx.fill();
+
+            ctx.fillStyle = isDense
+                ? `rgb(${Math.round(18+h2*14)},${Math.round(44+h2*18)},20)`
+                : `rgb(${Math.round(34+h2*22)},${Math.round(68+h2*26)},28)`;
+            ctx.beginPath(); ctx.arc(tsx, tsy, r, 0, Math.PI*2); ctx.fill();
+
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            ctx.beginPath(); ctx.arc(tsx - r*0.22, tsy - r*0.22, r*0.36, 0, Math.PI*2); ctx.fill();
+        }
+    },
+
+    // ── Rocks (top-down ellipses) ──
+    _drawRock(ctx, sx, sy, zoom, isMtn, tx, ty) {
+        const s = CONFIG.CELL_SIZE * zoom;
+        const hash = ((tx * 3571 + ty * 2819) & 0xFFFF) / 0xFFFF;
+        if (hash > 0.42) return;
+        const r = (0.13 + hash * 0.11) * s;
+        const cr = isMtn ? 88+hash*38 : 118+hash*28;
+        const cg = isMtn ? 82+hash*34 : 105+hash*24;
+        const cb = isMtn ? 78+hash*30 : 82+hash*18;
+
+        ctx.fillStyle = 'rgba(0,0,0,0.16)';
+        ctx.beginPath(); ctx.ellipse(sx+r*0.18, sy+r*0.18, r, r*0.68, 0.3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = `rgb(${Math.round(cr)},${Math.round(cg)},${Math.round(cb)})`;
+        ctx.beginPath(); ctx.ellipse(sx, sy, r, r*0.68, 0.3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.14)';
+        ctx.beginPath(); ctx.ellipse(sx-r*0.22, sy-r*0.22, r*0.32, r*0.22, 0.3, 0, Math.PI*2); ctx.fill();
+    },
+
+    // ── Building dispatcher ──
+    _drawBuilding(ctx, type, sx, sy, s) {
+        switch(type) {
+            case 'lumberjack': this._drawBldLumber(ctx,sx,sy,s); break;
+            case 'house':      this._drawBldHouse(ctx,sx,sy,s);  break;
+            case 'mine':       this._drawBldMine(ctx,sx,sy,s);   break;
+            case 'warehouse':  this._drawBldWare(ctx,sx,sy,s);   break;
+            case 'foundry':    this._drawBldFoundry(ctx,sx,sy,s); break;
+        }
+    },
+
+    _drawBldLumber(ctx, sx, sy, s) {
+        const r = s * 0.3;
+        ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.arc(sx+s*0.04,sy+s*0.04,r,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#7a3a12'; ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#4a2208'; ctx.lineWidth=s*0.04; ctx.stroke();
+        ctx.fillStyle='rgba(255,190,130,0.14)'; ctx.beginPath(); ctx.arc(sx-r*0.2,sy-r*0.22,r*0.38,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#5a3a18'; ctx.fillRect(sx+r*1.2,sy-r*0.4,r*0.55,r*0.8);
+        ctx.strokeStyle='#3a2008'; ctx.lineWidth=s*0.02; ctx.strokeRect(sx+r*1.2,sy-r*0.4,r*0.55,r*0.8);
+    },
+
+    _drawBldHouse(ctx, sx, sy, s) {
+        const r = s * 0.32;
+        ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.arc(sx+s*0.04,sy+s*0.04,r,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#9a7232'; ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#5a3a12'; ctx.lineWidth=s*0.04; ctx.stroke();
+        ctx.fillStyle='rgba(255,220,150,0.18)'; ctx.beginPath(); ctx.arc(sx-r*0.15,sy-r*0.2,r*0.36,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#6a6460'; ctx.beginPath(); ctx.arc(sx+r*0.45,sy-r*0.45,s*0.065,0,Math.PI*2); ctx.fill();
+    },
+
+    _drawBldMine(ctx, sx, sy, s) {
+        const r = s * 0.34;
+        ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.arc(sx+s*0.05,sy+s*0.05,r,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#5a5450'; ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#1a1008'; ctx.beginPath(); ctx.arc(sx,sy,r*0.44,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#5a3a18'; ctx.lineWidth=s*0.045; ctx.beginPath(); ctx.arc(sx,sy,r*0.44,0,Math.PI*2); ctx.stroke();
+    },
+
+    _drawBldWare(ctx, sx, sy, s) {
+        const r = s * 0.4;
+        ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.arc(sx+s*0.05,sy+s*0.05,r,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#5a4a2a'; ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#3a2a10'; ctx.lineWidth=s*0.04; ctx.stroke();
+        ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=s*0.02;
+        ctx.beginPath(); ctx.moveTo(sx-r*0.65,sy-r*0.1); ctx.lineTo(sx+r*0.65,sy-r*0.1); ctx.stroke();
+    },
+
+    _drawBldFoundry(ctx, sx, sy, s) {
+        const r = s * 0.35;
+        const now = Date.now();
+        const flicker = Math.sin(now/140)*0.15+0.85;
+        ctx.fillStyle=`rgba(255,75,0,${0.12*flicker})`; ctx.beginPath(); ctx.arc(sx,sy,r*1.45,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='rgba(0,0,0,0.26)'; ctx.beginPath(); ctx.arc(sx+s*0.05,sy+s*0.05,r,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#3a3430'; ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#1a1410'; ctx.lineWidth=s*0.04; ctx.stroke();
+        ctx.fillStyle=`rgba(255,${Math.round(90*flicker)},0,${0.85*flicker})`; ctx.beginPath(); ctx.arc(sx,sy,r*0.42,0,Math.PI*2); ctx.fill();
+        for (let i=0;i<3;i++) {
+            const age=(now/600+i*1.4)%5;
+            const alpha=Math.max(0,0.32-age*0.065);
+            const smR=(s*0.04+age*s*0.015);
+            const smX=sx-r*0.52+Math.sin(now/500+i*2)*s*0.04;
+            const smY=sy-r*0.52-age*s*0.06;
+            ctx.fillStyle=`rgba(130,130,130,${alpha})`; ctx.beginPath(); ctx.arc(smX,smY,smR,0,Math.PI*2); ctx.fill();
+        }
+    },
+
+    // ── Castle (top-down stone keep + towers + flag) ──
+    _drawCastle(ctx, sx, sy, s) {
+        const now = Date.now();
+        const r = s * 0.44;
+
+        ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.arc(sx+s*0.07,sy+s*0.07,r,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#7a6a60'; ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#4a3a30'; ctx.lineWidth=s*0.05; ctx.stroke();
+        ctx.fillStyle='#8b4513'; ctx.beginPath(); ctx.arc(sx,sy,r*0.72,0,Math.PI*2); ctx.fill();
+
+        const towerR=s*0.1, towerD=r*0.84;
+        for (let i=0;i<4;i++) {
+            const a=(i/4)*Math.PI*2+Math.PI/4;
+            const tx2=sx+Math.cos(a)*towerD, ty2=sy+Math.sin(a)*towerD;
+            ctx.fillStyle='#8a7a70'; ctx.beginPath(); ctx.arc(tx2,ty2,towerR*1.1,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle='#7a3a12'; ctx.beginPath(); ctx.arc(tx2,ty2,towerR,0,Math.PI*2); ctx.fill();
+            ctx.strokeStyle='#4a2208'; ctx.lineWidth=s*0.02; ctx.stroke();
+        }
+
+        ctx.beginPath(); ctx.arc(sx,sy,r*1.06,0,Math.PI*2);
+        ctx.strokeStyle='rgba(200,168,74,0.32)'; ctx.lineWidth=s*0.03; ctx.stroke();
+
+        // Flag
+        const fpx=sx-r*0.12, fpy=sy-r*0.12, pole=s*0.38;
+        ctx.strokeStyle='#3a2510'; ctx.lineWidth=s*0.022;
+        ctx.beginPath(); ctx.moveTo(fpx,fpy); ctx.lineTo(fpx,fpy-pole); ctx.stroke();
+        const wave=Math.sin(now/380)*s*0.032;
+        ctx.fillStyle='#3a7ad5';
+        ctx.beginPath();
+        ctx.moveTo(fpx,fpy-pole);
+        ctx.quadraticCurveTo(fpx+s*0.065+wave,fpy-pole+s*0.042,fpx+s*0.13,fpy-pole+s*0.032);
+        ctx.lineTo(fpx+s*0.12,fpy-pole+s*0.09);
+        ctx.quadraticCurveTo(fpx+s*0.05+wave*0.5,fpy-pole+s*0.096,fpx,fpy-pole+s*0.096);
+        ctx.closePath(); ctx.fill();
+    },
+
+    _isoScreenPos() { return {sx:0,sy:0,zoom:1}; },
     renderMinimap() {}
 };
 
@@ -2988,23 +2044,13 @@ const Renderer = {
 // === js/camera.js ===
 // Camera for top-down 2D view
 const Camera = {
-    x: 0,
-    y: 0,
-    zoom: 1,
-    minZoom: 0.3,
-    maxZoom: 4,
-    dragging: false,
-    dragStartX: 0,
-    dragStartY: 0,
-    camStartX: 0,
-    camStartY: 0,
-    _dragDist: 0,
-    _keys: {},
+    x: 0, y: 0, zoom: 1,
+    minZoom: 0.3, maxZoom: 4,
+    dragging: false, dragStartX: 0, dragStartY: 0,
+    camStartX: 0, camStartY: 0, _dragDist: 0, _keys: {},
 
     init(canvas) {
         this.canvas = canvas;
-
-        // Center on map middle
         const mapPixelW = GameMap.width * CONFIG.CELL_SIZE * this.zoom;
         const mapPixelH = GameMap.height * CONFIG.CELL_SIZE * this.zoom;
         this.x = mapPixelW / 2 - canvas.width / 2;
@@ -3014,15 +2060,11 @@ const Camera = {
         canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
         canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
         canvas.addEventListener('mouseleave', () => this.dragging = false);
-        canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
+        canvas.addEventListener('wheel', (e) => this.onWheel(e), {passive:false});
         canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-
-        // Touch
         canvas.addEventListener('touchstart', (e) => this.onTouchStart(e));
-        canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
+        canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), {passive:false});
         canvas.addEventListener('touchend', () => this.dragging = false);
-
-        // Keyboard
         window.addEventListener('keydown', (e) => this._keys[e.key] = true);
         window.addEventListener('keyup', (e) => this._keys[e.key] = false);
     },
@@ -3033,70 +2075,37 @@ const Camera = {
         if (this._keys['ArrowRight'] || this._keys['d'] || this._keys['D']) this.x += speed;
         if (this._keys['ArrowUp'] || this._keys['z'] || this._keys['Z']) this.y -= speed;
         if (this._keys['ArrowDown'] || this._keys['s'] || this._keys['S']) this.y += speed;
-
         this._clamp();
     },
 
     _clamp() {
         const mapW = GameMap.width * CONFIG.CELL_SIZE * this.zoom;
         const mapH = GameMap.height * CONFIG.CELL_SIZE * this.zoom;
-        this.x = Math.max(-this.canvas.width / 2, Math.min(mapW - this.canvas.width / 2, this.x));
-        this.y = Math.max(-this.canvas.height / 2, Math.min(mapH - this.canvas.height / 2, this.y));
+        this.x = Math.max(-this.canvas.width/2, Math.min(mapW - this.canvas.width/2, this.x));
+        this.y = Math.max(-this.canvas.height/2, Math.min(mapH - this.canvas.height/2, this.y));
     },
 
     centerOnCell(cx, cy) {
-        const cellSize = CONFIG.CELL_SIZE * this.zoom;
-        this.x = (cx + 0.5) * cellSize - this.canvas.width / 2;
-        this.y = (cy + 0.5) * cellSize - this.canvas.height / 2;
+        const cs = CONFIG.CELL_SIZE * this.zoom;
+        this.x = (cx + 0.5) * cs - this.canvas.width / 2;
+        this.y = (cy + 0.5) * cs - this.canvas.height / 2;
         this._clamp();
     },
 
     screenToCell(sx, sy) {
-        // In isometric mode, reverse the iso projection
-        if (typeof Renderer !== 'undefined' && Renderer._isoMode) {
-            const cellSize = CONFIG.CELL_SIZE;
-            const zoom = this.zoom;
-            const tileW = cellSize * zoom;
-            const tileH = tileW * 0.5;
-
-            const originX = this.canvas.width / 2;
-            const originY = this.canvas.height * 0.25;
-
-            const camCellX = this.x / (cellSize * zoom);
-            const camCellY = this.y / (cellSize * zoom);
-
-            // Reverse iso: sx = originX + (relX - relY) * tileW * 0.5
-            //              sy = originY + (relX + relY) * tileH * 0.5
-            const a = (sx - originX) / (tileW * 0.5);
-            const b = (sy - originY) / (tileH * 0.5);
-            const relX = (a + b) / 2;
-            const relY = (b - a) / 2;
-
-            return {
-                x: Math.floor(relX + camCellX),
-                y: Math.floor(relY + camCellY)
-            };
-        }
-
         const worldX = (sx + this.x) / (CONFIG.CELL_SIZE * this.zoom);
         const worldY = (sy + this.y) / (CONFIG.CELL_SIZE * this.zoom);
-        return {
-            x: Math.floor(worldX),
-            y: Math.floor(worldY)
-        };
+        return { x: Math.floor(worldX), y: Math.floor(worldY) };
     },
 
     onMouseDown(e) {
         if (e.button === 0 || e.button === 2) {
             this.dragging = true;
-            this.dragStartX = e.clientX;
-            this.dragStartY = e.clientY;
-            this.camStartX = this.x;
-            this.camStartY = this.y;
+            this.dragStartX = e.clientX; this.dragStartY = e.clientY;
+            this.camStartX = this.x; this.camStartY = this.y;
             this._dragDist = 0;
         }
     },
-
     onMouseMove(e) {
         if (this.dragging) {
             const dx = e.clientX - this.dragStartX;
@@ -3107,7 +2116,6 @@ const Camera = {
             this._clamp();
         }
     },
-
     onMouseUp(e) {
         const wasDrag = this._dragDist > 5;
         this.dragging = false;
@@ -3116,47 +2124,36 @@ const Camera = {
             const sx = e.clientX - rect.left;
             const sy = e.clientY - rect.top;
             const cell = this.screenToCell(sx, sy);
-            if (typeof Game !== 'undefined' && Game.onMapClick) {
-                Game.onMapClick(cell.x, cell.y);
-            }
+            if (typeof Game !== 'undefined' && Game.onMapClick) Game.onMapClick(cell.x, cell.y);
         }
     },
-
     onWheel(e) {
         e.preventDefault();
         const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
         const oldZoom = this.zoom;
         this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom * zoomFactor));
-
-        // Zoom toward mouse position
         const rect = this.canvas.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
-
         const worldXBefore = (mx + this.x) / oldZoom;
         const worldYBefore = (my + this.y) / oldZoom;
         this.x = worldXBefore * this.zoom - mx;
         this.y = worldYBefore * this.zoom - my;
         this._clamp();
     },
-
     onTouchStart(e) {
         if (e.touches.length === 1) {
             this.dragging = true;
             this.dragStartX = e.touches[0].clientX;
             this.dragStartY = e.touches[0].clientY;
-            this.camStartX = this.x;
-            this.camStartY = this.y;
+            this.camStartX = this.x; this.camStartY = this.y;
         }
     },
-
     onTouchMove(e) {
         e.preventDefault();
         if (this.dragging && e.touches.length === 1) {
-            const dx = e.touches[0].clientX - this.dragStartX;
-            const dy = e.touches[0].clientY - this.dragStartY;
-            this.x = this.camStartX - dx;
-            this.y = this.camStartY - dy;
+            this.x = this.camStartX - (e.touches[0].clientX - this.dragStartX);
+            this.y = this.camStartY - (e.touches[0].clientY - this.dragStartY);
             this._clamp();
         }
     }
@@ -3172,30 +2169,27 @@ const Game = {
     _worldMapOpen: false,
     _worldMapBuffer: null,
 
-    // Resources
     resources: { wood: 10, stone: 0, iron: 0, gold: 0, food: 5 },
     houses: 0,
-
-    // Families: [{ name, man, woman, job, buildingIdx }]
     families: [],
-
-    // Buildings placed: [{ type, x, y, level, familyIdx }]
     buildings: [],
 
-    // Build mode
     _buildMode: false,
     _selectedBuild: null,
-
-    // Info panel
     _infoPanelOpen: false,
     _infoTab: 'buildings',
+    _selectedBuilding: null,
 
-    // Building detail panel
-    _selectedBuilding: null, // index into this.buildings or 'castle'
-
-    // Production timer
     _lastTick: 0,
-    _tickInterval: 5000, // ms between production ticks
+    _tickInterval: 5000,
+
+    // Time system
+    _gameMinute: 0,
+    _gameHour: 6,
+    _gameDay: 1,
+    _timeSpeed: 1, // 0=paused, 1=normal, 2=x2
+    _lastTimeUpdate: 0,
+    _prevSpeed: 1,
 
     init() {
         document.getElementById('btn-new-game').addEventListener('click', () => this.newGame());
@@ -3210,21 +2204,14 @@ const Game = {
         });
 
         document.getElementById('btn-confirm-placement').addEventListener('click', () => this.confirmPlacement());
-
         document.getElementById('worldmap-overlay').addEventListener('click', (e) => {
             if (e.target.id === 'worldmap-overlay') this._closeWorldMap();
         });
-
         document.getElementById('opt-map-size').addEventListener('change', (e) => {
             const size = parseInt(e.target.value);
-            CONFIG.MAP_WIDTH = size;
-            CONFIG.MAP_HEIGHT = size;
+            CONFIG.MAP_WIDTH = size; CONFIG.MAP_HEIGHT = size;
         });
-
-        // Info panel close
         document.getElementById('info-close').addEventListener('click', () => this._closeInfoPanel());
-
-        // Info panel tabs
         document.querySelectorAll('.info-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 this._infoTab = tab.dataset.tab;
@@ -3233,22 +2220,16 @@ const Game = {
                 this._renderInfoContent();
             });
         });
-
-        // Building detail panel close
         document.getElementById('building-detail-close').addEventListener('click', () => this._closeBuildingDetail());
 
-        // Key bindings
         window.addEventListener('keydown', (e) => {
             if (e.key === 'm' || e.key === 'M') {
                 if (this._running && !this._infoPanelOpen) {
-                    if (this._worldMapOpen) this._closeWorldMap();
-                    else this._openWorldMap();
+                    if (this._worldMapOpen) this._closeWorldMap(); else this._openWorldMap();
                 }
             }
             if (e.key === 'b' || e.key === 'B') {
-                if (this._running && !this._worldMapOpen) {
-                    this._toggleBuildMenu();
-                }
+                if (this._running && !this._worldMapOpen) this._toggleBuildMenu();
             }
             if (e.key === 'Escape') {
                 if (this._worldMapOpen) this._closeWorldMap();
@@ -3256,6 +2237,9 @@ const Game = {
                 else if (this._selectedBuilding !== null) this._closeBuildingDetail();
                 else if (this._infoPanelOpen) this._closeInfoPanel();
             }
+            if (e.key === ' ' && this._running) { e.preventDefault(); this._togglePause(); }
+            if (e.key === '1' && this._running) this._setTimeSpeed(1);
+            if (e.key === '2' && this._running) this._setTimeSpeed(2);
         });
     },
 
@@ -3264,16 +2248,12 @@ const Game = {
         document.getElementById(screenId).classList.add('active');
     },
 
-    // ==================== NEW GAME ====================
-
     newGame() {
         const seedField = document.getElementById('seed-field');
         this.seed = seedField.value || String(Date.now());
         this._castlePlaced = null;
-
         this.showScreen('loading-screen');
         this._updateLoadingProgress(0, 'Preparation du parchemin...');
-
         setTimeout(() => this._generateTerrainChunked(), 50);
     },
 
@@ -3286,14 +2266,9 @@ const Game = {
             'Les regions se dessinent...',
             'Dernieres touches...'
         ];
-
-        Perlin.seed(this.seed);
-        Perlin.seedRng(this.seed);
-        GameMap.width = CONFIG.MAP_WIDTH;
-        GameMap.height = CONFIG.MAP_HEIGHT;
-        GameMap.tiles = [];
-        GameMap.regions = [];
-
+        Perlin.seed(this.seed); Perlin.seedRng(this.seed);
+        GameMap.width = CONFIG.MAP_WIDTH; GameMap.height = CONFIG.MAP_HEIGHT;
+        GameMap.tiles = []; GameMap.regions = [];
         const totalRows = GameMap.height;
         let currentRow = 0;
         const chunkSize = 20;
@@ -3303,36 +2278,27 @@ const Game = {
             for (let y = currentRow; y < end; y++) {
                 GameMap.tiles[y] = [];
                 for (let x = 0; x < GameMap.width; x++) {
-                    const nx = x / GameMap.width;
-                    const ny = y / GameMap.height;
-                    const elevation = Perlin.octave(x * 0.035, y * 0.035, 6, 0.5);
-                    const moisture = Perlin.octave(x * 0.04 + 200, y * 0.04 + 200, 4, 0.5);
-                    const dx = (nx - 0.5) * 2;
-                    const dy = (ny - 0.5) * 2;
-                    const distFromCenter = Math.sqrt(dx * dx + dy * dy);
-                    const falloff = Math.max(0, 1 - distFromCenter * 1.1);
+                    const elevation = Perlin.octave(x*0.035, y*0.035, 6, 0.5);
+                    const moisture = Perlin.octave(x*0.04+200, y*0.04+200, 4, 0.5);
+                    const dx = (x/GameMap.width - 0.5) * 2;
+                    const dy = (y/GameMap.height - 0.5) * 2;
+                    const falloff = Math.max(0, 1 - Math.sqrt(dx*dx + dy*dy) * 1.1);
                     const finalElev = elevation * 0.7 + falloff * 0.3;
-                    const terrain = GameMap._elevToTerrain(finalElev, moisture);
-
                     GameMap.tiles[y][x] = {
-                        x, y, terrain,
+                        x, y, terrain: GameMap._elevToTerrain(finalElev, moisture),
                         elevation: finalElev, moisture,
-                        building: null,
-                        owner: -1,
-                        regionId: -1,
-                        visible: true,
-                        explored: true,
+                        building: null, owner: -1, regionId: -1,
+                        visible: true, explored: true,
                     };
                 }
             }
             currentRow = end;
             const progress = (currentRow / totalRows) * 0.65;
-            const msgIdx = Math.min(messages.length - 1, Math.floor(progress * messages.length));
+            const msgIdx = Math.min(messages.length-1, Math.floor(progress * messages.length));
             this._updateLoadingProgress(progress, messages[msgIdx]);
 
-            if (currentRow < totalRows) {
-                setTimeout(processChunk, 0);
-            } else {
+            if (currentRow < totalRows) setTimeout(processChunk, 0);
+            else {
                 this._updateLoadingProgress(0.7, 'Les regions se dessinent...');
                 setTimeout(() => {
                     GameMap._generateNaturalRegions();
@@ -3341,7 +2307,6 @@ const Game = {
                 }, 50);
             }
         };
-
         processChunk();
     },
 
@@ -3349,60 +2314,41 @@ const Game = {
         const fill = document.getElementById('loading-fill');
         const msg = document.getElementById('loading-message');
         const pct = document.getElementById('loading-percent');
-        if (fill) fill.style.width = Math.round(progress * 100) + '%';
+        if (fill) fill.style.width = Math.round(progress*100) + '%';
         if (msg) msg.textContent = message;
-        if (pct) pct.textContent = Math.round(progress * 100) + '%';
+        if (pct) pct.textContent = Math.round(progress*100) + '%';
     },
-
-    // ==================== PLACEMENT SCREEN ====================
 
     _showPlacementScreen() {
         this.showScreen('placement-screen');
         this._castlePlaced = null;
-
         const canvas = document.getElementById('placement-canvas');
         const container = document.getElementById('placement-map-area');
-
         const rect = container.getBoundingClientRect();
         const size = Math.min(rect.width - 40, rect.height - 20);
-        canvas.width = size;
-        canvas.height = size;
-
+        canvas.width = size; canvas.height = size;
         GameMap.renderOverviewToCanvas(canvas);
-
         const btn = document.getElementById('btn-confirm-placement');
-        btn.disabled = true;
-        btn.classList.remove('ready');
+        btn.disabled = true; btn.classList.remove('ready');
 
         canvas.onmousemove = (e) => {
             if (this._castlePlaced) return;
             const cr = canvas.getBoundingClientRect();
-            const mx = e.clientX - cr.left;
-            const my = e.clientY - cr.top;
-            const tileX = Math.floor((mx / canvas.width) * GameMap.width);
-            const tileY = Math.floor((my / canvas.height) * GameMap.height);
-
+            const tileX = Math.floor(((e.clientX-cr.left) / canvas.width) * GameMap.width);
+            const tileY = Math.floor(((e.clientY-cr.top) / canvas.height) * GameMap.height);
             GameMap.renderOverviewToCanvas(canvas, tileX, tileY);
             this._updatePlacementInfo(tileX, tileY);
         };
-
         canvas.onclick = (e) => {
             const cr = canvas.getBoundingClientRect();
-            const mx = e.clientX - cr.left;
-            const my = e.clientY - cr.top;
-            const tileX = Math.floor((mx / canvas.width) * GameMap.width);
-            const tileY = Math.floor((my / canvas.height) * GameMap.height);
-
+            const tileX = Math.floor(((e.clientX-cr.left) / canvas.width) * GameMap.width);
+            const tileY = Math.floor(((e.clientY-cr.top) / canvas.height) * GameMap.height);
             const tile = GameMap.getTile(tileX, tileY);
             if (!tile || tile.terrain <= CONFIG.TERRAIN.WATER) return;
-            if (!GameMap.isValidKingdomSpot(tileX, tileY)) return;
-            if (GameMap.isCenterZone(tileX, tileY)) return;
-
-            this._castlePlaced = { x: tileX, y: tileY };
+            if (!GameMap.isValidKingdomSpot(tileX, tileY) || GameMap.isCenterZone(tileX, tileY)) return;
+            this._castlePlaced = {x: tileX, y: tileY};
             GameMap.renderOverviewToCanvas(canvas, tileX, tileY);
-            btn.disabled = false;
-            btn.classList.add('ready');
-
+            btn.disabled = false; btn.classList.add('ready');
             const info = document.getElementById('placement-info');
             info.textContent = 'Chateau place ! Cliquez ailleurs pour deplacer, ou validez.';
             info.style.color = '#c8a84a';
@@ -3413,82 +2359,45 @@ const Game = {
         const tile = GameMap.getTile(tileX, tileY);
         const info = document.getElementById('placement-info');
         if (!tile) return;
-
-        const terrainName = CONFIG.TERRAIN_NAMES[tile.terrain] || 'Inconnu';
+        const name = CONFIG.TERRAIN_NAMES[tile.terrain] || 'Inconnu';
         const valid = GameMap.isValidKingdomSpot(tileX, tileY);
         const isCenter = GameMap.isCenterZone(tileX, tileY);
-
-        if (tile.terrain <= CONFIG.TERRAIN.WATER) {
-            info.textContent = `${terrainName} - Impossible de fonder ici`;
-            info.style.color = '#d8a8a8';
-        } else if (isCenter) {
-            info.textContent = `${terrainName} (${tileX}, ${tileY}) - Trop au centre, les ennemis n'auraient pas assez d'espace`;
-            info.style.color = '#d8a8a8';
-        } else if (!valid) {
-            info.textContent = `${terrainName} (${tileX}, ${tileY}) - Pas assez de terre cultivable`;
-            info.style.color = '#d8a8a8';
-        } else {
-            info.textContent = `${terrainName} (${tileX}, ${tileY}) - Bon emplacement pour votre royaume`;
-            info.style.color = '#a8d8a8';
-        }
+        if (tile.terrain <= CONFIG.TERRAIN.WATER) { info.textContent = name+' - Impossible'; info.style.color='#d8a8a8'; }
+        else if (isCenter) { info.textContent = name+' - Trop au centre'; info.style.color='#d8a8a8'; }
+        else if (!valid) { info.textContent = name+' - Pas assez de terre'; info.style.color='#d8a8a8'; }
+        else { info.textContent = name+' ('+tileX+', '+tileY+') - Bon emplacement'; info.style.color='#a8d8a8'; }
     },
-
-    // ==================== 2ND LOADING ====================
 
     confirmPlacement() {
         if (!this._castlePlaced) return;
-
-        const placementCanvas = document.getElementById('placement-canvas');
-        placementCanvas.onmousemove = null;
-        placementCanvas.onclick = null;
-
+        document.getElementById('placement-canvas').onmousemove = null;
+        document.getElementById('placement-canvas').onclick = null;
         this.showScreen('loading-screen');
         this._updateLoadingProgress(0, 'Fondation du royaume...');
 
-        const loadSteps = [
-            { progress: 0.15, msg: 'Les seigneurs prennent place...' },
-            { progress: 0.35, msg: 'Les royaumes ennemis se forment...' },
-            { progress: 0.55, msg: 'Les bandits rodent dans les bois...' },
-            { progress: 0.75, msg: 'Preparation du terrain...' },
-            { progress: 0.90, msg: 'Construction du chateau...' },
-            { progress: 1.00, msg: 'Votre royaume est pret !' },
+        const steps = [
+            {p:0.15,m:'Les seigneurs prennent place...'},{p:0.35,m:'Les royaumes ennemis se forment...'},
+            {p:0.55,m:'Les bandits rodent...'},{p:0.75,m:'Preparation du terrain...'},
+            {p:0.90,m:'Construction du chateau...'},{p:1.0,m:'Votre royaume est pret !'}
         ];
-
         let step = 0;
-        const runStep = () => {
-            if (step === 0) {
-                GameMap.placeKingdoms(this._castlePlaced.x, this._castlePlaced.y);
-            }
-            if (step === 3) {
-                Renderer.init();
-                Renderer.buildTerrainBuffer();
-            }
-
-            this._updateLoadingProgress(loadSteps[step].progress, loadSteps[step].msg);
+        const run = () => {
+            if (step === 0) GameMap.placeKingdoms(this._castlePlaced.x, this._castlePlaced.y);
+            if (step === 3) { Renderer.init(); Renderer.buildTerrainBuffer(); }
+            this._updateLoadingProgress(steps[step].p, steps[step].m);
             step++;
-
-            if (step < loadSteps.length) {
-                setTimeout(runStep, 200);
-            } else {
-                setTimeout(() => this._startMapView(), 400);
-            }
+            if (step < steps.length) setTimeout(run, 200);
+            else setTimeout(() => this._startMapView(), 400);
         };
-
-        setTimeout(runStep, 100);
+        setTimeout(run, 100);
     },
-
-    // ==================== MAP VIEW (game) ====================
 
     _startMapView() {
         this.showScreen('game-screen');
-
-        if (!Renderer.canvas) {
-            Renderer.init();
-        }
+        if (!Renderer.canvas) Renderer.init();
         Camera.init(Renderer.canvas);
-
-        Renderer.setIsoMode(true);
-        Camera.zoom = 2.0;
+        Renderer.setIsoMode(false);
+        Camera.zoom = 2.5;
 
         this._running = true;
         this._worldMapOpen = false;
@@ -3499,546 +2408,345 @@ const Game = {
         this._selectedBuilding = null;
         this._lastTick = Date.now();
 
-        // Init resources
-        this.resources = { ...CONFIG.START_RESOURCES };
+        this._gameMinute = 0;
+        this._gameHour = 6;
+        this._gameDay = 1;
+        this._timeSpeed = 1;
+        this._lastTimeUpdate = Date.now();
+        this._prevSpeed = 1;
+
+        this.resources = {...CONFIG.START_RESOURCES};
         this.buildings = [];
         this.houses = 0;
+        this.families = [this._generateFamily()];
 
-        // Start with 1 family
-        this.families = [
-            this._generateFamily()
-        ];
-
-        // Show HUD
         document.getElementById('hud-bar').classList.add('active');
         this._updateHUD();
+        this._updateTimeHUD();
 
-        // Build the build menu items
+        // Bind time controls
+        const bp = document.getElementById('btn-pause');
+        const bl = document.getElementById('btn-play');
+        const bf = document.getElementById('btn-fast');
+        if (bp) bp.onclick = () => this._togglePause();
+        if (bl) bl.onclick = () => this._setTimeSpeed(1);
+        if (bf) bf.onclick = () => this._setTimeSpeed(2);
+
         this._buildBuildMenu();
-
-        if (this._castlePlaced) {
-            Camera.centerOnCell(this._castlePlaced.x, this._castlePlaced.y);
-        }
-
+        if (this._castlePlaced) Camera.centerOnCell(this._castlePlaced.x, this._castlePlaced.y);
         this._gameLoop();
     },
 
     _generateFamily() {
-        const manNames = ['Guillaume', 'Henri', 'Robert', 'Arnaud', 'Pierre', 'Jean', 'Thibaut', 'Gaultier', 'Renaud', 'Baudouin'];
-        const womanNames = ['Marguerite', 'Isabelle', 'Alienor', 'Blanche', 'Mathilde', 'Jeanne', 'Adele', 'Beatrice', 'Constance', 'Heloise'];
-        const surnames = ['Dupont', 'Leblanc', 'Moreau', 'Lefebvre', 'Chevalier', 'Duval', 'Fontaine', 'Lambert', 'Marchand', 'Beaumont'];
-        const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-        const surname = pick(surnames);
-        return {
-            name: 'Famille ' + surname,
-            man: pick(manNames) + ' ' + surname,
-            woman: pick(womanNames) + ' ' + surname,
-            job: null,
-            buildingIdx: -1 // index into this.buildings, -1 = unassigned
-        };
+        const manN = ['Guillaume','Henri','Robert','Arnaud','Pierre','Jean','Thibaut','Gaultier','Renaud','Baudouin'];
+        const womN = ['Marguerite','Isabelle','Alienor','Blanche','Mathilde','Jeanne','Adele','Beatrice','Constance','Heloise'];
+        const surN = ['Dupont','Leblanc','Moreau','Lefebvre','Chevalier','Duval','Fontaine','Lambert','Marchand','Beaumont'];
+        const pick = a => a[Math.floor(Math.random()*a.length)];
+        const s = pick(surN);
+        return {name:'Famille '+s, man:pick(manN)+' '+s, woman:pick(womN)+' '+s, job:null, buildingIdx:-1};
     },
-
-    // ==================== STORAGE ====================
 
     getStorageCapacity() {
         let cap = CONFIG.STORAGE.BASE_CAPACITY;
         for (const b of this.buildings) {
-            if (b.type === 'warehouse') {
-                const lvl = b.level || 1;
-                if (lvl === 1) cap += CONFIG.STORAGE.PER_WAREHOUSE;
-                else if (lvl === 2) cap += 75;
-                else cap += 100;
-            }
+            if (b.type === 'warehouse') { const l=b.level||1; cap += l===1?50:l===2?75:100; }
         }
         return cap;
     },
 
     _addResource(res, amount) {
         const cap = this.getStorageCapacity();
-        this.resources[res] = Math.min(cap, (this.resources[res] || 0) + amount);
+        this.resources[res] = Math.min(cap, (this.resources[res]||0) + amount);
     },
-
-    // ==================== HOUSING ====================
 
     getMaxFamilies() {
-        // 1 base (castle) + houses
-        let count = 1;
-        for (const b of this.buildings) {
-            if (b.type === 'house') {
-                const lvl = b.level || 1;
-                count += lvl; // lvl 1=1, lvl 2=2, lvl 3=3
-            }
-        }
-        return count;
+        let c = 1;
+        for (const b of this.buildings) { if (b.type === 'house') c += (b.level||1); }
+        return c;
     },
 
-    // ==================== PRODUCTION TICK ====================
-
     _productionTick() {
+        if (this._timeSpeed === 0) return;
         const now = Date.now();
-        if (now - this._lastTick < this._tickInterval) return;
+        const mult = this._timeSpeed === 2 ? 2 : 1;
+        if (now - this._lastTick < this._tickInterval / mult) return;
         this._lastTick = now;
 
-        for (let i = 0; i < this.buildings.length; i++) {
-            const b = this.buildings[i];
+        for (const b of this.buildings) {
             const def = CONFIG.BUILDINGS[b.type];
             if (!def || !def.production) continue;
-
-            // Only produce if a family is assigned
             if (b.familyIdx === undefined || b.familyIdx < 0) continue;
-            const fam = this.families[b.familyIdx];
-            if (!fam) continue;
-
-            // Base production
-            for (const [res, amount] of Object.entries(def.production)) {
-                this._addResource(res, amount);
-            }
-
-            // Upgrade bonuses
+            if (!this.families[b.familyIdx]) continue;
+            for (const [res,amt] of Object.entries(def.production)) this._addResource(res, amt);
             const lvl = b.level || 1;
             if (lvl > 1 && def.upgrades) {
-                for (let u = 0; u < lvl - 1 && u < def.upgrades.length; u++) {
+                for (let u = 0; u < lvl-1 && u < def.upgrades.length; u++) {
                     const bonus = def.upgrades[u].productionBonus;
-                    if (bonus) {
-                        for (const [res, amount] of Object.entries(bonus)) {
-                            this._addResource(res, amount);
-                        }
-                    }
+                    if (bonus) for (const [r,a] of Object.entries(bonus)) this._addResource(r, a);
                 }
             }
         }
-
         this._updateHUD();
     },
 
     _updateHUD() {
         const cap = this.getStorageCapacity();
-        document.getElementById('hud-wood').textContent = this.resources.wood + '/' + cap;
-        document.getElementById('hud-stone').textContent = this.resources.stone + '/' + cap;
-        document.getElementById('hud-iron').textContent = this.resources.iron + '/' + cap;
-        document.getElementById('hud-gold').textContent = this.resources.gold + '/' + cap;
+        document.getElementById('hud-wood').textContent = this.resources.wood+'/'+cap;
+        document.getElementById('hud-stone').textContent = this.resources.stone+'/'+cap;
+        document.getElementById('hud-iron').textContent = this.resources.iron+'/'+cap;
+        document.getElementById('hud-gold').textContent = this.resources.gold+'/'+cap;
         document.getElementById('hud-food').textContent = this.resources.food;
         document.getElementById('hud-houses').textContent = this.getMaxFamilies();
         document.getElementById('hud-families').textContent = this.families.length;
     },
 
-    // ==================== BUILD MENU ====================
-
+    // ── Build menu ──
     _buildBuildMenu() {
         const menu = document.getElementById('build-menu');
         menu.innerHTML = '';
-
         for (const [key, bld] of Object.entries(CONFIG.BUILDINGS)) {
             const item = document.createElement('div');
-            item.className = 'build-item';
-            item.dataset.type = key;
-
-            const costStr = Object.entries(bld.cost).map(([r, v]) => `${v} ${r}`).join(', ');
+            item.className = 'build-item'; item.dataset.type = key;
+            const costStr = Object.entries(bld.cost).map(([r,v])=>`${v} ${r}`).join(', ');
             item.innerHTML = `<span class="build-icon">${bld.icon}</span><span class="build-name">${bld.name}</span><span class="build-cost">${costStr}</span>`;
-
-            item.addEventListener('click', () => {
-                if (item.classList.contains('disabled')) return;
-                this._selectBuild(key);
-            });
-
+            item.addEventListener('click', () => { if (!item.classList.contains('disabled')) this._selectBuild(key); });
             menu.appendChild(item);
         }
     },
-
-    _toggleBuildMenu() {
-        if (this._buildMode) {
-            this._closeBuildMenu();
-        } else {
-            this._openBuildMenu();
-        }
-    },
-
+    _toggleBuildMenu() { if (this._buildMode) this._closeBuildMenu(); else this._openBuildMenu(); },
     _openBuildMenu() {
-        this._buildMode = true;
-        this._selectedBuild = null;
-        this._closeInfoPanel();
-        this._closeBuildingDetail();
-        const menu = document.getElementById('build-menu');
-        menu.classList.add('active');
+        this._buildMode = true; this._selectedBuild = null;
+        this._closeInfoPanel(); this._closeBuildingDetail();
+        document.getElementById('build-menu').classList.add('active');
         this._refreshBuildMenu();
     },
-
     _closeBuildMenu() {
-        this._buildMode = false;
-        this._selectedBuild = null;
+        this._buildMode = false; this._selectedBuild = null;
         document.getElementById('build-menu').classList.remove('active');
         document.getElementById('build-hint').classList.remove('active');
         document.getElementById('build-hint').textContent = '';
         Renderer.canvas.style.cursor = 'grab';
     },
-
     _refreshBuildMenu() {
         const menu = document.getElementById('build-menu');
         for (const item of menu.children) {
             const type = item.dataset.type;
             const bld = CONFIG.BUILDINGS[type];
-            const canAfford = this._canAfford(bld.cost);
-            item.classList.toggle('disabled', !canAfford);
+            item.classList.toggle('disabled', !this._canAfford(bld.cost));
             item.classList.toggle('selected', this._selectedBuild === type);
         }
     },
-
-    _canAfford(cost) {
-        for (const [res, amount] of Object.entries(cost)) {
-            if ((this.resources[res] || 0) < amount) return false;
-        }
-        return true;
-    },
-
+    _canAfford(cost) { for (const [r,a] of Object.entries(cost)) { if ((this.resources[r]||0)<a) return false; } return true; },
     _selectBuild(type) {
         const bld = CONFIG.BUILDINGS[type];
         if (!this._canAfford(bld.cost)) return;
-
         if (this._selectedBuild === type) {
             this._selectedBuild = null;
             document.getElementById('build-hint').classList.remove('active');
             Renderer.canvas.style.cursor = 'grab';
         } else {
             this._selectedBuild = type;
-            let hint = `${bld.name} - Cliquez sur la carte pour placer`;
-            if (bld.terrain) {
-                const terrNames = bld.terrain.map(t => CONFIG.TERRAIN_NAMES[t]).join(', ');
-                hint += ` (${terrNames} uniquement)`;
-            }
-            const hintEl = document.getElementById('build-hint');
-            hintEl.textContent = hint;
-            hintEl.classList.add('active');
+            let hint = `${bld.name} - Cliquez pour placer`;
+            if (bld.terrain) hint += ` (${bld.terrain.map(t=>CONFIG.TERRAIN_NAMES[t]).join(', ')} uniquement)`;
+            const h = document.getElementById('build-hint');
+            h.textContent = hint; h.classList.add('active');
             Renderer.canvas.style.cursor = 'crosshair';
         }
         this._refreshBuildMenu();
     },
-
     _placeBuilding(cellX, cellY) {
         const type = this._selectedBuild;
         if (!type) return;
-
         const bld = CONFIG.BUILDINGS[type];
         if (!this._canAfford(bld.cost)) return;
-
         const tile = GameMap.getTile(cellX, cellY);
         if (!tile) return;
         if (tile.terrain <= CONFIG.TERRAIN.WATER || tile.terrain >= CONFIG.TERRAIN.SNOW_PEAK) return;
         if (tile.building) return;
-
-        // Check terrain restriction
         if (bld.terrain && !bld.terrain.includes(tile.terrain)) return;
-
-        // Check it's in the player's region
         if (tile.owner !== 0) return;
 
-        // Spend resources
-        for (const [res, amount] of Object.entries(bld.cost)) {
-            this.resources[res] -= amount;
-        }
-
-        // Place
+        for (const [r,a] of Object.entries(bld.cost)) this.resources[r] -= a;
         tile.building = type;
-        const buildingData = { type, x: cellX, y: cellY, level: 1, familyIdx: -1 };
-        this.buildings.push(buildingData);
-
-        // Houses: check if we can recruit a new family
-        if (type === 'house') {
-            this._checkRecruitFamily();
-        }
-
-        // Rebuild terrain buffer to clear old state
+        this.buildings.push({type, x:cellX, y:cellY, level:1, familyIdx:-1});
+        if (type === 'house') this._checkRecruitFamily();
         Renderer._bufferDirty = true;
-
-        this._updateHUD();
-        this._refreshBuildMenu();
-
-        // Exit build mode
-        this._closeBuildMenu();
+        this._updateHUD(); this._refreshBuildMenu(); this._closeBuildMenu();
     },
+    _checkRecruitFamily() { if (this.families.length < this.getMaxFamilies()) this.families.push(this._generateFamily()); },
 
-    _checkRecruitFamily() {
-        const maxFam = this.getMaxFamilies();
-        if (this.families.length < maxFam) {
-            this.families.push(this._generateFamily());
-        }
-    },
-
-    // ==================== INFO PANEL (castle click) ====================
-
+    // ── Info panel ──
     _openInfoPanel() {
-        this._infoPanelOpen = true;
-        this._closeBuildMenu();
-        this._closeBuildingDetail();
+        this._infoPanelOpen = true; this._closeBuildMenu(); this._closeBuildingDetail();
         document.getElementById('info-panel').classList.add('active');
         this._renderInfoContent();
     },
-
-    _closeInfoPanel() {
-        this._infoPanelOpen = false;
-        document.getElementById('info-panel').classList.remove('active');
-    },
-
+    _closeInfoPanel() { this._infoPanelOpen = false; document.getElementById('info-panel').classList.remove('active'); },
     _renderInfoContent() {
-        const content = document.getElementById('info-content');
-        if (this._infoTab === 'buildings') {
-            this._renderBuildingsTab(content);
-        } else {
-            this._renderFamiliesTab(content);
-        }
+        const c = document.getElementById('info-content');
+        if (this._infoTab === 'buildings') this._renderBuildingsTab(c); else this._renderFamiliesTab(c);
     },
-
     _renderBuildingsTab(container) {
         const counts = {};
-        for (const b of this.buildings) {
-            counts[b.type] = (counts[b.type] || 0) + 1;
+        for (const b of this.buildings) counts[b.type] = (counts[b.type]||0)+1;
+        let html = `<div class="info-building-row"><span class="ib-icon">\u{1F3F0}</span><span class="ib-name">Chateau</span><span class="ib-count">1</span></div>`;
+        for (const [key,bld] of Object.entries(CONFIG.BUILDINGS)) {
+            html += `<div class="info-building-row"><span class="ib-icon">${bld.icon}</span><span class="ib-name">${bld.name}</span><span class="ib-count">${counts[key]||0}</span></div>`;
         }
-
-        let html = '';
-        html += `<div class="info-building-row"><span class="ib-icon">\u{1F3F0}</span><span class="ib-name">Chateau (Cabane de base)</span><span class="ib-count">1</span></div>`;
-
-        for (const [key, bld] of Object.entries(CONFIG.BUILDINGS)) {
-            const count = counts[key] || 0;
-            html += `<div class="info-building-row"><span class="ib-icon">${bld.icon}</span><span class="ib-name">${bld.name}</span><span class="ib-count">${count}</span></div>`;
-        }
-
-        const cap = this.getStorageCapacity();
-        html += `<div class="info-building-row" style="margin-top:8px;border-top:1px solid rgba(200,168,74,0.2);padding-top:8px;"><span class="ib-icon">\u{1F4E6}</span><span class="ib-name">Capacite de stockage</span><span class="ib-count">${cap}</span></div>`;
-
-        if (this.buildings.length === 0) {
-            html += `<div class="info-empty">Aucune construction supplementaire.<br>Appuyez sur B pour construire.</div>`;
-        }
-
+        html += `<div class="info-building-row" style="margin-top:8px;border-top:1px solid rgba(200,168,74,0.2);padding-top:8px;"><span class="ib-icon">\u{1F4E6}</span><span class="ib-name">Stockage</span><span class="ib-count">${this.getStorageCapacity()}</span></div>`;
+        if (!this.buildings.length) html += '<div class="info-empty">Aucune construction.<br>Appuyez sur B.</div>';
         container.innerHTML = html;
     },
-
     _renderFamiliesTab(container) {
-        if (this.families.length === 0) {
-            container.innerHTML = '<div class="info-empty">Aucune famille dans le royaume.</div>';
-            return;
-        }
-
+        if (!this.families.length) { container.innerHTML = '<div class="info-empty">Aucune famille.</div>'; return; }
         let html = '';
         for (let i = 0; i < this.families.length; i++) {
-            const fam = this.families[i];
-            const assignedTo = fam.buildingIdx >= 0 ? this.buildings[fam.buildingIdx] : null;
-            const jobName = assignedTo ? CONFIG.BUILDINGS[assignedTo.type].job || 'Habitant' : 'Sans emploi';
-            const buildName = assignedTo ? CONFIG.BUILDINGS[assignedTo.type].name : '';
-
-            html += `<div class="info-family-row">
-                <div>
-                    <div class="info-family-name">${fam.name}</div>
-                    <div class="info-family-members">${fam.man} & ${fam.woman}</div>
-                    <div class="info-family-members" style="color:${assignedTo ? '#c8a84a' : '#6a5a3a'}">${jobName}${buildName ? ' - ' + buildName : ''}</div>
-                </div>
-            </div>`;
+            const f = this.families[i];
+            const assigned = f.buildingIdx >= 0 ? this.buildings[f.buildingIdx] : null;
+            const jobName = assigned ? (CONFIG.BUILDINGS[assigned.type].job||'Habitant') : 'Sans emploi';
+            html += `<div class="info-family-row"><div><div class="info-family-name">${f.name}</div><div class="info-family-members">${f.man} & ${f.woman}</div><div class="info-family-members" style="color:${assigned?'#c8a84a':'#6a5a3a'}">${jobName}</div></div></div>`;
         }
-
         container.innerHTML = html;
     },
 
-    _getAvailableJobs() {
-        const jobs = [];
-        const buildCounts = {};
-        for (const b of this.buildings) {
-            buildCounts[b.type] = (buildCounts[b.type] || 0) + 1;
-        }
-
-        for (const [key, bld] of Object.entries(CONFIG.BUILDINGS)) {
-            const totalSlots = buildCounts[key] || 0;
-            const assigned = this.families.filter(f => f.job === key).length;
-            if (totalSlots > 0) {
-                jobs.push({
-                    type: key,
-                    name: bld.job,
-                    slots: totalSlots,
-                    assigned
-                });
-            }
-        }
-        return jobs;
-    },
-
-    _buildJobOptions(currentJob, availableJobs) {
-        let html = '';
-        for (const job of availableJobs) {
-            const isCurrent = currentJob === job.type;
-            const freeSlots = job.slots - job.assigned + (isCurrent ? 1 : 0);
-            const disabled = freeSlots <= 0 && !isCurrent;
-            html += `<option value="${job.type}"${isCurrent ? ' selected' : ''}${disabled ? ' disabled' : ''}>${job.name} (${job.assigned}/${job.slots})</option>`;
-        }
-        return html;
-    },
-
-    // ==================== BUILDING DETAIL PANEL ====================
-
-    _openBuildingDetail(buildingIdx) {
-        this._selectedBuilding = buildingIdx;
-        this._closeBuildMenu();
-        this._closeInfoPanel();
+    // ── Building detail ──
+    _openBuildingDetail(idx) {
+        this._selectedBuilding = idx; this._closeBuildMenu(); this._closeInfoPanel();
         document.getElementById('building-detail').classList.add('active');
         this._renderBuildingDetail();
     },
-
-    _closeBuildingDetail() {
-        this._selectedBuilding = null;
-        document.getElementById('building-detail').classList.remove('active');
-    },
-
+    _closeBuildingDetail() { this._selectedBuilding = null; document.getElementById('building-detail').classList.remove('active'); },
     _renderBuildingDetail() {
-        const panel = document.getElementById('building-detail');
         const content = document.getElementById('building-detail-content');
         const titleEl = document.getElementById('building-detail-title');
 
         if (this._selectedBuilding === 'castle') {
             titleEl.textContent = '\u{1F3F0} Chateau';
-            let html = `<div class="bd-section"><div class="bd-label">Description</div><div class="bd-value">Le coeur de votre royaume. Centre de commandement.</div></div>`;
-            html += `<div class="bd-section"><div class="bd-label">Familles</div><div class="bd-value">${this.families.length} / ${this.getMaxFamilies()}</div></div>`;
-            html += `<div class="bd-section"><div class="bd-label">Stockage</div><div class="bd-value">${this.getStorageCapacity()} max</div></div>`;
-            content.innerHTML = html;
+            content.innerHTML = `<div class="bd-section"><div class="bd-label">Description</div><div class="bd-value">Le coeur de votre royaume.</div></div>
+            <div class="bd-section"><div class="bd-label">Familles</div><div class="bd-value">${this.families.length} / ${this.getMaxFamilies()}</div></div>
+            <div class="bd-section"><div class="bd-label">Stockage</div><div class="bd-value">${this.getStorageCapacity()} max</div></div>`;
             return;
         }
-
         const bIdx = this._selectedBuilding;
         if (bIdx === null || bIdx < 0 || bIdx >= this.buildings.length) return;
-
         const b = this.buildings[bIdx];
         const def = CONFIG.BUILDINGS[b.type];
         if (!def) return;
-
         const lvl = b.level || 1;
         titleEl.textContent = `${def.icon} ${def.name} (Niv. ${lvl})`;
 
-        let html = '';
+        let html = `<div class="bd-section"><div class="bd-label">Description</div><div class="bd-value">${def.description}</div></div>`;
 
-        // Description
-        html += `<div class="bd-section"><div class="bd-label">Description</div><div class="bd-value">${def.description}</div></div>`;
-
-        // Production info
         if (def.production) {
-            let prodStr = '';
-            const totalProd = { ...def.production };
-            // Add upgrade bonuses
-            if (lvl > 1 && def.upgrades) {
-                for (let u = 0; u < lvl - 1 && u < def.upgrades.length; u++) {
-                    const bonus = def.upgrades[u].productionBonus;
-                    if (bonus) {
-                        for (const [r, a] of Object.entries(bonus)) {
-                            totalProd[r] = (totalProd[r] || 0) + a;
-                        }
-                    }
-                }
+            const tp = {...def.production};
+            if (lvl>1&&def.upgrades) for (let u=0;u<lvl-1&&u<def.upgrades.length;u++) {
+                const bon=def.upgrades[u].productionBonus;
+                if(bon) for(const[r,a] of Object.entries(bon)) tp[r]=(tp[r]||0)+a;
             }
-            prodStr = Object.entries(totalProd).map(([r, a]) => `+${a} ${r}`).join(', ');
-            const isActive = b.familyIdx >= 0;
-            html += `<div class="bd-section"><div class="bd-label">Production (par cycle)</div><div class="bd-value" style="color:${isActive ? '#a8d8a8' : '#d8a8a8'}">${prodStr}${isActive ? '' : ' (INACTIVE - pas de famille)'}</div></div>`;
+            const ps = Object.entries(tp).map(([r,a])=>`+${a} ${r}`).join(', ');
+            const active = b.familyIdx >= 0;
+            html += `<div class="bd-section"><div class="bd-label">Production</div><div class="bd-value" style="color:${active?'#a8d8a8':'#d8a8a8'}">${ps}${active?'':' (INACTIVE)'}</div></div>`;
         }
+        if (b.type==='warehouse') html += `<div class="bd-section"><div class="bd-label">Bonus stockage</div><div class="bd-value">+${lvl===1?50:lvl===2?75:100}</div></div>`;
+        if (b.type==='house') html += `<div class="bd-section"><div class="bd-label">Logement</div><div class="bd-value">+${lvl} famille(s)</div></div>`;
 
-        // Special info for warehouse
-        if (b.type === 'warehouse') {
-            const bonusStr = lvl === 1 ? '+50' : lvl === 2 ? '+75' : '+100';
-            html += `<div class="bd-section"><div class="bd-label">Bonus stockage</div><div class="bd-value">${bonusStr} capacite</div></div>`;
-        }
-
-        // Special info for house
-        if (b.type === 'house') {
-            html += `<div class="bd-section"><div class="bd-label">Logement</div><div class="bd-value">+${lvl} famille(s)</div></div>`;
-        }
-
-        // Assigned family
-        const assignedFam = b.familyIdx >= 0 ? this.families[b.familyIdx] : null;
         if (def.job) {
-            html += `<div class="bd-section"><div class="bd-label">Famille assignee</div>`;
-            html += `<select class="bd-family-select" id="bd-family-select">`;
-            html += `<option value="-1"${!assignedFam ? ' selected' : ''}>Aucune</option>`;
-            for (let i = 0; i < this.families.length; i++) {
-                const f = this.families[i];
-                // Show families that are unassigned or assigned to this building
-                const isFree = f.buildingIdx < 0 || f.buildingIdx === bIdx;
-                if (!isFree) continue;
-                html += `<option value="${i}"${b.familyIdx === i ? ' selected' : ''}>${f.name}</option>`;
+            html += `<div class="bd-section"><div class="bd-label">Famille assignee</div><select class="bd-family-select" id="bd-family-select"><option value="-1"${b.familyIdx<0?' selected':''}>Aucune</option>`;
+            for (let i=0;i<this.families.length;i++) {
+                const f=this.families[i];
+                if (f.buildingIdx>=0 && f.buildingIdx!==bIdx) continue;
+                html += `<option value="${i}"${b.familyIdx===i?' selected':''}>${f.name}</option>`;
             }
-            html += `</select></div>`;
+            html += '</select></div>';
         }
 
-        // Upgrade
-        if (def.upgrades && lvl - 1 < def.upgrades.length) {
-            const nextUpgrade = def.upgrades[lvl - 1];
-            const costStr = Object.entries(nextUpgrade.cost).map(([r, v]) => `${v} ${r}`).join(', ');
-            const canUpgrade = this._canAfford(nextUpgrade.cost);
-            html += `<div class="bd-section bd-upgrade"><div class="bd-label">Amelioration : ${nextUpgrade.name}</div><div class="bd-value">Cout : ${costStr}</div>`;
-            if (nextUpgrade.productionBonus) {
-                const bonusStr = Object.entries(nextUpgrade.productionBonus).map(([r, a]) => `+${a} ${r}`).join(', ');
-                html += `<div class="bd-value">Bonus : ${bonusStr}</div>`;
-            }
-            if (nextUpgrade.bonus) {
-                html += `<div class="bd-value">Bonus : ${nextUpgrade.bonus}</div>`;
-            }
-            html += `<button class="bd-upgrade-btn${canUpgrade ? '' : ' disabled'}" id="bd-upgrade-btn"${canUpgrade ? '' : ' disabled'}>Ameliorer</button></div>`;
-        } else {
-            html += `<div class="bd-section"><div class="bd-label" style="color:#c8a84a;">Niveau maximum atteint</div></div>`;
-        }
+        if (def.upgrades && lvl-1 < def.upgrades.length) {
+            const up = def.upgrades[lvl-1];
+            const cs = Object.entries(up.cost).map(([r,v])=>`${v} ${r}`).join(', ');
+            const can = this._canAfford(up.cost);
+            html += `<div class="bd-section bd-upgrade"><div class="bd-label">Amelioration : ${up.name}</div><div class="bd-value">Cout : ${cs}</div>`;
+            if (up.productionBonus) html += `<div class="bd-value">Bonus : ${Object.entries(up.productionBonus).map(([r,a])=>`+${a} ${r}`).join(', ')}</div>`;
+            if (up.bonus) html += `<div class="bd-value">Bonus : ${up.bonus}</div>`;
+            html += `<button class="bd-upgrade-btn${can?'':' disabled'}" id="bd-upgrade-btn"${can?'':' disabled'}>Ameliorer</button></div>`;
+        } else html += '<div class="bd-section"><div class="bd-label" style="color:#c8a84a;">Niveau max</div></div>';
 
         content.innerHTML = html;
 
-        // Bind events
-        const famSelect = document.getElementById('bd-family-select');
-        if (famSelect) {
-            famSelect.addEventListener('change', (e) => {
-                const newFamIdx = parseInt(e.target.value);
-                // Unassign old family
-                if (b.familyIdx >= 0 && this.families[b.familyIdx]) {
-                    this.families[b.familyIdx].buildingIdx = -1;
-                    this.families[b.familyIdx].job = null;
-                }
-                // Assign new family
-                b.familyIdx = newFamIdx;
-                if (newFamIdx >= 0 && this.families[newFamIdx]) {
-                    this.families[newFamIdx].buildingIdx = bIdx;
-                    this.families[newFamIdx].job = b.type;
-                }
-                this._renderBuildingDetail();
-            });
-        }
-
-        const upgradeBtn = document.getElementById('bd-upgrade-btn');
-        if (upgradeBtn && !upgradeBtn.disabled) {
-            upgradeBtn.addEventListener('click', () => {
-                this._upgradeBuilding(bIdx);
-            });
-        }
+        const fs = document.getElementById('bd-family-select');
+        if (fs) fs.addEventListener('change', (e) => {
+            const ni = parseInt(e.target.value);
+            if (b.familyIdx>=0 && this.families[b.familyIdx]) { this.families[b.familyIdx].buildingIdx=-1; this.families[b.familyIdx].job=null; }
+            b.familyIdx = ni;
+            if (ni>=0 && this.families[ni]) { this.families[ni].buildingIdx=bIdx; this.families[ni].job=b.type; }
+            this._renderBuildingDetail();
+        });
+        const ub = document.getElementById('bd-upgrade-btn');
+        if (ub && !ub.disabled) ub.addEventListener('click', () => this._upgradeBuilding(bIdx));
     },
-
     _upgradeBuilding(bIdx) {
-        const b = this.buildings[bIdx];
-        const def = CONFIG.BUILDINGS[b.type];
-        const lvl = b.level || 1;
-        if (!def.upgrades || lvl - 1 >= def.upgrades.length) return;
-
-        const upgrade = def.upgrades[lvl - 1];
-        if (!this._canAfford(upgrade.cost)) return;
-
-        // Spend resources
-        for (const [res, amount] of Object.entries(upgrade.cost)) {
-            this.resources[res] -= amount;
-        }
-
+        const b = this.buildings[bIdx]; const def = CONFIG.BUILDINGS[b.type]; const lvl = b.level||1;
+        if (!def.upgrades || lvl-1>=def.upgrades.length) return;
+        const up = def.upgrades[lvl-1];
+        if (!this._canAfford(up.cost)) return;
+        for (const [r,a] of Object.entries(up.cost)) this.resources[r] -= a;
         b.level = lvl + 1;
-
-        // If house was upgraded, check for new family recruitment
-        if (b.type === 'house') {
-            this._checkRecruitFamily();
-        }
-
+        if (b.type==='house') this._checkRecruitFamily();
         Renderer._bufferDirty = true;
-        this._updateHUD();
-        this._renderBuildingDetail();
+        this._updateHUD(); this._renderBuildingDetail();
     },
 
-    // ==================== GAME LOOP ====================
+    // ── Time system ──
+    _updateGameTime() {
+        const now = Date.now();
+        if (!this._lastTimeUpdate) { this._lastTimeUpdate = now; return; }
+        if (this._timeSpeed === 0) { this._lastTimeUpdate = now; return; }
 
+        const deltaMs = now - this._lastTimeUpdate;
+        this._lastTimeUpdate = now;
+        const mult = this._timeSpeed === 2 ? 2 : 1;
+        this._gameMinute += (deltaMs / 1000) * mult;
+
+        while (this._gameMinute >= 60) {
+            this._gameMinute -= 60;
+            this._gameHour++;
+            if (this._gameHour >= 24) {
+                this._gameHour = 6; // Reset to 06:00
+                this._gameDay++;
+                Renderer.showDayTransition(this._gameDay);
+            }
+        }
+        this._updateTimeHUD();
+    },
+
+    _updateTimeHUD() {
+        const h = String(Math.floor(this._gameHour)).padStart(2,'0');
+        const m = String(Math.floor(this._gameMinute)).padStart(2,'0');
+        const tel = document.getElementById('hud-time');
+        const del = document.getElementById('hud-day');
+        if (tel) tel.textContent = `${h}:${m}`;
+        if (del) del.textContent = `Jour ${this._gameDay}`;
+
+        const paused = this._timeSpeed===0, fast = this._timeSpeed===2;
+        const bp = document.getElementById('btn-pause');
+        const bl = document.getElementById('btn-play');
+        const bf = document.getElementById('btn-fast');
+        if (bp) bp.classList.toggle('time-btn-active', paused);
+        if (bl) bl.classList.toggle('time-btn-active', !paused && !fast);
+        if (bf) bf.classList.toggle('time-btn-active', fast && !paused);
+    },
+
+    _setTimeSpeed(speed) { this._timeSpeed = speed; this._updateTimeHUD(); },
+    _togglePause() {
+        if (this._timeSpeed === 0) this._timeSpeed = this._prevSpeed || 1;
+        else { this._prevSpeed = this._timeSpeed; this._timeSpeed = 0; }
+        this._updateTimeHUD();
+    },
+
+    // ── Game loop ──
     _gameLoop() {
         if (!this._running) return;
         Camera.update();
+        this._updateGameTime();
         this._productionTick();
         Renderer.render();
         requestAnimationFrame(() => this._gameLoop());
@@ -4047,181 +2755,73 @@ const Game = {
     onMapClick(cellX, cellY) {
         const tile = GameMap.getTile(cellX, cellY);
         if (!tile) return;
-
-        // If in build mode and a building is selected, place it
-        if (this._buildMode && this._selectedBuild) {
-            this._placeBuilding(cellX, cellY);
+        if (this._buildMode && this._selectedBuild) { this._placeBuilding(cellX, cellY); return; }
+        if (this._castlePlaced && cellX===this._castlePlaced.x && cellY===this._castlePlaced.y) {
+            if (this._selectedBuilding==='castle') this._closeBuildingDetail(); else this._openBuildingDetail('castle');
             return;
         }
-
-        // If clicking the castle, open building detail for castle
-        if (this._castlePlaced && cellX === this._castlePlaced.x && cellY === this._castlePlaced.y) {
-            if (this._selectedBuilding === 'castle') {
-                this._closeBuildingDetail();
-            } else {
-                this._openBuildingDetail('castle');
-            }
-            return;
-        }
-
-        // If clicking a building, open detail for that building
         if (tile.building) {
-            const bIdx = this.buildings.findIndex(b => b.x === cellX && b.y === cellY);
-            if (bIdx >= 0) {
-                if (this._selectedBuilding === bIdx) {
-                    this._closeBuildingDetail();
-                } else {
-                    this._openBuildingDetail(bIdx);
-                }
-                return;
-            }
+            const bIdx = this.buildings.findIndex(b => b.x===cellX && b.y===cellY);
+            if (bIdx>=0) { if (this._selectedBuilding===bIdx) this._closeBuildingDetail(); else this._openBuildingDetail(bIdx); return; }
         }
-
-        // Clicking empty space closes panels
-        if (this._selectedBuilding !== null) {
-            this._closeBuildingDetail();
-        }
+        if (this._selectedBuilding !== null) this._closeBuildingDetail();
     },
 
-    // ==================== WORLD MAP (M key) ====================
-
+    // ── World map ──
     _openWorldMap() {
         this._worldMapOpen = true;
         const overlay = document.getElementById('worldmap-overlay');
         const canvas = document.getElementById('worldmap-canvas');
         overlay.classList.add('active');
-
-        const maxSize = Math.min(window.innerWidth - 80, window.innerHeight - 120);
-        canvas.width = maxSize;
-        canvas.height = maxSize;
-
+        const maxSize = Math.min(window.innerWidth-80, window.innerHeight-120);
+        canvas.width = maxSize; canvas.height = maxSize;
         this._renderWorldMap(canvas);
     },
-
-    _closeWorldMap() {
-        this._worldMapOpen = false;
-        document.getElementById('worldmap-overlay').classList.remove('active');
-    },
-
+    _closeWorldMap() { this._worldMapOpen = false; document.getElementById('worldmap-overlay').classList.remove('active'); },
     _renderWorldMap(canvas) {
         const ctx = canvas.getContext('2d');
-        const w = canvas.width;
-        const h = canvas.height;
-        const scaleX = w / GameMap.width;
-        const scaleY = h / GameMap.height;
-
-        const imageData = ctx.createImageData(w, h);
-        const data = imageData.data;
-
-        for (let py = 0; py < h; py++) {
-            const ty = Math.floor((py / h) * GameMap.height);
-            for (let px = 0; px < w; px++) {
-                const tx = Math.floor((px / w) * GameMap.width);
-                const tile = GameMap.tiles[ty][tx];
-                const c = GameMap._terrainRGB(tile.terrain, tx, ty);
-                const idx = (py * w + px) * 4;
-                data[idx] = c[0];
-                data[idx + 1] = c[1];
-                data[idx + 2] = c[2];
-                data[idx + 3] = 255;
+        const w = canvas.width, h = canvas.height;
+        const sx = w/GameMap.width, sy = h/GameMap.height;
+        const imgd = ctx.createImageData(w, h);
+        const data = imgd.data;
+        for (let py=0;py<h;py++) {
+            const ty = Math.floor((py/h)*GameMap.height);
+            for (let px=0;px<w;px++) {
+                const tx = Math.floor((px/w)*GameMap.width);
+                const c = GameMap._terrainRGB(GameMap.tiles[ty][tx].terrain, tx, ty);
+                const idx = (py*w+px)*4;
+                data[idx]=c[0]; data[idx+1]=c[1]; data[idx+2]=c[2]; data[idx+3]=255;
             }
         }
-        ctx.putImageData(imageData, 0, 0);
-
+        ctx.putImageData(imgd, 0, 0);
         for (const region of GameMap.regions) {
-            if (region.owner < 0 || !region.color) continue;
-            ctx.fillStyle = region.color + '40';
-            for (const t of region.tiles) {
-                ctx.fillRect(t.x * scaleX, t.y * scaleY, scaleX + 0.5, scaleY + 0.5);
-            }
+            if (region.owner<0 || !region.color) continue;
+            ctx.fillStyle = region.color+'40';
+            for (const t of region.tiles) ctx.fillRect(t.x*sx, t.y*sy, sx+0.5, sy+0.5);
         }
-
-        ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-        ctx.lineWidth = 0.3;
-        for (let y = 0; y < GameMap.height; y++) {
-            for (let x = 0; x < GameMap.width; x++) {
-                const tile = GameMap.tiles[y][x];
-                if (tile.regionId < 0) continue;
-                const right = GameMap.getTile(x + 1, y);
-                const bottom = GameMap.getTile(x, y + 1);
-                if (right && right.regionId >= 0 && right.regionId !== tile.regionId) {
-                    ctx.beginPath();
-                    ctx.moveTo((x + 1) * scaleX, y * scaleY);
-                    ctx.lineTo((x + 1) * scaleX, (y + 1) * scaleY);
-                    ctx.stroke();
-                }
-                if (bottom && bottom.regionId >= 0 && bottom.regionId !== tile.regionId) {
-                    ctx.beginPath();
-                    ctx.moveTo(x * scaleX, (y + 1) * scaleY);
-                    ctx.lineTo((x + 1) * scaleX, (y + 1) * scaleY);
-                    ctx.stroke();
-                }
-            }
-        }
-
-        ctx.strokeStyle = 'rgba(200,168,74,0.5)';
-        ctx.lineWidth = 1;
-        for (let y = 0; y < GameMap.height; y++) {
-            for (let x = 0; x < GameMap.width; x++) {
-                const tile = GameMap.tiles[y][x];
-                if (tile.owner < 0) continue;
-                const right = GameMap.getTile(x + 1, y);
-                const bottom = GameMap.getTile(x, y + 1);
-                if (right && right.owner !== tile.owner) {
-                    ctx.beginPath();
-                    ctx.moveTo((x + 1) * scaleX, y * scaleY);
-                    ctx.lineTo((x + 1) * scaleX, (y + 1) * scaleY);
-                    ctx.stroke();
-                }
-                if (bottom && bottom.owner !== tile.owner) {
-                    ctx.beginPath();
-                    ctx.moveTo(x * scaleX, (y + 1) * scaleY);
-                    ctx.lineTo((x + 1) * scaleX, (y + 1) * scaleY);
-                    ctx.stroke();
-                }
-            }
-        }
-
         if (this._castlePlaced) {
-            const cx = (this._castlePlaced.x + 0.5) * scaleX;
-            const cy = (this._castlePlaced.y + 0.5) * scaleY;
-            const sz = Math.max(14, scaleX * 3);
-            ctx.font = `${sz}px serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.shadowColor = 'rgba(0,0,0,0.8)';
-            ctx.shadowBlur = 3;
+            const cx = (this._castlePlaced.x+0.5)*sx, cy = (this._castlePlaced.y+0.5)*sy;
+            const sz = Math.max(14, sx*3);
+            ctx.font=`${sz}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.shadowColor='rgba(0,0,0,0.8)'; ctx.shadowBlur=3;
             ctx.fillText('\u{1F3F0}', cx, cy);
-            ctx.shadowBlur = 0;
+            ctx.shadowBlur=0;
         }
-
-        const cellPx = CONFIG.CELL_SIZE;
-        const zoom = Camera.zoom;
-        const vpLeft = (Camera.x / (cellPx * zoom)) * scaleX;
-        const vpTop = (Camera.y / (cellPx * zoom)) * scaleY;
-        const vpW = (Renderer.canvas.width / (cellPx * zoom)) * scaleX;
-        const vpH = (Renderer.canvas.height / (cellPx * zoom)) * scaleY;
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(vpLeft, vpTop, vpW, vpH);
-
-        ctx.font = '11px Cinzel, serif';
-        ctx.textAlign = 'center';
+        const cpx=CONFIG.CELL_SIZE, zm=Camera.zoom;
+        ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
+        ctx.strokeRect((Camera.x/(cpx*zm))*sx, (Camera.y/(cpx*zm))*sy,
+                       (Renderer.canvas.width/(cpx*zm))*sx, (Renderer.canvas.height/(cpx*zm))*sy);
+        ctx.font='11px Cinzel,serif'; ctx.textAlign='center';
         for (const region of GameMap.regions) {
-            if (region.owner < 0 || !region.name) continue;
-            const cx = region.center.x * scaleX;
-            const cy = region.center.y * scaleY;
-            ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.fillRect(cx - 40, cy + 8, 80, 14);
-            ctx.fillStyle = region.color || '#fff';
-            ctx.fillText(region.name, cx, cy + 18);
+            if (region.owner<0 || !region.name) continue;
+            const cx=region.center.x*sx, cy=region.center.y*sy;
+            ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(cx-40,cy+8,80,14);
+            ctx.fillStyle=region.color||'#fff'; ctx.fillText(region.name, cx, cy+18);
         }
     }
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    Game.init();
-});
+document.addEventListener('DOMContentLoaded', () => { Game.init(); });
 
 
     </script>
