@@ -284,8 +284,12 @@ const Renderer = {
                 const lg = Math.max(0, Math.min(255, Math.round(rgb[1] * light)));
                 const lb = Math.max(0, Math.min(255, Math.round(rgb[2] * light)));
 
-                // Draw top face (smooth quad)
-                ctx.fillStyle = `rgb(${lr},${lg},${lb})`;
+                // Draw top face (smooth quad - slightly expanded to prevent seams)
+                const fillColor = `rgb(${lr},${lg},${lb})`;
+                ctx.fillStyle = fillColor;
+                ctx.strokeStyle = fillColor;
+                ctx.lineWidth = 1.0;
+                ctx.lineJoin = 'round';
                 ctx.beginPath();
                 ctx.moveTo(topPt.x, topPt.y);
                 ctx.lineTo(rightPt.x, rightPt.y);
@@ -293,6 +297,7 @@ const Renderer = {
                 ctx.lineTo(leftPt.x, leftPt.y);
                 ctx.closePath();
                 ctx.fill();
+                ctx.stroke();
 
                 // Side faces for depth effect (only draw visible sides)
                 const sideDepth = tileH * 0.6;

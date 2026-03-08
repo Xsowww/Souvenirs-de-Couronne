@@ -31,6 +31,14 @@ const Game = {
     _lastTick: 0,
     _tickInterval: 5000, // ms between production ticks
 
+    // Time system
+    _gameMinute: 0,
+    _gameHour: 6,  // Start at 6:00 AM
+    _gameDay: 1,
+    _timeSpeed: 1,  // 0=paused, 1=normal, 2=fast, 3=very fast
+    _lastTimeUpdate: 0,
+    _timeSpeedMultipliers: [0, 1, 3, 6],
+
     init() {
         document.getElementById('btn-new-game').addEventListener('click', () => this.newGame());
         document.getElementById('btn-continue').addEventListener('click', () => {});
@@ -71,6 +79,12 @@ const Game = {
         // Building detail panel close
         document.getElementById('building-detail-close').addEventListener('click', () => this._closeBuildingDetail());
 
+        // Time controls
+        document.getElementById('btn-pause').addEventListener('click', () => this._togglePause());
+        document.getElementById('btn-speed1').addEventListener('click', () => this._setTimeSpeed(1));
+        document.getElementById('btn-speed2').addEventListener('click', () => this._setTimeSpeed(2));
+        document.getElementById('btn-speed3').addEventListener('click', () => this._setTimeSpeed(3));
+
         // Key bindings
         window.addEventListener('keydown', (e) => {
             if (e.key === 'm' || e.key === 'M') {
@@ -90,6 +104,13 @@ const Game = {
                 else if (this._selectedBuilding !== null) this._closeBuildingDetail();
                 else if (this._infoPanelOpen) this._closeInfoPanel();
             }
+            if (e.key === ' ' && this._running) {
+                e.preventDefault();
+                this._togglePause();
+            }
+            if (e.key === '1' && this._running) this._setTimeSpeed(1);
+            if (e.key === '2' && this._running) this._setTimeSpeed(2);
+            if (e.key === '3' && this._running) this._setTimeSpeed(3);
         });
     },
 
@@ -333,6 +354,14 @@ const Game = {
         this._selectedBuilding = null;
         this._lastTick = Date.now();
 
+        // Init time system
+        this._gameMinute = 0;
+        this._gameHour = 6;
+        this._gameDay = 1;
+        this._timeSpeed = 1;
+        this._lastTimeUpdate = Date.now();
+        this._prevSpeed = 1;
+
         // Init resources
         this.resources = { ...CONFIG.START_RESOURCES };
         this.buildings = [];
@@ -346,6 +375,7 @@ const Game = {
         // Show HUD
         document.getElementById('hud-bar').classList.add('active');
         this._updateHUD();
+        this._updateTimeHUD();
 
         // Build the build menu items
         this._buildBuildMenu();
@@ -409,8 +439,12 @@ const Game = {
     // ==================== PRODUCTION TICK ====================
 
     _productionTick() {
+        // No production when paused
+        if (this._timeSpeed === 0) return;
+
         const now = Date.now();
-        if (now - this._lastTick < this._tickInterval) return;
+        const effectiveInterval = this._tickInterval / this._timeSpeedMultipliers[this._timeSpeed];
+        if (now - this._lastTick < effectiveInterval) return;
         this._lastTick = now;
 
         for (let i = 0; i < this.buildings.length; i++) {
@@ -868,11 +902,82 @@ const Game = {
         this._renderBuildingDetail();
     },
 
+    // ==================== TIME SYSTEM ====================
+
+    _updateGameTime() {
+        const now = Date.now();
+        if (this._lastTimeUpdate === 0) {
+            this._lastTimeUpdate = now;
+            return;
+        }
+
+        if (this._timeSpeed === 0) {
+            this._lastTimeUpdate = now;
+            return; // Paused
+        }
+
+        const deltaMs = now - this._lastTimeUpdate;
+        this._lastTimeUpdate = now;
+
+        // 1 real second = 1 game minute at speed 1
+        const gameMinutesElapsed = (deltaMs / 1000) * this._timeSpeedMultipliers[this._timeSpeed];
+
+        this._gameMinute += gameMinutesElapsed;
+
+        while (this._gameMinute >= 60) {
+            this._gameMinute -= 60;
+            this._gameHour++;
+            if (this._gameHour >= 24) {
+                this._gameHour = 0;
+                this._gameDay++;
+            }
+        }
+
+        this._updateTimeHUD();
+    },
+
+    _updateTimeHUD() {
+        const hourStr = String(Math.floor(this._gameHour)).padStart(2, '0');
+        const minStr = String(Math.floor(this._gameMinute)).padStart(2, '0');
+        const timeEl = document.getElementById('hud-time');
+        const dayEl = document.getElementById('hud-day');
+        if (timeEl) timeEl.textContent = `${hourStr}:${minStr}`;
+        if (dayEl) dayEl.textContent = `Jour ${this._gameDay}`;
+
+        // Update speed buttons appearance
+        const pauseBtn = document.getElementById('btn-pause');
+        const speed1Btn = document.getElementById('btn-speed1');
+        const speed2Btn = document.getElementById('btn-speed2');
+        const speed3Btn = document.getElementById('btn-speed3');
+        if (pauseBtn) {
+            pauseBtn.classList.toggle('active-speed', this._timeSpeed === 0);
+            speed1Btn.classList.toggle('active-speed', this._timeSpeed === 1);
+            speed2Btn.classList.toggle('active-speed', this._timeSpeed === 2);
+            speed3Btn.classList.toggle('active-speed', this._timeSpeed === 3);
+        }
+    },
+
+    _setTimeSpeed(speed) {
+        this._timeSpeed = speed;
+        this._updateTimeHUD();
+    },
+
+    _togglePause() {
+        if (this._timeSpeed === 0) {
+            this._timeSpeed = this._prevSpeed || 1;
+        } else {
+            this._prevSpeed = this._timeSpeed;
+            this._timeSpeed = 0;
+        }
+        this._updateTimeHUD();
+    },
+
     // ==================== GAME LOOP ====================
 
     _gameLoop() {
         if (!this._running) return;
         Camera.update();
+        this._updateGameTime();
         this._productionTick();
         Renderer.render();
         requestAnimationFrame(() => this._gameLoop());
