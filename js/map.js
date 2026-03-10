@@ -485,19 +485,20 @@ const GameMap = {
     _terrainRGB(terrain, x, y) {
         // Subtle per-tile variation
         const hash = ((x * 7919 + y * 6271) & 0xFFFF) / 0xFFFF;
-        const v = (hash - 0.5) * 12;
+        const v = (hash - 0.5) * 10;
 
+        // 4 main colors: bleu=eau, vert clair=plaine, vert fonce=foret, gris=roche
         switch (terrain) {
-            case CONFIG.TERRAIN.DEEP_WATER:  return [22 + v, 62 + v, 110 + v];
-            case CONFIG.TERRAIN.WATER:       return [38 + v, 88 + v, 140 + v];
-            case CONFIG.TERRAIN.SAND:        return [194 + v, 178 + v, 128 + v];
-            case CONFIG.TERRAIN.PLAINS:      return [148 + v, 176 + v, 72 + v];
-            case CONFIG.TERRAIN.GRASS:       return [88 + v, 148 + v, 52 + v];
-            case CONFIG.TERRAIN.FOREST:      return [42 + v, 92 + v, 38 + v];
-            case CONFIG.TERRAIN.DENSE_FOREST:return [24 + v, 62 + v, 26 + v];
-            case CONFIG.TERRAIN.HILLS:       return [132 + v, 112 + v, 78 + v];
-            case CONFIG.TERRAIN.MOUNTAIN:    return [108 + v, 104 + v, 98 + v];
-            case CONFIG.TERRAIN.SNOW_PEAK:   return [210 + v, 215 + v, 220 + v];
+            case CONFIG.TERRAIN.DEEP_WATER:  return [22 + v, 55 + v, 105 + v];   // bleu fonce
+            case CONFIG.TERRAIN.WATER:       return [35 + v, 80 + v, 135 + v];   // bleu
+            case CONFIG.TERRAIN.SAND:        return [130 + v, 165 + v, 75 + v];  // vert clair (plaine)
+            case CONFIG.TERRAIN.PLAINS:      return [125 + v, 170 + v, 70 + v];  // vert clair
+            case CONFIG.TERRAIN.GRASS:       return [115 + v, 160 + v, 65 + v];  // vert clair
+            case CONFIG.TERRAIN.FOREST:      return [40 + v, 85 + v, 35 + v];    // vert fonce
+            case CONFIG.TERRAIN.DENSE_FOREST:return [28 + v, 65 + v, 25 + v];    // vert fonce
+            case CONFIG.TERRAIN.HILLS:       return [128 + v, 120 + v, 110 + v]; // gris
+            case CONFIG.TERRAIN.MOUNTAIN:    return [105 + v, 100 + v, 95 + v];  // gris fonce
+            case CONFIG.TERRAIN.SNOW_PEAK:   return [90 + v, 88 + v, 85 + v];    // gris tres fonce
             default:                         return [40, 40, 40];
         }
     }

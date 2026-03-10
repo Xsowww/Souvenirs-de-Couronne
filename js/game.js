@@ -524,10 +524,32 @@ const Game = {
         const idleEl = document.getElementById('hud-idle-families');
         if (idleEl) idleEl.textContent = idleFamilies;
 
-        // Arriving families
+        // Arriving families with arrival time
         const arrivingCount = this._pendingFamilies ? this._pendingFamilies.length : 0;
         const arrEl = document.getElementById('hud-arriving');
         if (arrEl) arrEl.textContent = arrivingCount;
+
+        // Arriving tooltip with ETA
+        const arrTipEl = document.getElementById('arriving-tooltip');
+        if (arrTipEl && this._pendingFamilies) {
+            if (this._pendingFamilies.length === 0) {
+                arrTipEl.innerHTML = '<div style="color:#6a5a3a;">Aucune famille en route</div>';
+            } else {
+                let arrHtml = '';
+                const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+                for (const p of this._pendingFamilies) {
+                    const hoursLeft = Math.max(0, p.arrivalGameHours - currentGH);
+                    const arrDay = Math.floor(p.arrivalGameHours / 24) + 1;
+                    const arrHour = Math.floor(p.arrivalGameHours % 24);
+                    const arrMin = Math.floor((p.arrivalGameHours % 1) * 60);
+                    const etaStr = hoursLeft < 1
+                        ? `< 1h`
+                        : `~${Math.floor(hoursLeft)}h`;
+                    arrHtml += `<div class="sat-demand"><span>${p.family.name}</span><span style="color:var(--gold-light);">Jour ${arrDay} ${String(arrHour).padStart(2,'0')}:${String(arrMin).padStart(2,'0')} (${etaStr})</span></div>`;
+                }
+                arrTipEl.innerHTML = `<div style="color:var(--gold);font-family:Cinzel,serif;font-size:0.72rem;margin-bottom:4px;">Familles en route</div>` + arrHtml;
+            }
+        }
 
         // Satisfaction
         const sat = this._getSatisfaction();
@@ -1064,6 +1086,7 @@ const Game = {
                     this.families[newFamIdx].buildingIdx = bIdx;
                     this.families[newFamIdx].job = b.type;
                 }
+                this._updateHUD();
                 this._renderBuildingDetail();
             });
         }
@@ -1282,6 +1305,8 @@ const Game = {
         this._updateGameTime();
         this._productionTick();
         this._checkPendingArrivals();
+        // Live-refresh build menu if open
+        if (this._buildMode) this._refreshBuildMenu();
         Renderer.render();
         requestAnimationFrame(() => this._gameLoop());
     },
@@ -1299,13 +1324,32 @@ const Game = {
                 const maxFam = this.getMaxFamilies();
                 if (this.families.length < maxFam) {
                     this.families.push(pending.family);
+                    this._showNotification(`\u{1F46A} ${pending.family.name} est arrivee au village !`, '#a8d8a8');
                     changed = true;
                 }
                 this._pendingFamilies.splice(i, 1);
             }
         }
 
-        if (changed) this._updateHUD();
+        if (changed) {
+            this._updateHUD();
+            // Queue more families if housing still available
+            this._checkRecruitFamily();
+        }
+    },
+
+    _showNotification(text, color) {
+        const container = document.getElementById('notifications-container');
+        if (!container) return;
+        const notif = document.createElement('div');
+        notif.className = 'notification';
+        if (color) notif.style.color = color;
+        notif.textContent = text;
+        container.appendChild(notif);
+        setTimeout(() => {
+            notif.classList.add('fade-out');
+            setTimeout(() => notif.remove(), 500);
+        }, 3500);
     },
 
     onMapClick(cellX, cellY) {

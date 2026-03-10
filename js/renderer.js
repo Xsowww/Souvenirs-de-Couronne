@@ -170,26 +170,6 @@ const Renderer = {
         const endTX   = Math.min(GameMap.width,  Math.ceil(srcX + srcW) + 1);
         const endTY   = Math.min(GameMap.height, Math.ceil(srcY + srcH) + 1);
 
-        // ── Trees & rocks ─────────────────────────────────────────────────────
-        for (let ty = startTY; ty < endTY; ty++) {
-            for (let tx = startTX; tx < endTX; tx++) {
-                const tile = GameMap.tiles[ty][tx];
-                const sx   = (tx + 0.5) * cellSize * zoom - Camera.x;
-                const sy   = (ty + 0.5) * cellSize * zoom - Camera.y;
-
-                if (tile.terrain === CONFIG.TERRAIN.FOREST ||
-                    tile.terrain === CONFIG.TERRAIN.DENSE_FOREST) {
-                    this._drawTopDownTree(ctx, sx, sy, zoom,
-                        tile.terrain === CONFIG.TERRAIN.DENSE_FOREST, tx, ty);
-                }
-                if (tile.terrain === CONFIG.TERRAIN.HILLS ||
-                    tile.terrain === CONFIG.TERRAIN.MOUNTAIN) {
-                    this._drawTopDownRock(ctx, sx, sy, zoom,
-                        tile.terrain === CONFIG.TERRAIN.MOUNTAIN, tx, ty);
-                }
-            }
-        }
-
         // ── Buildings ─────────────────────────────────────────────────────────
         if (typeof Game !== 'undefined') {
             for (let i = 0; i < Game.buildings.length; i++) {

@@ -940,6 +940,27 @@ body {
 .bd-category .bd-section:last-child { border-bottom: none; }
 
 /* ===== SATISFACTION TOOLTIP ===== */
+#hud-arriving-wrap {
+    position: relative;
+    cursor: pointer;
+}
+#arriving-tooltip {
+    display: none;
+    position: absolute;
+    top: 36px;
+    right: 0;
+    background: linear-gradient(180deg, #2a1a0c 0%, #1a100a 100%);
+    border: 1px solid var(--gold-dark);
+    border-radius: 6px;
+    padding: 8px 12px;
+    min-width: 240px;
+    font-family: 'MedievalSharp', serif;
+    font-size: 0.75rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.7);
+    z-index: 30;
+}
+#hud-arriving-wrap:hover #arriving-tooltip { display: block; }
+
 #hud-satisfaction-wrap {
     position: relative;
     cursor: pointer;
@@ -963,6 +984,44 @@ body {
 .sat-demand { display: flex; justify-content: space-between; padding: 2px 0; }
 .sat-demand-met { color: #a8d8a8; }
 .sat-demand-unmet { color: #d88888; }
+
+/* ===== NOTIFICATIONS ===== */
+#notifications-container {
+    position: fixed;
+    top: 54px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 55;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+}
+.notification {
+    background: linear-gradient(180deg, #2a1a0c 0%, #1a100a 100%);
+    border: 1px solid var(--gold-dark);
+    border-radius: 6px;
+    padding: 8px 18px;
+    font-family: 'MedievalSharp', serif;
+    font-size: 0.85rem;
+    color: var(--parchment);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.7);
+    animation: notifSlide 0.3s ease-out;
+    pointer-events: auto;
+    white-space: nowrap;
+}
+.notification.fade-out {
+    animation: notifFade 0.5s ease-in forwards;
+}
+@keyframes notifSlide {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes notifFade {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-10px); }
+}
     </style>
 </head>
 <body>
@@ -1056,15 +1115,10 @@ body {
                     </div>
                 </div>
                 <div class="placement-legend">
-                    <div class="legend-item"><div class="legend-color" style="background:#164270"></div>Eau</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#c2b280"></div>Sable</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#94b048"></div>Plaine</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#589434"></div>Prairie</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#2a5c26"></div>Foret</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#183e1a"></div>Foret dense</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#84704e"></div>Collines</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#6c6862"></div>Montagne</div>
-                    <div class="legend-item"><div class="legend-color" style="background:#d2d7dc"></div>Sommet</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#2350a0"></div>Eau</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#7daa46"></div>Plaine</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#285523"></div>Foret</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#80786e"></div>Roche</div>
                 </div>
                 <div id="placement-info">Survolez la carte pour choisir un emplacement...</div>
                 <button id="btn-confirm-placement" class="menu-btn" disabled>Fonder le Royaume</button>
@@ -1131,9 +1185,10 @@ body {
                     <span class="hud-val" id="hud-idle-families">0</span>
                 </div>
                 <div class="hud-separator"></div>
-                <div class="hud-housing" title="Familles en route">
+                <div class="hud-housing" id="hud-arriving-wrap">
                     <span class="hud-icon">&#x1F6B6;</span>
                     <span class="hud-val" id="hud-arriving">0</span>
+                    <div id="arriving-tooltip"></div>
                 </div>
                 <div class="hud-separator"></div>
                 <div class="hud-housing" id="hud-satisfaction-wrap">
@@ -1192,6 +1247,9 @@ body {
             <button id="btn-wake-up" class="menu-btn">Se reveiller</button>
         </div>
     </div>
+
+    <!-- Notifications -->
+    <div id="notifications-container"></div>
 
     <script src="js/perlin.js"></script>
     <script src="js/config.js"></script>

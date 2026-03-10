@@ -70,9 +70,9 @@ const CONFIG = {
             icon: '\u{1FA93}',
             cost: { wood: 10 },
             job: 'Bucheron',
-            description: 'Produit du bois',
+            description: 'Produit du bois. Se place en foret.',
             production: { wood: 3 },
-            terrain: null, // can be placed on any valid terrain
+            terrain: [5, 6], // forest and dense forest only
             upgrades: [
                 { name: 'Niveau 2', cost: { wood: 15, stone: 5 }, productionBonus: { wood: 2 } },
                 { name: 'Niveau 3', cost: { wood: 25, stone: 10, iron: 3 }, productionBonus: { wood: 3 } }
@@ -83,9 +83,9 @@ const CONFIG = {
             icon: '\u{1F3E0}',
             cost: { wood: 8 },
             job: null, // no job - provides housing
-            description: 'Accueille une famille supplementaire',
+            description: 'Accueille une famille supplementaire. Se place en plaine.',
             production: null,
-            terrain: null,
+            terrain: [2, 3, 4], // sand, plains, grass
             upgrades: [
                 { name: 'Niveau 2', cost: { wood: 12, stone: 5 }, bonus: 'Accueille 2 familles' },
                 { name: 'Niveau 3', cost: { wood: 20, stone: 12, iron: 3 }, bonus: 'Accueille 3 familles' }
@@ -109,9 +109,9 @@ const CONFIG = {
             icon: '\u{1F3ED}',
             cost: { wood: 12, stone: 5 },
             job: null,
-            description: 'Augmente le stockage de +50',
+            description: 'Augmente le stockage de +50. Se place en plaine.',
             production: null,
-            terrain: null,
+            terrain: [2, 3, 4], // sand, plains, grass
             upgrades: [
                 { name: 'Niveau 2', cost: { wood: 18, stone: 10, iron: 3 }, bonus: '+75 stockage' },
                 { name: 'Niveau 3', cost: { wood: 25, stone: 20, iron: 8 }, bonus: '+100 stockage' }
@@ -122,9 +122,9 @@ const CONFIG = {
             icon: '\u{1F525}',
             cost: { wood: 15, stone: 8 },
             job: 'Fondeur',
-            description: 'Fond les lingots en fer ou or brut',
+            description: 'Fond les lingots en fer ou or brut. Se place en plaine.',
             production: { iron: 2, gold: 1 },
-            terrain: null,
+            terrain: [2, 3, 4], // sand, plains, grass
             upgrades: [
                 { name: 'Niveau 2', cost: { wood: 20, stone: 12, iron: 5 }, productionBonus: { iron: 1, gold: 1 } },
                 { name: 'Niveau 3', cost: { wood: 30, stone: 20, iron: 12, gold: 3 }, productionBonus: { iron: 2, gold: 2 } }
@@ -135,9 +135,9 @@ const CONFIG = {
             icon: '\u{1F3EA}',
             cost: { wood: 15, stone: 10, gold: 2 },
             job: 'Marchand',
-            description: 'Augmente la satisfaction. Produit de l\'or via le commerce',
+            description: 'Augmente la satisfaction. Produit de l\'or via le commerce. Se place en plaine.',
             production: { gold: 2, food: 1 },
-            terrain: null,
+            terrain: [2, 3, 4], // sand, plains, grass
             satisfactionBonus: 20,
             upgrades: [
                 { name: 'Niveau 2', cost: { wood: 20, stone: 15, gold: 5 }, productionBonus: { gold: 1, food: 1 } },
@@ -149,9 +149,9 @@ const CONFIG = {
             icon: '\u{2694}',
             cost: { wood: 20, stone: 15, iron: 5 },
             job: 'Soldat',
-            description: 'Entraine des soldats. Augmente la securite et la satisfaction',
+            description: 'Entraine des soldats. Augmente la securite et la satisfaction. Se place en plaine.',
             production: null,
-            terrain: null,
+            terrain: [2, 3, 4], // sand, plains, grass
             satisfactionBonus: 15,
             upgrades: [
                 { name: 'Niveau 2', cost: { wood: 25, stone: 20, iron: 10 }, bonus: 'Soldats veterants (+atk/def)' },
