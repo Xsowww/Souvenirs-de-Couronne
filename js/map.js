@@ -31,7 +31,7 @@ const GameMap = {
                 const falloff = Math.max(0, 1 - distFromCenter * 1.1);
                 const finalElev = elevation * 0.7 + falloff * 0.3;
 
-                const terrain = this._elevToTerrain(finalElev, moisture);
+                const terrain = this._elevToTerrain(finalElev, moisture, x, y);
 
                 this.tiles[y][x] = {
                     x, y,
@@ -56,20 +56,41 @@ const GameMap = {
         if (onProgress) onProgress(1.0);
     },
 
-    _elevToTerrain(elev, moisture) {
+    _elevToTerrain(elev, moisture, x, y) {
         if (elev < -0.30) return CONFIG.TERRAIN.DEEP_WATER;
         if (elev < -0.15) return CONFIG.TERRAIN.WATER;
         if (elev < -0.08) return CONFIG.TERRAIN.SAND;
-        if (elev < 0.02) return CONFIG.TERRAIN.PLAINS;
-        if (elev < 0.15) {
-            return moisture > 0.15 ? CONFIG.TERRAIN.FOREST :
+
+        // Quadrant bias: modify thresholds based on map position
+        // NW (top-left): more forest     NE (top-right): more plains
+        // SW (bottom-left): more hills   SE (bottom-right): more rocks/mountain
+        let plainsBias = 0, forestBias = 0, hillsBias = 0;
+        if (x !== undefined && y !== undefined) {
+            const nx = x / this.width;   // 0..1
+            const ny = y / this.height;  // 0..1
+            // How far right (0=left, 1=right) and down (0=top, 1=bottom)
+            const rightFactor = (nx - 0.5) * 2;  // -1..1
+            const downFactor  = (ny - 0.5) * 2;  // -1..1
+
+            // NE = right+top → more plains, less rock
+            // NW = left+top → more forest
+            // SE = right+bottom → more rock/mountain
+            // SW = left+bottom → more hills
+            plainsBias = rightFactor * (1 - Math.abs(downFactor)) * 0.04;   // NE gets +plains
+            forestBias = -rightFactor * (1 - Math.abs(downFactor)) * 0.04;  // NW gets +forest
+            hillsBias  = downFactor * 0.04;                                  // bottom gets +hills/rocks
+        }
+
+        if (elev < 0.02 + plainsBias) return CONFIG.TERRAIN.PLAINS;
+        if (elev < 0.15 + forestBias) {
+            return moisture > 0.15 - forestBias ? CONFIG.TERRAIN.FOREST :
                    moisture > -0.05 ? CONFIG.TERRAIN.GRASS : CONFIG.TERRAIN.PLAINS;
         }
-        if (elev < 0.25) {
-            return moisture > 0.2 ? CONFIG.TERRAIN.DENSE_FOREST : CONFIG.TERRAIN.FOREST;
+        if (elev < 0.25 + forestBias * 0.5) {
+            return moisture > 0.2 - forestBias ? CONFIG.TERRAIN.DENSE_FOREST : CONFIG.TERRAIN.FOREST;
         }
-        if (elev < 0.38) return CONFIG.TERRAIN.HILLS;
-        if (elev < 0.50) return CONFIG.TERRAIN.MOUNTAIN;
+        if (elev < 0.38 - hillsBias) return CONFIG.TERRAIN.HILLS;
+        if (elev < 0.50 - hillsBias * 0.5) return CONFIG.TERRAIN.MOUNTAIN;
         return CONFIG.TERRAIN.SNOW_PEAK;
     },
 
@@ -158,9 +179,11 @@ const GameMap = {
     },
 
     // Check if an area is suitable for a kingdom
+    // Must have enough land AND access to all key terrain types in the region
     isValidKingdomSpot(x, y) {
         const radius = 6;
         let landCount = 0;
+        const terrainTypes = new Set();
         for (let dy = -radius; dy <= radius; dy++) {
             for (let dx = -radius; dx <= radius; dx++) {
                 if (dx * dx + dy * dy > radius * radius) continue;
@@ -168,9 +191,28 @@ const GameMap = {
                 if (tile && tile.terrain > CONFIG.TERRAIN.WATER && tile.terrain < CONFIG.TERRAIN.MOUNTAIN) {
                     landCount++;
                 }
+                if (tile) terrainTypes.add(tile.terrain);
             }
         }
-        return landCount >= 60;
+        if (landCount < 60) return false;
+
+        // Check that the wider region (radius 20) has all key terrains
+        const wideRadius = 20;
+        const wideTerrains = new Set();
+        for (let dy = -wideRadius; dy <= wideRadius; dy += 2) {
+            for (let dx = -wideRadius; dx <= wideRadius; dx += 2) {
+                if (dx * dx + dy * dy > wideRadius * wideRadius) continue;
+                const tile = this.getTile(x + dx, y + dy);
+                if (tile) wideTerrains.add(tile.terrain);
+            }
+        }
+
+        // Must have at least: plains/grass (build), forest (wood), hills/mountain (mine)
+        const hasPlains = wideTerrains.has(CONFIG.TERRAIN.PLAINS) || wideTerrains.has(CONFIG.TERRAIN.GRASS) || wideTerrains.has(CONFIG.TERRAIN.SAND);
+        const hasForest = wideTerrains.has(CONFIG.TERRAIN.FOREST) || wideTerrains.has(CONFIG.TERRAIN.DENSE_FOREST);
+        const hasRock = wideTerrains.has(CONFIG.TERRAIN.HILLS) || wideTerrains.has(CONFIG.TERRAIN.MOUNTAIN);
+
+        return hasPlains && hasForest && hasRock;
     },
 
     // Check if position is too close to map center (forbidden zone)
@@ -322,6 +364,27 @@ const GameMap = {
         }
 
         ctx.putImageData(imageData, 0, 0);
+
+        // Draw quadrant overlays (4 corners)
+        const quadrantColors = [
+            'rgba(34,120,50,',   // NW - vert foret
+            'rgba(180,160,50,',  // NE - dore plaines
+            'rgba(50,90,160,',   // SW - bleu collines
+            'rgba(160,60,40,',   // SE - rouge roche
+        ];
+        const hw2 = w / 2, hh2 = h / 2;
+        for (let qi = 0; qi < 4; qi++) {
+            const qx = (qi % 2) * hw2;
+            const qy = Math.floor(qi / 2) * hh2;
+            const grad = ctx.createRadialGradient(
+                qi % 2 === 0 ? 0 : w, Math.floor(qi / 2) === 0 ? 0 : h, 0,
+                qi % 2 === 0 ? 0 : w, Math.floor(qi / 2) === 0 ? 0 : h, Math.max(hw2, hh2)
+            );
+            grad.addColorStop(0, quadrantColors[qi] + '0.12)');
+            grad.addColorStop(1, quadrantColors[qi] + '0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+        }
 
         // Draw region borders (subtle)
         ctx.strokeStyle = 'rgba(0,0,0,0.12)';

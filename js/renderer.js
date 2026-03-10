@@ -78,6 +78,47 @@ const Renderer = {
         }
         octx.putImageData(oimgd, 0, 0);
 
+        // ── Quadrant region overlay (4 corners with distinct colors) ─────────
+        this._quadrantBuffer = document.createElement('canvas');
+        this._quadrantBuffer.width  = w;
+        this._quadrantBuffer.height = h;
+        const qctx  = this._quadrantBuffer.getContext('2d');
+        const qimgd = qctx.createImageData(w, h);
+        const qd    = qimgd.data;
+
+        // Corner colors: NW=green(forest), NE=gold(plains), SE=red(rocks), SW=blue(hills)
+        const quadrantColors = [
+            { r: 34, g: 120, b: 50 },   // NW - vert foret
+            { r: 180, g: 160, b: 50 },  // NE - dore plaines
+            { r: 160, g: 60, b: 40 },   // SE - rouge roche
+            { r: 50, g: 90, b: 160 },   // SW - bleu collines
+        ];
+
+        const hw = w / 2, hh = h / 2;
+        for (let ty = 0; ty < h; ty++) {
+            for (let tx = 0; tx < w; tx++) {
+                const tile = GameMap.tiles[ty][tx];
+                if (tile.terrain <= CONFIG.TERRAIN.WATER) continue;
+
+                // Determine quadrant: 0=NW, 1=NE, 2=SE, 3=SW
+                const qIdx = (tx >= hw ? 1 : 0) + (ty >= hh ? 2 : 0);
+                const qc = quadrantColors[qIdx];
+
+                // Fade alpha: stronger at corners, fading toward center
+                const dx = Math.abs(tx - hw) / hw;
+                const dy = Math.abs(ty - hh) / hh;
+                const cornerDist = Math.min(1, Math.sqrt(dx * dx + dy * dy));
+                const alpha = Math.round(cornerDist * 28); // max ~28/255 = ~11% opacity
+
+                const idx = (ty * w + tx) * 4;
+                qd[idx]     = qc.r;
+                qd[idx + 1] = qc.g;
+                qd[idx + 2] = qc.b;
+                qd[idx + 3] = alpha;
+            }
+        }
+        qctx.putImageData(qimgd, 0, 0);
+
         this._bufferDirty = false;
     },
 
@@ -113,6 +154,11 @@ const Renderer = {
 
         // ── Territory overlay (same smooth upscale) ───────────────────────────
         ctx.drawImage(this._overlayBuffer, srcX, srcY, srcW, srcH, 0, 0, cw, ch);
+
+        // ── Quadrant region overlay ─────────────────────────────────────────
+        if (this._quadrantBuffer) {
+            ctx.drawImage(this._quadrantBuffer, srcX, srcY, srcW, srcH, 0, 0, cw, ch);
+        }
         ctx.imageSmoothingEnabled = false; // pixel-sharp for details below
 
         // ── Visible tile range ────────────────────────────────────────────────
@@ -264,7 +310,7 @@ const Renderer = {
 
     // ─── Lumberjack (round brown roof + log pile) ─────────────────────────────
     _drawTopLumberjack(ctx, sx, sy, s) {
-        const r = s * 0.3;
+        const r = s * 0.42;
         ctx.fillStyle = 'rgba(0,0,0,0.2)';
         ctx.beginPath(); ctx.arc(sx + s*0.04, sy + s*0.04, r, 0, Math.PI*2); ctx.fill();
 
@@ -288,7 +334,7 @@ const Renderer = {
 
     // ─── House (orange-brown thatch roof + chimney) ───────────────────────────
     _drawTopHouse(ctx, sx, sy, s) {
-        const r = s * 0.32;
+        const r = s * 0.44;
         ctx.fillStyle = 'rgba(0,0,0,0.18)';
         ctx.beginPath(); ctx.arc(sx + s*0.04, sy + s*0.04, r, 0, Math.PI*2); ctx.fill();
 
@@ -308,7 +354,7 @@ const Renderer = {
 
     // ─── Mine (dark rock with opening) ────────────────────────────────────────
     _drawTopMine(ctx, sx, sy, s) {
-        const r = s * 0.34;
+        const r = s * 0.46;
         ctx.fillStyle = 'rgba(0,0,0,0.22)';
         ctx.beginPath(); ctx.arc(sx + s*0.05, sy + s*0.05, r, 0, Math.PI*2); ctx.fill();
 
@@ -329,7 +375,7 @@ const Renderer = {
 
     // ─── Warehouse (large flat roof + beam lines) ─────────────────────────────
     _drawTopWarehouse(ctx, sx, sy, s) {
-        const r = s * 0.4;
+        const r = s * 0.52;
         ctx.fillStyle = 'rgba(0,0,0,0.22)';
         ctx.beginPath(); ctx.arc(sx + s*0.05, sy + s*0.05, r, 0, Math.PI*2); ctx.fill();
 
@@ -350,7 +396,7 @@ const Renderer = {
 
     // ─── Foundry (dark stone + fire glow, animated) ───────────────────────────
     _drawTopFoundry(ctx, sx, sy, s) {
-        const r       = s * 0.35;
+        const r       = s * 0.48;
         const now     = Date.now();
         const flicker = Math.sin(now / 140) * 0.15 + 0.85;
 
@@ -389,7 +435,7 @@ const Renderer = {
     // ─── Castle (top-down stone keep + 4 towers + flag) ──────────────────────
     _drawTopDownCastle(ctx, sx, sy, s) {
         const now = Date.now();
-        const r   = s * 0.44;
+        const r   = s * 0.58;
 
         // Shadow
         ctx.fillStyle = 'rgba(0,0,0,0.28)';

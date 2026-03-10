@@ -52,6 +52,7 @@ const Game = {
         });
 
         document.getElementById('btn-confirm-placement').addEventListener('click', () => this.confirmPlacement());
+        document.getElementById('btn-wake-up').addEventListener('click', () => this._dismissDayTransition());
 
         document.getElementById('worldmap-overlay').addEventListener('click', (e) => {
             if (e.target.id === 'worldmap-overlay') this._closeWorldMap();
@@ -163,7 +164,7 @@ const Game = {
                     const distFromCenter = Math.sqrt(dx * dx + dy * dy);
                     const falloff = Math.max(0, 1 - distFromCenter * 1.1);
                     const finalElev = elevation * 0.7 + falloff * 0.3;
-                    const terrain = GameMap._elevToTerrain(finalElev, moisture);
+                    const terrain = GameMap._elevToTerrain(finalElev, moisture, x, y);
 
                     GameMap.tiles[y][x] = {
                         x, y, terrain,
@@ -339,7 +340,7 @@ const Game = {
         Camera.init(Renderer.canvas);
 
         Renderer.setIsoMode(false);
-        Camera.zoom = 2.5;
+        Camera.zoom = 4;
 
         this._running = true;
         this._worldMapOpen = false;
@@ -367,6 +368,12 @@ const Game = {
         this.families = [
             this._generateFamily()
         ];
+
+        // Scheduled family arrivals
+        this._pendingFamilies = [
+            { day: 2, count: 2 }  // 2 families arrive on day 2
+        ];
+        this._dayTransitionActive = false;
 
         // Show HUD
         document.getElementById('hud-bar').classList.add('active');
@@ -493,6 +500,21 @@ const Game = {
         document.getElementById('hud-food').textContent = this.resources.food;
         document.getElementById('hud-houses').textContent = this.getMaxFamilies();
         document.getElementById('hud-families').textContent = this.families.length;
+
+        // Free houses
+        const freeHouses = Math.max(0, this.getMaxFamilies() - this.families.length);
+        const freeEl = document.getElementById('hud-free-houses');
+        if (freeEl) freeEl.textContent = freeHouses;
+
+        // Idle families
+        const idleFamilies = this.families.filter(f => f.buildingIdx < 0).length;
+        const idleEl = document.getElementById('hud-idle-families');
+        if (idleEl) idleEl.textContent = idleFamilies;
+
+        // Arriving families
+        const arrivingCount = this._pendingFamilies ? this._pendingFamilies.reduce((sum, p) => sum + p.count, 0) : 0;
+        const arrEl = document.getElementById('hud-arriving');
+        if (arrEl) arrEl.textContent = arrivingCount;
     },
 
     // ==================== BUILD MENU ====================
@@ -764,9 +786,68 @@ const Game = {
 
         if (this._selectedBuilding === 'castle') {
             titleEl.textContent = '\u{1F3F0} Chateau';
-            let html = `<div class="bd-section"><div class="bd-label">Description</div><div class="bd-value">Le coeur de votre royaume. Centre de commandement.</div></div>`;
+            let html = '';
+
+            // === GENERAL ===
+            html += `<div class="bd-category"><div class="bd-category-title">General</div>`;
+            html += `<div class="bd-section"><div class="bd-label">Description</div><div class="bd-value">Le coeur de votre royaume. Centre de commandement.</div></div>`;
+            html += `<div class="bd-section"><div class="bd-label">Jour</div><div class="bd-value">Jour ${this._gameDay}</div></div>`;
+            html += `</div>`;
+
+            // === POPULATION ===
+            html += `<div class="bd-category"><div class="bd-category-title">Population</div>`;
             html += `<div class="bd-section"><div class="bd-label">Familles</div><div class="bd-value">${this.families.length} / ${this.getMaxFamilies()}</div></div>`;
+            const idleFamilies = this.families.filter(f => f.buildingIdx < 0).length;
+            html += `<div class="bd-section"><div class="bd-label">Sans emploi</div><div class="bd-value" style="color:${idleFamilies > 0 ? '#d8a8a8' : '#a8d8a8'}">${idleFamilies}</div></div>`;
+            if (this._pendingFamilies && this._pendingFamilies.length > 0) {
+                html += `<div class="bd-section"><div class="bd-label">En route</div><div class="bd-value">${this._pendingFamilies.length} famille(s) attendues</div></div>`;
+            }
+            html += `</div>`;
+
+            // === ECONOMIE ===
+            html += `<div class="bd-category"><div class="bd-category-title">Economie</div>`;
             html += `<div class="bd-section"><div class="bd-label">Stockage</div><div class="bd-value">${this.getStorageCapacity()} max</div></div>`;
+            // Calculate total production
+            const totalProd = {};
+            for (const b of this.buildings) {
+                const def = CONFIG.BUILDINGS[b.type];
+                if (!def || !def.production || b.familyIdx < 0) continue;
+                for (const [r, a] of Object.entries(def.production)) {
+                    totalProd[r] = (totalProd[r] || 0) + a;
+                }
+                const lvl = b.level || 1;
+                if (lvl > 1 && def.upgrades) {
+                    for (let u = 0; u < lvl - 1 && u < def.upgrades.length; u++) {
+                        const bonus = def.upgrades[u].productionBonus;
+                        if (bonus) {
+                            for (const [r, a] of Object.entries(bonus)) {
+                                totalProd[r] = (totalProd[r] || 0) + a;
+                            }
+                        }
+                    }
+                }
+            }
+            const prodStr = Object.entries(totalProd).map(([r, a]) => `+${a} ${r}`).join(', ') || 'Aucune';
+            html += `<div class="bd-section"><div class="bd-label">Production totale / cycle</div><div class="bd-value" style="color:#a8d8a8">${prodStr}</div></div>`;
+            html += `</div>`;
+
+            // === CONSTRUCTIONS ===
+            html += `<div class="bd-category"><div class="bd-category-title">Constructions</div>`;
+            const counts = {};
+            for (const b of this.buildings) {
+                counts[b.type] = (counts[b.type] || 0) + 1;
+            }
+            for (const [key, bld] of Object.entries(CONFIG.BUILDINGS)) {
+                const count = counts[key] || 0;
+                if (count > 0) {
+                    html += `<div class="bd-section"><div class="bd-label">${bld.icon} ${bld.name}</div><div class="bd-value">${count}</div></div>`;
+                }
+            }
+            if (Object.keys(counts).length === 0) {
+                html += `<div class="bd-section"><div class="bd-value" style="color:#6a5a3a;font-style:italic">Aucune construction. Appuyez sur B.</div></div>`;
+            }
+            html += `</div>`;
+
             content.innerHTML = html;
             return;
         }
@@ -916,9 +997,9 @@ const Game = {
             return;
         }
 
-        if (this._timeSpeed === 0) {
+        if (this._timeSpeed === 0 || this._dayTransitionActive) {
             this._lastTimeUpdate = now;
-            return; // Paused — freeze clock
+            return; // Paused or day transition — freeze clock
         }
 
         const deltaMs    = now - this._lastTimeUpdate;
@@ -935,10 +1016,63 @@ const Game = {
             if (this._gameHour >= 24) {
                 this._gameHour = 0;
                 this._gameDay++;
+                this._onNewDay();
             }
         }
 
         this._updateTimeHUD();
+    },
+
+    _onNewDay() {
+        // Process pending family arrivals
+        const arrivals = [];
+        if (this._pendingFamilies) {
+            for (let i = this._pendingFamilies.length - 1; i >= 0; i--) {
+                const pending = this._pendingFamilies[i];
+                if (pending.day <= this._gameDay) {
+                    const maxFam = this.getMaxFamilies();
+                    for (let j = 0; j < pending.count && this.families.length < maxFam; j++) {
+                        const fam = this._generateFamily();
+                        this.families.push(fam);
+                        arrivals.push(fam.name);
+                    }
+                    this._pendingFamilies.splice(i, 1);
+                }
+            }
+        }
+
+        // Show day transition overlay
+        this._showDayTransition(arrivals);
+    },
+
+    _showDayTransition(arrivals) {
+        this._dayTransitionActive = true;
+        const overlay = document.getElementById('day-transition-overlay');
+        const title = document.getElementById('day-transition-title');
+        const summary = document.getElementById('day-transition-summary');
+
+        title.textContent = `Jour ${this._gameDay}`;
+
+        let summaryHtml = `<strong>Resume du jour precedent :</strong><br>`;
+        summaryHtml += `Familles : ${this.families.length} / ${this.getMaxFamilies()}<br>`;
+        summaryHtml += `Bois : ${this.resources.wood} | Pierre : ${this.resources.stone} | Fer : ${this.resources.iron} | Or : ${this.resources.gold}<br>`;
+        summaryHtml += `Constructions : ${this.buildings.length}`;
+
+        if (arrivals.length > 0) {
+            summaryHtml += `<br><br><strong style="color:#a8d8a8;">Nouvelles familles arrivees !</strong><br>`;
+            for (const name of arrivals) {
+                summaryHtml += `- ${name}<br>`;
+            }
+        }
+
+        summary.innerHTML = summaryHtml;
+        overlay.classList.add('active');
+    },
+
+    _dismissDayTransition() {
+        this._dayTransitionActive = false;
+        document.getElementById('day-transition-overlay').classList.remove('active');
+        this._updateHUD();
     },
 
     _updateTimeHUD() {
