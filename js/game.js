@@ -793,29 +793,25 @@ const Game = {
         const titleEl = document.getElementById('building-detail-title');
 
         if (this._selectedBuilding === 'castle') {
-            titleEl.textContent = '\u{1F3F0} Chateau';
+            titleEl.textContent = '\u{1F3F0} Vue du Royaume';
             let html = '';
 
             // === GENERAL ===
-            html += `<div class="bd-category"><div class="bd-category-title">General</div>`;
-            html += `<div class="bd-section"><div class="bd-label">Description</div><div class="bd-value">Le coeur de votre royaume. Centre de commandement.</div></div>`;
-            html += `<div class="bd-section"><div class="bd-label">Jour</div><div class="bd-value">Jour ${this._gameDay}</div></div>`;
+            html += `<div class="bd-category"><div class="bd-category-title">Etat du Royaume</div>`;
+            html += `<div style="display:flex;justify-content:space-between;padding:4px 8px;"><span class="bd-label">Jour</span><span class="bd-value">${this._gameDay}</span></div>`;
+            html += `<div style="display:flex;justify-content:space-between;padding:4px 8px;"><span class="bd-label">Region</span><span class="bd-value">${this._getQuadrantName(this._castlePlaced.x, this._castlePlaced.y)}</span></div>`;
             html += `</div>`;
 
-            // === POPULATION ===
-            html += `<div class="bd-category"><div class="bd-category-title">Population</div>`;
-            html += `<div class="bd-section"><div class="bd-label">Familles</div><div class="bd-value">${this.families.length} / ${this.getMaxFamilies()}</div></div>`;
-            const idleFamilies = this.families.filter(f => f.buildingIdx < 0).length;
-            html += `<div class="bd-section"><div class="bd-label">Sans emploi</div><div class="bd-value" style="color:${idleFamilies > 0 ? '#d8a8a8' : '#a8d8a8'}">${idleFamilies}</div></div>`;
-            if (this._pendingFamilies && this._pendingFamilies.length > 0) {
-                html += `<div class="bd-section"><div class="bd-label">En route</div><div class="bd-value">${this._pendingFamilies.length} famille(s) attendues</div></div>`;
+            // === RESSOURCES ===
+            html += `<div class="bd-category"><div class="bd-category-title">Ressources</div>`;
+            const cap = this.getStorageCapacity();
+            const resIcons = { wood: '\u{1FAB5}', stone: '\u{1FAA8}', iron: '\u{2699}', gold: '\u{1FA99}', food: '\u{1F35E}' };
+            const resNames = { wood: 'Bois', stone: 'Pierre', iron: 'Fer', gold: 'Or', food: 'Nourriture' };
+            for (const [key, val] of Object.entries(this.resources)) {
+                const maxStr = key === 'food' ? '' : ` / ${cap}`;
+                html += `<div style="display:flex;justify-content:space-between;padding:3px 8px;"><span style="color:#8a7a5a;font-size:0.82rem;">${resIcons[key]} ${resNames[key]}</span><span style="color:var(--gold-light);font-weight:700;font-size:0.82rem;">${val}${maxStr}</span></div>`;
             }
-            html += `</div>`;
-
-            // === ECONOMIE ===
-            html += `<div class="bd-category"><div class="bd-category-title">Economie</div>`;
-            html += `<div class="bd-section"><div class="bd-label">Stockage</div><div class="bd-value">${this.getStorageCapacity()} max</div></div>`;
-            // Calculate total production
+            // Total production
             const totalProd = {};
             for (const b of this.buildings) {
                 const def = CONFIG.BUILDINGS[b.type];
@@ -827,36 +823,76 @@ const Game = {
                 if (lvl > 1 && def.upgrades) {
                     for (let u = 0; u < lvl - 1 && u < def.upgrades.length; u++) {
                         const bonus = def.upgrades[u].productionBonus;
-                        if (bonus) {
-                            for (const [r, a] of Object.entries(bonus)) {
-                                totalProd[r] = (totalProd[r] || 0) + a;
-                            }
-                        }
+                        if (bonus) { for (const [r, a] of Object.entries(bonus)) { totalProd[r] = (totalProd[r] || 0) + a; } }
                     }
                 }
             }
-            const prodStr = Object.entries(totalProd).map(([r, a]) => `+${a} ${r}`).join(', ') || 'Aucune';
-            html += `<div class="bd-section"><div class="bd-label">Production totale / cycle</div><div class="bd-value" style="color:#a8d8a8">${prodStr}</div></div>`;
+            if (Object.keys(totalProd).length > 0) {
+                const prodStr = Object.entries(totalProd).map(([r, a]) => `+${a} ${resNames[r] || r}`).join(', ');
+                html += `<div style="padding:4px 8px;margin-top:2px;border-top:1px solid rgba(200,168,74,0.1);"><span style="color:#6a5a3a;font-size:0.72rem;">Production/cycle : </span><span style="color:#a8d8a8;font-size:0.78rem;">${prodStr}</span></div>`;
+            }
             html += `</div>`;
 
-            // === CONSTRUCTIONS ===
-            html += `<div class="bd-category"><div class="bd-category-title">Constructions</div>`;
-            const counts = {};
-            for (const b of this.buildings) {
-                counts[b.type] = (counts[b.type] || 0) + 1;
+            // === POPULATION ===
+            html += `<div class="bd-category"><div class="bd-category-title">Population (${this.families.length}/${this.getMaxFamilies()})</div>`;
+            const idleFamilies = this.families.filter(f => f.buildingIdx < 0).length;
+            if (idleFamilies > 0) {
+                html += `<div style="padding:3px 8px;color:#d8a8a8;font-size:0.78rem;">\u{26A0} ${idleFamilies} famille(s) sans emploi</div>`;
             }
-            for (const [key, bld] of Object.entries(CONFIG.BUILDINGS)) {
-                const count = counts[key] || 0;
-                if (count > 0) {
-                    html += `<div class="bd-section"><div class="bd-label">${bld.icon} ${bld.name}</div><div class="bd-value">${count}</div></div>`;
+            if (this._pendingFamilies && this._pendingFamilies.length > 0) {
+                const totalPending = this._pendingFamilies.reduce((s, p) => s + p.count, 0);
+                html += `<div style="padding:3px 8px;color:#a8c8d8;font-size:0.78rem;">\u{1F6B6} ${totalPending} famille(s) en route</div>`;
+            }
+            for (let i = 0; i < this.families.length; i++) {
+                const fam = this.families[i];
+                const assigned = fam.buildingIdx >= 0 ? this.buildings[fam.buildingIdx] : null;
+                const jobStr = assigned ? CONFIG.BUILDINGS[assigned.type].job : 'Sans emploi';
+                const jobColor = assigned ? '#a8d8a8' : '#d8a8a8';
+                html += `<div class="bd-castle-family" style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;border-bottom:1px solid rgba(200,168,74,0.06);">`;
+                html += `<div><div style="color:var(--parchment);font-size:0.78rem;">${fam.name}</div><div style="color:#6a5a3a;font-size:0.68rem;">${fam.man} & ${fam.woman}</div></div>`;
+                html += `<span style="color:${jobColor};font-size:0.72rem;font-family:Cinzel,serif;">${jobStr}</span>`;
+                html += `</div>`;
+            }
+            html += `</div>`;
+
+            // === CONSTRUCTIONS (clickable) ===
+            html += `<div class="bd-category"><div class="bd-category-title">Constructions (${this.buildings.length})</div>`;
+            if (this.buildings.length === 0) {
+                html += `<div style="padding:8px;color:#6a5a3a;font-size:0.78rem;font-style:italic;text-align:center;">Aucune construction. Appuyez sur B.</div>`;
+            } else {
+                for (let i = 0; i < this.buildings.length; i++) {
+                    const b = this.buildings[i];
+                    const def = CONFIG.BUILDINGS[b.type];
+                    if (!def) continue;
+                    const lvl = b.level || 1;
+                    const hasFam = b.familyIdx >= 0;
+                    const statusColor = !def.job ? '#8a7a5a' : (hasFam ? '#a8d8a8' : '#d8a8a8');
+                    const statusText = !def.job ? '' : (hasFam ? 'Actif' : 'Inactif');
+                    html += `<div class="bd-castle-building" data-bidx="${i}" style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-bottom:1px solid rgba(200,168,74,0.06);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(200,168,74,0.08)'" onmouseout="this.style.background='transparent'">`;
+                    html += `<div><span style="font-size:1rem;">${def.icon}</span> <span style="color:var(--parchment);font-size:0.78rem;">${def.name}</span><span style="color:var(--gold);font-size:0.72rem;margin-left:4px;">Niv.${lvl}</span></div>`;
+                    html += `<div style="display:flex;align-items:center;gap:6px;">`;
+                    if (statusText) html += `<span style="color:${statusColor};font-size:0.68rem;">${statusText}</span>`;
+                    html += `<span style="color:var(--gold-dark);font-size:0.72rem;" title="Teleporter">\u{1F4CD}</span>`;
+                    html += `</div></div>`;
                 }
-            }
-            if (Object.keys(counts).length === 0) {
-                html += `<div class="bd-section"><div class="bd-value" style="color:#6a5a3a;font-style:italic">Aucune construction. Appuyez sur B.</div></div>`;
             }
             html += `</div>`;
 
             content.innerHTML = html;
+
+            // Bind click events on buildings to teleport camera
+            content.querySelectorAll('.bd-castle-building').forEach(el => {
+                el.addEventListener('click', () => {
+                    const bIdx = parseInt(el.dataset.bidx);
+                    const b = this.buildings[bIdx];
+                    if (b) {
+                        Camera.centerOnCell(b.x, b.y);
+                        this._closeBuildingDetail();
+                        this._openBuildingDetail(bIdx);
+                    }
+                });
+            });
+
             return;
         }
 
@@ -1013,9 +1049,10 @@ const Game = {
         const deltaMs    = now - this._lastTimeUpdate;
         this._lastTimeUpdate = now;
 
-        // Speed 1 → 1 real second = 1 game minute
-        // Speed 2 → 2x faster
-        const multiplier = this._timeSpeed === 2 ? 2 : 1;
+        // Speed 1 → 1 real second = 4 game minutes
+        // Speed 2 → 2x faster (8 game minutes per second)
+        const baseSpeed = 4;
+        const multiplier = (this._timeSpeed === 2 ? 2 : 1) * baseSpeed;
         this._gameMinute += (deltaMs / 1000) * multiplier;
 
         while (this._gameMinute >= 60) {

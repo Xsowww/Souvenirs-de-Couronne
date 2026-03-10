@@ -148,9 +148,11 @@ const Renderer = {
         const srcW = cw       / (cellSize * zoom);
         const srcH = ch       / (cellSize * zoom);
 
-        // ── Terrain (bilinear upscale → no visible grid) ─────────────────────
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
+        // ── Terrain ─────────────────────────────────────────────────────────
+        // At high zoom, use crisp pixels; at low zoom, smooth for overview
+        const useSmooth = zoom < 1.5;
+        ctx.imageSmoothingEnabled = useSmooth;
+        if (useSmooth) ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(this._terrainBuffer, srcX, srcY, srcW, srcH, 0, 0, cw, ch);
 
         // ── Territory overlay (same smooth upscale) ───────────────────────────

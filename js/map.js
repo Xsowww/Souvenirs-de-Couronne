@@ -76,9 +76,9 @@ const GameMap = {
             // NW = left+top → more forest
             // SE = right+bottom → more rock/mountain
             // SW = left+bottom → more hills
-            plainsBias = rightFactor * (1 - Math.abs(downFactor)) * 0.04;   // NE gets +plains
-            forestBias = -rightFactor * (1 - Math.abs(downFactor)) * 0.04;  // NW gets +forest
-            hillsBias  = downFactor * 0.04;                                  // bottom gets +hills/rocks
+            plainsBias = rightFactor * (1 - Math.abs(downFactor)) * 0.12;   // NE gets +plains
+            forestBias = -rightFactor * (1 - Math.abs(downFactor)) * 0.12;  // NW gets +forest
+            hillsBias  = downFactor * 0.10;                                  // bottom gets +hills/rocks
         }
 
         if (elev < 0.02 + plainsBias) return CONFIG.TERRAIN.PLAINS;
