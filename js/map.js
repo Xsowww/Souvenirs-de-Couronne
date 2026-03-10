@@ -365,25 +365,53 @@ const GameMap = {
 
         ctx.putImageData(imageData, 0, 0);
 
-        // Draw quadrant overlays (4 corners)
-        const quadrantColors = [
-            'rgba(34,120,50,',   // NW - vert foret
-            'rgba(180,160,50,',  // NE - dore plaines
-            'rgba(50,90,160,',   // SW - bleu collines
-            'rgba(160,60,40,',   // SE - rouge roche
+        // Draw quadrant overlays (4 corners) with names and descriptions
+        const quadrants = [
+            { color: 'rgba(34,120,50,',  name: 'Sylvanie',        desc: '+ Foret  - Roche',  textColor: '#4aaa5a' },  // NW
+            { color: 'rgba(180,160,50,', name: 'Les Plaines Dorees', desc: '+ Plaine  - Montagne', textColor: '#c8b844' },  // NE
+            { color: 'rgba(50,90,160,',  name: 'Collines Brumeuses', desc: '+ Collines  - Foret', textColor: '#5a8acc' },  // SW
+            { color: 'rgba(160,60,40,',  name: 'Pics de Fer',     desc: '+ Roche  - Plaine',  textColor: '#cc6644' },  // SE
         ];
         const hw2 = w / 2, hh2 = h / 2;
         for (let qi = 0; qi < 4; qi++) {
-            const qx = (qi % 2) * hw2;
-            const qy = Math.floor(qi / 2) * hh2;
+            const q = quadrants[qi];
             const grad = ctx.createRadialGradient(
                 qi % 2 === 0 ? 0 : w, Math.floor(qi / 2) === 0 ? 0 : h, 0,
                 qi % 2 === 0 ? 0 : w, Math.floor(qi / 2) === 0 ? 0 : h, Math.max(hw2, hh2)
             );
-            grad.addColorStop(0, quadrantColors[qi] + '0.12)');
-            grad.addColorStop(1, quadrantColors[qi] + '0)');
+            grad.addColorStop(0, q.color + '0.15)');
+            grad.addColorStop(1, q.color + '0)');
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, w, h);
+        }
+
+        // Draw quadrant labels
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const labelPositions = [
+            { x: w * 0.18, y: h * 0.12 },  // NW
+            { x: w * 0.82, y: h * 0.12 },  // NE
+            { x: w * 0.18, y: h * 0.88 },  // SW
+            { x: w * 0.82, y: h * 0.88 },  // SE
+        ];
+        for (let qi = 0; qi < 4; qi++) {
+            const q = quadrants[qi];
+            const lp = labelPositions[qi];
+
+            // Background for readability
+            ctx.fillStyle = 'rgba(0,0,0,0.55)';
+            const nameWidth = q.name.length * 6 + 16;
+            ctx.fillRect(lp.x - nameWidth / 2, lp.y - 16, nameWidth, 32);
+
+            // Name
+            ctx.font = 'bold 11px Cinzel, serif';
+            ctx.fillStyle = q.textColor;
+            ctx.fillText(q.name, lp.x, lp.y - 5);
+
+            // Description
+            ctx.font = '9px Cinzel, serif';
+            ctx.fillStyle = 'rgba(232,212,180,0.7)';
+            ctx.fillText(q.desc, lp.x, lp.y + 8);
         }
 
         // Draw region borders (subtle)

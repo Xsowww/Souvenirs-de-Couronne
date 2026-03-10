@@ -86,12 +86,13 @@ const Renderer = {
         const qimgd = qctx.createImageData(w, h);
         const qd    = qimgd.data;
 
-        // Corner colors: NW=green(forest), NE=gold(plains), SE=red(rocks), SW=blue(hills)
+        // Corner colors: NW=green(forest), NE=gold(plains), SW=blue(hills), SE=red(rocks)
+        // qIdx = (x>=hw ? 1 : 0) + (y>=hh ? 2 : 0) → 0=NW, 1=NE, 2=SW, 3=SE
         const quadrantColors = [
-            { r: 34, g: 120, b: 50 },   // NW - vert foret
-            { r: 180, g: 160, b: 50 },  // NE - dore plaines
-            { r: 160, g: 60, b: 40 },   // SE - rouge roche
-            { r: 50, g: 90, b: 160 },   // SW - bleu collines
+            { r: 34, g: 120, b: 50 },   // 0 NW - vert foret
+            { r: 180, g: 160, b: 50 },  // 1 NE - dore plaines
+            { r: 50, g: 90, b: 160 },   // 2 SW - bleu collines
+            { r: 160, g: 60, b: 40 },   // 3 SE - rouge roche
         ];
 
         const hw = w / 2, hh = h / 2;

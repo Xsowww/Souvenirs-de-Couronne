@@ -261,6 +261,14 @@ const Game = {
         };
     },
 
+    _getQuadrantName(tileX, tileY) {
+        const hw = GameMap.width / 2, hh = GameMap.height / 2;
+        if (tileX < hw && tileY < hh) return 'Sylvanie';
+        if (tileX >= hw && tileY < hh) return 'Les Plaines Dorees';
+        if (tileX < hw && tileY >= hh) return 'Collines Brumeuses';
+        return 'Pics de Fer';
+    },
+
     _updatePlacementInfo(tileX, tileY) {
         const tile = GameMap.getTile(tileX, tileY);
         const info = document.getElementById('placement-info');
@@ -269,18 +277,19 @@ const Game = {
         const terrainName = CONFIG.TERRAIN_NAMES[tile.terrain] || 'Inconnu';
         const valid = GameMap.isValidKingdomSpot(tileX, tileY);
         const isCenter = GameMap.isCenterZone(tileX, tileY);
+        const regionName = this._getQuadrantName(tileX, tileY);
 
         if (tile.terrain <= CONFIG.TERRAIN.WATER) {
             info.textContent = `${terrainName} - Impossible de fonder ici`;
             info.style.color = '#d8a8a8';
         } else if (isCenter) {
-            info.textContent = `${terrainName} (${tileX}, ${tileY}) - Trop au centre, les ennemis n'auraient pas assez d'espace`;
+            info.textContent = `${regionName} - ${terrainName} (${tileX}, ${tileY}) - Trop au centre`;
             info.style.color = '#d8a8a8';
         } else if (!valid) {
-            info.textContent = `${terrainName} (${tileX}, ${tileY}) - Pas assez de terre cultivable`;
+            info.textContent = `${regionName} - ${terrainName} (${tileX}, ${tileY}) - Emplacement non viable (manque de terrain varie)`;
             info.style.color = '#d8a8a8';
         } else {
-            info.textContent = `${terrainName} (${tileX}, ${tileY}) - Bon emplacement pour votre royaume`;
+            info.textContent = `${regionName} - ${terrainName} (${tileX}, ${tileY}) - Bon emplacement !`;
             info.style.color = '#a8d8a8';
         }
     },
@@ -498,7 +507,6 @@ const Game = {
         document.getElementById('hud-iron').textContent = this.resources.iron + '/' + cap;
         document.getElementById('hud-gold').textContent = this.resources.gold + '/' + cap;
         document.getElementById('hud-food').textContent = this.resources.food;
-        document.getElementById('hud-houses').textContent = this.getMaxFamilies();
         document.getElementById('hud-families').textContent = this.families.length;
 
         // Free houses
