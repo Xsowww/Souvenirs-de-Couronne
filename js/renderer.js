@@ -285,10 +285,11 @@ const Renderer = {
         switch (type) {
             case 'lumberjack': this._drawTopLumberjack(ctx, sx, sy, s); break;
             case 'house':      this._drawTopHouse(ctx, sx, sy, s);      break;
+            case 'farm':       this._drawTopFarm(ctx, sx, sy, s);       break;
             case 'mine':       this._drawTopMine(ctx, sx, sy, s);       break;
             case 'warehouse':  this._drawTopWarehouse(ctx, sx, sy, s);  break;
             case 'foundry':    this._drawTopFoundry(ctx, sx, sy, s);    break;
-            case 'market':     this._drawTopMarket(ctx, sx, sy, s);     break;
+            case 'comptoir':   this._drawTopComptoir(ctx, sx, sy, s);   break;
             case 'barracks':   this._drawTopBarracks(ctx, sx, sy, s);   break;
         }
     },
@@ -417,8 +418,41 @@ const Renderer = {
         }
     },
 
-    // ─── Market (colorful tent roof) ───────────────────────────────────────
-    _drawTopMarket(ctx, sx, sy, s) {
+    // ─── Farm (green field with crop rows) ─────────────────────────────────
+    _drawTopFarm(ctx, sx, sy, s) {
+        const r = s * 0.46;
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.beginPath(); ctx.arc(sx + s*0.04, sy + s*0.04, r, 0, Math.PI*2); ctx.fill();
+
+        // Brown tilled soil base
+        ctx.fillStyle = '#6a5028';
+        ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#4a3818'; ctx.lineWidth = s * 0.04; ctx.stroke();
+
+        // Crop rows (green lines)
+        ctx.save();
+        ctx.beginPath(); ctx.arc(sx, sy, r * 0.85, 0, Math.PI*2); ctx.clip();
+        ctx.strokeStyle = '#5a8a2a'; ctx.lineWidth = s * 0.04;
+        for (let i = -2; i <= 2; i++) {
+            const oy = i * r * 0.32;
+            ctx.beginPath();
+            ctx.moveTo(sx - r * 0.75, sy + oy);
+            ctx.lineTo(sx + r * 0.75, sy + oy);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        // Small barn dot
+        ctx.fillStyle = '#8a4a1a';
+        ctx.beginPath(); ctx.arc(sx + r * 0.5, sy - r * 0.5, s * 0.07, 0, Math.PI*2); ctx.fill();
+
+        // Highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.beginPath(); ctx.arc(sx - r*0.2, sy - r*0.2, r*0.3, 0, Math.PI*2); ctx.fill();
+    },
+
+    // ─── Comptoir (market tent with trade goods) ─────────────────────────────
+    _drawTopComptoir(ctx, sx, sy, s) {
         const r = s * 0.45;
         ctx.fillStyle = 'rgba(0,0,0,0.2)';
         ctx.beginPath(); ctx.arc(sx + s*0.04, sy + s*0.04, r, 0, Math.PI*2); ctx.fill();
@@ -428,7 +462,7 @@ const Renderer = {
         ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI*2); ctx.fill();
         ctx.strokeStyle = '#8a6a1a'; ctx.lineWidth = s * 0.04; ctx.stroke();
 
-        // Colored stripes (market tent)
+        // Colored stripes (trade tent)
         ctx.save();
         ctx.beginPath(); ctx.arc(sx, sy, r * 0.92, 0, Math.PI*2); ctx.clip();
         const stripeColors = ['#c43a3a', '#c49a3a', '#3a7a3a', '#3a5ac4'];
@@ -442,6 +476,11 @@ const Renderer = {
         // Center post
         ctx.fillStyle = '#5a3a18';
         ctx.beginPath(); ctx.arc(sx, sy, s * 0.06, 0, Math.PI*2); ctx.fill();
+
+        // Gold coin emblem
+        ctx.fillStyle = '#c8a84a';
+        ctx.beginPath(); ctx.arc(sx, sy, s * 0.1, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#8a6a1a'; ctx.lineWidth = s * 0.015; ctx.stroke();
 
         // Highlight
         ctx.fillStyle = 'rgba(255,255,255,0.12)';

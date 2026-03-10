@@ -6,11 +6,11 @@ const Game = {
     _worldMapOpen: false,
     _worldMapBuffer: null,
 
-    // Resources
-    resources: { wood: 10, stone: 0, iron: 0, gold: 0, food: 5 },
+    // Resources (8 types: wood, stone, ironOre, goldOre, ironIngot, goldIngot, food, gold)
+    resources: {},
     houses: 0,
 
-    // Families: [{ name, man, woman, job, buildingIdx }]
+    // Families: [{ name, man, woman, job, buildingIdx, militaryType, stats, training, hasChild, onVoyage, weapon }]
     families: [],
 
     // Buildings placed: [{ type, x, y, level, familyIdx }]
@@ -368,7 +368,7 @@ const Game = {
         this._lastTimeUpdate = Date.now();
         this._prevSpeed = 1;
 
-        // Init resources
+        // Init resources (8 types)
         this.resources = { ...CONFIG.START_RESOURCES };
         this.buildings = [];
         this.houses = 0;
@@ -378,14 +378,16 @@ const Game = {
             this._generateFamily()
         ];
 
-        // Pending families: arrive based on free housing + satisfaction
-        // { arrivalHour: game-hours since start when they arrive }
+        // Pending families
         this._pendingFamilies = [];
         this._dayTransitionActive = false;
 
-        // Satisfaction system (0-100)
-        this._satisfaction = 50;
-        this._totalGameHours = 0; // track total elapsed game hours
+        // Satisfaction system (persistent, event-based, 0-100)
+        this._satisfaction = 60;
+        this._totalGameHours = 0;
+
+        // Commerce voyages: [{ familyIdx, goldCarried, returnGameHours, items }]
+        this._activeVoyages = [];
 
         // Show HUD
         document.getElementById('hud-bar').classList.add('active');
@@ -421,97 +423,192 @@ const Game = {
             man: pick(manNames) + ' ' + surname,
             woman: pick(womanNames) + ' ' + surname,
             job: null,
-            buildingIdx: -1 // index into this.buildings, -1 = unassigned
+            buildingIdx: -1,
+            militaryType: null, // 'soldier' | 'archer' | 'cavalier'
+            stats: { esquive: 0, force: 0, defense: 0 },
+            training: null, // { cyclesLeft: N } or null
+            hasChild: false,
+            onVoyage: false,
+            weapon: null // 'simpleWeapon' | 'heavyWeapon' | null
         };
     },
 
     // ==================== STORAGE ====================
 
-    getStorageCapacity() {
-        let cap = CONFIG.STORAGE.BASE_CAPACITY;
+    getStorageCap(res) {
+        if (res === 'gold') return Infinity; // gold (currency) has no cap
+        let cap = CONFIG.STORAGE.BASE[res] || 0;
         for (const b of this.buildings) {
             if (b.type === 'warehouse') {
                 const lvl = b.level || 1;
-                if (lvl === 1) cap += CONFIG.STORAGE.PER_WAREHOUSE;
-                else if (lvl === 2) cap += 75;
-                else cap += 100;
+                const bonus = CONFIG.STORAGE.WAREHOUSE_BONUS[lvl - 1];
+                if (bonus && bonus[res]) cap += bonus[res];
             }
         }
         return cap;
     },
 
     _addResource(res, amount) {
-        const cap = this.getStorageCapacity();
+        const cap = this.getStorageCap(res);
         this.resources[res] = Math.min(cap, (this.resources[res] || 0) + amount);
     },
 
     // ==================== HOUSING ====================
 
     getMaxFamilies() {
-        // 1 base (castle) + houses
+        // 1 base (castle) + 1 per house (regardless of level)
         let count = 1;
         for (const b of this.buildings) {
-            if (b.type === 'house') {
-                const lvl = b.level || 1;
-                count += lvl; // lvl 1=1, lvl 2=2, lvl 3=3
-            }
+            if (b.type === 'house') count += 1;
         }
         return count;
     },
 
     // ==================== PRODUCTION TICK ====================
-    // 2 cycles per half-day = 1 cycle every 6 game hours
+    // 4 cycles per day = 1 cycle every 6 game hours
 
     _productionTick() {
-        // No production when paused or in transition
         if (this._timeSpeed === 0 || this._dayTransitionActive) return;
 
-        // Calculate current total game hours
         const currentGameHours = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
         const hoursSinceLastProd = currentGameHours - this._prodCycleGameHours;
-
-        if (hoursSinceLastProd < 6) return; // Every 6 game hours
+        if (hoursSinceLastProd < 6) return;
         this._prodCycleGameHours = currentGameHours;
 
+        // Satisfaction production modifier
+        const sat = this._satisfaction;
+        let prodMultiplier = 1.0;
+        if (sat >= 80) prodMultiplier = 1.10;
+        else if (sat < 40 && sat >= 20) prodMultiplier = 0.90;
+
+        // --- Standard production (lumberjack, farm) ---
         for (let i = 0; i < this.buildings.length; i++) {
             const b = this.buildings[i];
             const def = CONFIG.BUILDINGS[b.type];
             if (!def || !def.production) continue;
-
-            // Only produce if a family is assigned
             if (b.familyIdx === undefined || b.familyIdx < 0) continue;
+            if (!this.families[b.familyIdx]) continue;
+
+            // Child bonus: +25% if family has child (niv2 house)
             const fam = this.families[b.familyIdx];
-            if (!fam) continue;
+            const childBonus = fam.hasChild ? 1.25 : 1.0;
 
-            // Base production
-            for (const [res, amount] of Object.entries(def.production)) {
-                this._addResource(res, amount);
-            }
-
-            // Upgrade bonuses
-            const lvl = b.level || 1;
-            if (lvl > 1 && def.upgrades) {
-                for (let u = 0; u < lvl - 1 && u < def.upgrades.length; u++) {
-                    const bonus = def.upgrades[u].productionBonus;
-                    if (bonus) {
-                        for (const [res, amount] of Object.entries(bonus)) {
-                            this._addResource(res, amount);
-                        }
+            for (const [res, baseAmt] of Object.entries(def.production)) {
+                let amount = baseAmt;
+                // Upgrade bonuses
+                const lvl = b.level || 1;
+                if (lvl > 1 && def.upgrades) {
+                    for (let u = 0; u < lvl - 1 && u < def.upgrades.length; u++) {
+                        const bonus = def.upgrades[u].productionBonus;
+                        if (bonus && bonus[res]) amount += bonus[res];
                     }
                 }
+                this._addResource(res, Math.floor(amount * prodMultiplier * childBonus));
             }
         }
+
+        // --- Mine production (chance-based) ---
+        for (const b of this.buildings) {
+            if (b.type !== 'mine') continue;
+            if (b.familyIdx < 0 || !this.families[b.familyIdx]) continue;
+            const lvl = b.level || 1;
+            const def = CONFIG.BUILDINGS.mine;
+            const rates = def.mineRates[lvl - 1];
+            if (!rates) continue;
+
+            const fam = this.families[b.familyIdx];
+            const childBonus = fam.hasChild ? 1.25 : 1.0;
+
+            this._addResource('stone', Math.floor(rates.stone * prodMultiplier * childBonus));
+            if (Math.random() < rates.ironOreChance) {
+                this._addResource('ironOre', 1);
+            }
+            if (Math.random() < rates.goldOreChance) {
+                this._addResource('goldOre', 1);
+            }
+        }
+
+        // --- Fonderie conversion (minerai → lingot) ---
+        for (const b of this.buildings) {
+            if (b.type !== 'foundry') continue;
+            // Fonderie works with or without family (optionnel)
+            const lvl = b.level || 1;
+            const def = CONFIG.BUILDINGS.foundry;
+            const rates = def.foundryRates[lvl - 1];
+            if (!rates) continue;
+
+            // Iron: consume oreNeeded ironOre → produce ingotProduced ironIngot
+            if ((this.resources.ironOre || 0) >= rates.oreNeeded) {
+                this.resources.ironOre -= rates.oreNeeded;
+                this._addResource('ironIngot', rates.ingotProduced);
+            }
+            // Gold: consume oreNeeded goldOre → produce ingotProduced goldIngot
+            if ((this.resources.goldOre || 0) >= rates.oreNeeded) {
+                this.resources.goldOre -= rates.oreNeeded;
+                this._addResource('goldIngot', rates.ingotProduced);
+            }
+        }
+
+        // --- Food consumption (2 food/cycle per family, 3 if niv2 house with child) ---
+        this._consumeFood();
+
+        // --- Training progress ---
+        this._tickTraining();
 
         this._updateHUD();
     },
 
+    _consumeFood() {
+        // 4 cycles/day, 8 food/day per family = 2 per cycle. Niv2 house: 12/day = 3 per cycle
+        let totalNeeded = 0;
+        for (let i = 0; i < this.families.length; i++) {
+            const fam = this.families[i];
+            if (fam.onVoyage) continue; // travelling families don't eat from village stock
+            const perCycle = fam.hasChild ? 3 : 2;
+            totalNeeded += perCycle;
+        }
+
+        if ((this.resources.food || 0) >= totalNeeded) {
+            this.resources.food -= totalNeeded;
+        } else {
+            // Not enough food — some families go hungry
+            const fed = this.resources.food || 0;
+            this.resources.food = 0;
+            const unfedFamilies = Math.ceil((totalNeeded - fed) / 2);
+            // -8% satisfaction per underfed family
+            this._satisfaction = Math.max(0, this._satisfaction - (unfedFamilies * 8));
+            if (unfedFamilies > 0) {
+                this._showNotification(`\u{26A0} ${unfedFamilies} famille(s) mal nourrie(s) ! -${unfedFamilies * 8}% satisfaction`, '#d88888');
+            }
+        }
+    },
+
+    _tickTraining() {
+        for (const fam of this.families) {
+            if (fam.training && fam.training.cyclesLeft > 0) {
+                fam.training.cyclesLeft--;
+                if (fam.training.cyclesLeft <= 0) {
+                    // Training complete — +1 to a random relevant stat
+                    const statKeys = ['esquive', 'force', 'defense'];
+                    const pick = statKeys[Math.floor(Math.random() * statKeys.length)];
+                    fam.stats[pick] = (fam.stats[pick] || 0) + 1;
+                    fam.training = null;
+                    this._showNotification(`\u{2694} ${fam.name} a termine l'entrainement ! +1 ${pick}`, '#a8d8a8');
+                }
+            }
+        }
+    },
+
     _updateHUD() {
-        const cap = this.getStorageCapacity();
-        document.getElementById('hud-wood').textContent = this.resources.wood + '/' + cap;
-        document.getElementById('hud-stone').textContent = this.resources.stone + '/' + cap;
-        document.getElementById('hud-iron').textContent = this.resources.iron + '/' + cap;
-        document.getElementById('hud-gold').textContent = this.resources.gold + '/' + cap;
-        document.getElementById('hud-food').textContent = this.resources.food;
+        // Update each resource with its own cap
+        const resKeys = ['wood', 'stone', 'ironOre', 'goldOre', 'ironIngot', 'goldIngot', 'food', 'gold'];
+        for (const key of resKeys) {
+            const el = document.getElementById('hud-' + key);
+            if (!el) continue;
+            const val = this.resources[key] || 0;
+            const cap = this.getStorageCap(key);
+            el.textContent = cap === Infinity ? val : val + '/' + cap;
+        }
         document.getElementById('hud-families').textContent = this.families.length;
 
         // Free houses
@@ -583,7 +680,7 @@ const Game = {
             item.className = 'build-item';
             item.dataset.type = key;
 
-            const costStr = Object.entries(bld.cost).map(([r, v]) => `${v} ${r}`).join(', ');
+            const costStr = Object.entries(bld.cost).map(([r, v]) => `${v} ${CONFIG.RESOURCE_NAMES[r] || r}`).join(', ');
             item.innerHTML = `<span class="build-icon">${bld.icon}</span><span class="build-name">${bld.name}</span><span class="build-cost">${costStr}</span>`;
 
             item.addEventListener('click', () => {
@@ -628,8 +725,19 @@ const Game = {
             const type = item.dataset.type;
             const bld = CONFIG.BUILDINGS[type];
             const canAfford = this._canAfford(bld.cost);
-            item.classList.toggle('disabled', !canAfford);
+            const alreadyBuilt = bld.unique && this.buildings.some(b => b.type === type);
+            item.classList.toggle('disabled', !canAfford || alreadyBuilt);
             item.classList.toggle('selected', this._selectedBuild === type);
+            // Update cost text to show "Deja construit" for unique buildings
+            const costEl = item.querySelector('.build-cost');
+            if (costEl && alreadyBuilt) {
+                costEl.textContent = 'Deja construit';
+                costEl.style.color = '#d88888';
+            } else if (costEl && !alreadyBuilt) {
+                const costStr = Object.entries(bld.cost).map(([r, v]) => `${v} ${CONFIG.RESOURCE_NAMES[r] || r}`).join(', ');
+                costEl.textContent = costStr;
+                costEl.style.color = '';
+            }
         }
     },
 
@@ -643,6 +751,7 @@ const Game = {
     _selectBuild(type) {
         const bld = CONFIG.BUILDINGS[type];
         if (!this._canAfford(bld.cost)) return;
+        if (bld.unique && this.buildings.some(b => b.type === type)) return;
 
         if (this._selectedBuild === type) {
             this._selectedBuild = null;
@@ -674,12 +783,14 @@ const Game = {
         if (!tile) return;
         if (tile.terrain <= CONFIG.TERRAIN.WATER || tile.terrain >= CONFIG.TERRAIN.SNOW_PEAK) return;
         if (tile.building) return;
-
-        // Check terrain restriction
         if (bld.terrain && !bld.terrain.includes(tile.terrain)) return;
-
-        // Check it's in the player's region
         if (tile.owner !== 0) return;
+
+        // Check unique buildings (only 1 allowed)
+        if (bld.unique && this.buildings.some(b => b.type === type)) {
+            this._showNotification(`\u{26A0} Un seul ${bld.name} autorise !`, '#d8a888');
+            return;
+        }
 
         // Spend resources
         for (const [res, amount] of Object.entries(bld.cost)) {
@@ -689,21 +800,73 @@ const Game = {
         // Place
         tile.building = type;
         const buildingData = { type, x: cellX, y: cellY, level: 1, familyIdx: -1 };
+
+        // Barracks uses familyIndices array for multi-family
+        if (bld.multiFamily) {
+            buildingData.familyIndices = [];
+        }
+
         this.buildings.push(buildingData);
 
-        // Houses: check if we can recruit a new family
         if (type === 'house') {
             this._checkRecruitFamily();
         }
 
-        // Rebuild terrain buffer to clear old state
         Renderer._bufferDirty = true;
-
         this._updateHUD();
         this._refreshBuildMenu();
-
-        // Exit build mode
         this._closeBuildMenu();
+    },
+
+    // ==================== DEMOLITION ====================
+
+    _demolishBuilding(bIdx) {
+        const b = this.buildings[bIdx];
+        if (!b) return;
+        const def = CONFIG.BUILDINGS[b.type];
+
+        // Unassign families
+        if (b.familyIndices) {
+            for (const fi of b.familyIndices) {
+                if (this.families[fi]) {
+                    this.families[fi].buildingIdx = -1;
+                    this.families[fi].job = null;
+                    this.families[fi].militaryType = null;
+                    this.families[fi].training = null;
+                }
+            }
+        } else if (b.familyIdx >= 0 && this.families[b.familyIdx]) {
+            this.families[b.familyIdx].buildingIdx = -1;
+            this.families[b.familyIdx].job = null;
+        }
+
+        // If house with family: family leaves, -15% satisfaction
+        if (b.type === 'house' && b.familyIdx >= 0) {
+            this._satisfaction = Math.max(0, this._satisfaction - 15);
+            this._showNotification(`\u{1F3E0} Maison detruite ! Famille partie, -15% satisfaction`, '#d88888');
+        }
+
+        // Refund 50% of costs
+        if (def && def.cost) {
+            for (const [res, amount] of Object.entries(def.cost)) {
+                this._addResource(res, Math.floor(amount * CONFIG.DEMOLITION_REFUND));
+            }
+        }
+
+        // Clear tile
+        const tile = GameMap.getTile(b.x, b.y);
+        if (tile) tile.building = null;
+
+        // Remove building and fix indices
+        this.buildings.splice(bIdx, 1);
+        for (let i = 0; i < this.families.length; i++) {
+            if (this.families[i].buildingIdx === bIdx) this.families[i].buildingIdx = -1;
+            else if (this.families[i].buildingIdx > bIdx) this.families[i].buildingIdx--;
+        }
+
+        Renderer._bufferDirty = true;
+        this._updateHUD();
+        this._closeBuildingDetail();
     },
 
     _checkRecruitFamily() {
@@ -727,48 +890,43 @@ const Game = {
         this._updateHUD();
     },
 
-    // ==================== SATISFACTION SYSTEM ====================
+    // ==================== SATISFACTION SYSTEM (event-based, persistent) ====================
 
     _getSatisfaction() {
-        let satisfaction = 50; // base
+        return Math.max(0, Math.min(100, Math.round(this._satisfaction)));
+    },
 
-        // Food factor: +20 if food > 0, -20 if food == 0
-        if (this.resources.food > 0) satisfaction += 20;
-        else satisfaction -= 20;
+    _getSatisfactionState() {
+        const sat = this._getSatisfaction();
+        if (sat >= 80) return { label: 'Eleve', color: '#a8d8a8', bonus: '+10% production' };
+        if (sat >= 40) return { label: 'Normal', color: '#e8d48a', bonus: 'Aucun modificateur' };
+        if (sat >= 20) return { label: 'Bas', color: '#d8a888', bonus: '-10% production' };
+        return { label: 'Critique', color: '#d88888', bonus: 'Familles quittent le village' };
+    },
 
-        // Market factor: +satisfactionBonus per market
-        for (const b of this.buildings) {
-            const def = CONFIG.BUILDINGS[b.type];
-            if (def && def.satisfactionBonus && b.familyIdx >= 0) {
-                satisfaction += def.satisfactionBonus;
-            }
+    _dailySatisfactionUpdate() {
+        // Natural recovery toward 60 if all families are fed
+        if (this._satisfaction < 60 && this.resources.food > 0) {
+            this._satisfaction = Math.min(60, this._satisfaction + 3);
         }
-
-        // Overcrowding: -10 per family without housing
-        const maxFam = this.getMaxFamilies();
-        if (this.families.length > maxFam) {
-            satisfaction -= (this.families.length - maxFam) * 10;
-        }
-
-        // Idle families: -5 per idle family
-        const idleCount = this.families.filter(f => f.buildingIdx < 0).length;
-        if (idleCount > 1) satisfaction -= (idleCount - 1) * 5; // 1 idle is ok (just arrived)
-
-        return Math.max(0, Math.min(100, satisfaction));
+        // Barracks bonus: +1 per active barracks
+        const hasBarracks = this.buildings.some(b => b.type === 'barracks' && b.familyIndices && b.familyIndices.length > 0);
+        if (hasBarracks) this._satisfaction = Math.min(100, this._satisfaction + 1);
     },
 
     _getSatisfactionDemands() {
         const demands = [];
-        if (this.resources.food <= 0) demands.push({ icon: '\u{1F35E}', text: 'Nourriture necessaire', met: false });
-        else demands.push({ icon: '\u{1F35E}', text: 'Nourriture', met: true });
+        const foodOk = (this.resources.food || 0) > 0;
+        demands.push({ icon: '\u{1F35E}', text: foodOk ? 'Familles nourries' : 'Nourriture insuffisante', met: foodOk });
 
-        const hasMarket = this.buildings.some(b => b.type === 'market' && b.familyIdx >= 0);
-        if (!hasMarket) demands.push({ icon: '\u{1F3EA}', text: 'Marche souhaite', met: false });
-        else demands.push({ icon: '\u{1F3EA}', text: 'Marche actif', met: true });
+        const hasFarm = this.buildings.some(b => b.type === 'farm' && b.familyIdx >= 0);
+        demands.push({ icon: '\u{1F33E}', text: hasFarm ? 'Ferme active' : 'Ferme necessaire', met: hasFarm });
 
-        const hasBarracks = this.buildings.some(b => b.type === 'barracks' && b.familyIdx >= 0);
-        if (!hasBarracks) demands.push({ icon: '\u{2694}', text: 'Armee souhaitee', met: false });
-        else demands.push({ icon: '\u{2694}', text: 'Armee active', met: true });
+        const hasBarracks = this.buildings.some(b => b.type === 'barracks' && b.familyIndices && b.familyIndices.length > 0);
+        demands.push({ icon: '\u{2694}', text: hasBarracks ? 'Armee active' : 'Pas de defense', met: hasBarracks });
+
+        const state = this._getSatisfactionState();
+        demands.push({ icon: '\u{2764}', text: `Etat: ${state.label} (${state.bonus})`, met: this._satisfaction >= 40 });
 
         return demands;
     },
@@ -811,8 +969,8 @@ const Game = {
             html += `<div class="info-building-row"><span class="ib-icon">${bld.icon}</span><span class="ib-name">${bld.name}</span><span class="ib-count">${count}</span></div>`;
         }
 
-        const cap = this.getStorageCapacity();
-        html += `<div class="info-building-row" style="margin-top:8px;border-top:1px solid rgba(200,168,74,0.2);padding-top:8px;"><span class="ib-icon">\u{1F4E6}</span><span class="ib-name">Capacite de stockage</span><span class="ib-count">${cap}</span></div>`;
+        const warehouseCount = this.buildings.filter(b => b.type === 'warehouse').length;
+        html += `<div class="info-building-row" style="margin-top:8px;border-top:1px solid rgba(200,168,74,0.2);padding-top:8px;"><span class="ib-icon">\u{1F4E6}</span><span class="ib-name">Entrepots</span><span class="ib-count">${warehouseCount}</span></div>`;
 
         if (this.buildings.length === 0) {
             html += `<div class="info-empty">Aucune construction supplementaire.<br>Appuyez sur B pour construire.</div>`;
@@ -1003,11 +1161,9 @@ const Game = {
         // Description
         html += `<div class="bd-section"><div class="bd-label">Description</div><div class="bd-value">${def.description}</div></div>`;
 
-        // Production info
+        // Production info (standard: lumberjack, farm)
         if (def.production) {
-            let prodStr = '';
             const totalProd = { ...def.production };
-            // Add upgrade bonuses
             if (lvl > 1 && def.upgrades) {
                 for (let u = 0; u < lvl - 1 && u < def.upgrades.length; u++) {
                     const bonus = def.upgrades[u].productionBonus;
@@ -1018,31 +1174,66 @@ const Game = {
                     }
                 }
             }
-            prodStr = Object.entries(totalProd).map(([r, a]) => `+${a} ${r}`).join(', ');
+            const prodStr = Object.entries(totalProd).map(([r, a]) => `+${a} ${CONFIG.RESOURCE_NAMES[r] || r}`).join(', ');
             const isActive = b.familyIdx >= 0;
             html += `<div class="bd-section"><div class="bd-label">Production (par cycle)</div><div class="bd-value" style="color:${isActive ? '#a8d8a8' : '#d8a8a8'}">${prodStr}${isActive ? '' : ' (INACTIVE - pas de famille)'}</div></div>`;
         }
 
-        // Special info for warehouse
+        // Special: mine rates
+        if (b.type === 'mine') {
+            const rates = def.mineRates[lvl - 1];
+            if (rates) {
+                const isActive = b.familyIdx >= 0;
+                html += `<div class="bd-section"><div class="bd-label">Production (par cycle)</div>`;
+                html += `<div class="bd-value" style="color:${isActive ? '#a8d8a8' : '#d8a8a8'}">`;
+                html += `+${rates.stone} Pierre (garanti)<br>`;
+                html += `Min. Fer: ${Math.round(rates.ironOreChance * 100)}% chance<br>`;
+                html += `Min. Or: ${Math.round(rates.goldOreChance * 100)}% chance`;
+                html += `${isActive ? '' : '<br>(INACTIVE - pas de famille)'}`;
+                html += `</div></div>`;
+            }
+        }
+
+        // Special: foundry conversion rates
+        if (b.type === 'foundry') {
+            const rates = def.foundryRates[lvl - 1];
+            if (rates) {
+                html += `<div class="bd-section"><div class="bd-label">Conversion (par cycle)</div>`;
+                html += `<div class="bd-value" style="color:#a8c8d8;">`;
+                html += `${rates.oreNeeded} minerai \u2192 ${rates.ingotProduced} lingot(s)<br>`;
+                html += `<span style="font-size:0.75rem;color:#8a7a5a;">Fonctionne sans famille assignee</span>`;
+                html += `</div></div>`;
+            }
+        }
+
+        // Special: warehouse per-resource caps
         if (b.type === 'warehouse') {
-            const bonusStr = lvl === 1 ? '+50' : lvl === 2 ? '+75' : '+100';
-            html += `<div class="bd-section"><div class="bd-label">Bonus stockage</div><div class="bd-value">${bonusStr} capacite</div></div>`;
+            const bonus = CONFIG.STORAGE.WAREHOUSE_BONUS[lvl - 1];
+            if (bonus) {
+                html += `<div class="bd-section"><div class="bd-label">Bonus stockage (ce niveau)</div>`;
+                html += `<div class="bd-value" style="color:#a8c8d8;">`;
+                for (const [res, amt] of Object.entries(bonus)) {
+                    html += `+${amt} ${CONFIG.RESOURCE_NAMES[res] || res}<br>`;
+                }
+                html += `</div></div>`;
+            }
         }
 
-        // Special info for house
+        // Special: house info
         if (b.type === 'house') {
-            html += `<div class="bd-section"><div class="bd-label">Logement</div><div class="bd-value">+${lvl} famille(s)</div></div>`;
+            const assignedFam = b.familyIdx >= 0 ? this.families[b.familyIdx] : null;
+            const hasChild = assignedFam && assignedFam.hasChild;
+            html += `<div class="bd-section"><div class="bd-label">Logement</div><div class="bd-value">1 famille${hasChild ? ' + enfant (+25% prod, conso x1.5)' : ''}</div></div>`;
         }
 
-        // Assigned family
-        const assignedFam = b.familyIdx >= 0 ? this.families[b.familyIdx] : null;
-        if (def.job) {
+        // === Family assignment (single-family buildings) ===
+        if (def.job && !def.multiFamily) {
+            const assignedFam = b.familyIdx >= 0 ? this.families[b.familyIdx] : null;
             html += `<div class="bd-section"><div class="bd-label">Famille assignee</div>`;
             html += `<select class="bd-family-select" id="bd-family-select">`;
             html += `<option value="-1"${!assignedFam ? ' selected' : ''}>Aucune</option>`;
             for (let i = 0; i < this.families.length; i++) {
                 const f = this.families[i];
-                // Show families that are unassigned or assigned to this building
                 const isFree = f.buildingIdx < 0 || f.buildingIdx === bIdx;
                 if (!isFree) continue;
                 html += `<option value="${i}"${b.familyIdx === i ? ' selected' : ''}>${f.name}</option>`;
@@ -1050,37 +1241,149 @@ const Game = {
             html += `</select></div>`;
         }
 
+        // === Multi-family building (barracks) ===
+        if (def.multiFamily && b.familyIndices) {
+            html += `<div class="bd-section"><div class="bd-label">Familles assignees (${b.familyIndices.length})</div>`;
+            // List assigned families with remove button
+            for (const fi of b.familyIndices) {
+                const fam = this.families[fi];
+                if (!fam) continue;
+                const typeStr = fam.militaryType ? (fam.militaryType === 'soldier' ? 'Soldat' : fam.militaryType === 'archer' ? 'Archer' : 'Cavalier') : 'Non assigne';
+                const trainingStr = fam.training ? ` (entrainement: ${fam.training.cyclesLeft} cycles)` : '';
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(200,168,74,0.06);">`;
+                html += `<span style="font-size:0.78rem;color:var(--parchment);">${fam.name} - ${typeStr}${trainingStr}</span>`;
+                html += `<button class="bd-barracks-remove" data-fi="${fi}" style="background:none;border:1px solid #d88888;color:#d88888;padding:2px 6px;font-size:0.68rem;cursor:pointer;border-radius:3px;">Retirer</button>`;
+                html += `</div>`;
+            }
+            // Add family selector
+            const freeFamilies = this.families.filter((f, i) => f.buildingIdx < 0 && !f.onVoyage);
+            if (freeFamilies.length > 0) {
+                html += `<div style="margin-top:6px;">`;
+                html += `<select class="bd-family-select" id="bd-barracks-add" style="width:65%;display:inline-block;">`;
+                html += `<option value="-1">Ajouter une famille...</option>`;
+                for (let i = 0; i < this.families.length; i++) {
+                    if (this.families[i].buildingIdx < 0 && !this.families[i].onVoyage) {
+                        html += `<option value="${i}">${this.families[i].name}</option>`;
+                    }
+                }
+                html += `</select>`;
+                // Military type selector
+                html += ` <select class="bd-family-select" id="bd-barracks-type" style="width:30%;display:inline-block;">`;
+                html += `<option value="soldier">Soldat</option>`;
+                html += `<option value="archer">Archer</option>`;
+                html += `<option value="cavalier">Cavalier</option>`;
+                html += `</select>`;
+                html += `</div>`;
+            }
+            // Training button
+            if (b.familyIndices.length > 0) {
+                const untrained = b.familyIndices.filter(fi => this.families[fi] && !this.families[fi].training);
+                if (untrained.length > 0) {
+                    html += `<div style="margin-top:6px;">`;
+                    html += `<select class="bd-family-select" id="bd-train-select" style="width:60%;display:inline-block;">`;
+                    for (const fi of untrained) {
+                        const f = this.families[fi];
+                        const tStr = f.militaryType === 'soldier' ? 'Soldat' : f.militaryType === 'archer' ? 'Archer' : 'Cavalier';
+                        html += `<option value="${fi}">${f.name} (${tStr})</option>`;
+                    }
+                    html += `</select>`;
+                    html += ` <button class="bd-upgrade-btn" id="bd-train-btn" style="width:35%;display:inline-block;padding:4px 8px;font-size:0.72rem;">Entrainer</button>`;
+                    html += `</div>`;
+                    // Show training cost
+                    html += `<div style="font-size:0.72rem;color:#8a7a5a;margin-top:4px;">Cout: 8-12 nourriture + 10-25 or (selon type)</div>`;
+                }
+            }
+            html += `</div>`;
+        }
+
+        // === Comptoir: shop + lingot selling + voyages ===
+        if (b.type === 'comptoir') {
+            // Lingot selling
+            html += `<div class="bd-section"><div class="bd-label">Vendre des lingots</div>`;
+            const ironCount = this.resources.ironIngot || 0;
+            const goldCount = this.resources.goldIngot || 0;
+            html += `<div style="display:flex;gap:6px;margin-top:4px;">`;
+            html += `<button class="bd-upgrade-btn${ironCount > 0 ? '' : ' disabled'}" id="bd-sell-iron" style="flex:1;padding:6px;font-size:0.72rem;" ${ironCount > 0 ? '' : 'disabled'}>Vendre Ling. Fer (${ironCount}) = ${CONFIG.LINGOT_PRICES.ironIngot} or</button>`;
+            html += `<button class="bd-upgrade-btn${goldCount > 0 ? '' : ' disabled'}" id="bd-sell-gold" style="flex:1;padding:6px;font-size:0.72rem;" ${goldCount > 0 ? '' : 'disabled'}>Vendre Ling. Or (${goldCount}) = ${CONFIG.LINGOT_PRICES.goldIngot} or</button>`;
+            html += `</div></div>`;
+
+            // Shop items
+            html += `<div class="bd-section"><div class="bd-label">Boutique</div>`;
+            for (const [key, item] of Object.entries(def.shopItems)) {
+                const canBuy = (this.resources.gold || 0) >= item.cost;
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(200,168,74,0.06);">`;
+                html += `<div><span style="color:var(--parchment);font-size:0.78rem;">${item.name}</span><br><span style="color:#8a7a5a;font-size:0.68rem;">${item.desc}</span></div>`;
+                html += `<button class="bd-upgrade-btn bd-shop-buy${canBuy ? '' : ' disabled'}" data-item="${key}" style="padding:4px 8px;font-size:0.72rem;width:auto;" ${canBuy ? '' : 'disabled'}>${item.cost} or</button>`;
+                html += `</div>`;
+            }
+            html += `</div>`;
+
+            // Active voyages
+            if (this._activeVoyages && this._activeVoyages.length > 0) {
+                html += `<div class="bd-section"><div class="bd-label">Voyages en cours</div>`;
+                const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+                for (const v of this._activeVoyages) {
+                    const fam = this.families[v.familyIdx];
+                    const hoursLeft = Math.max(0, v.returnGameHours - currentGH);
+                    html += `<div style="padding:3px 0;font-size:0.78rem;color:var(--parchment);">${fam ? fam.name : '?'} — retour dans ~${Math.ceil(hoursLeft)}h</div>`;
+                }
+                html += `</div>`;
+            }
+
+            // Send family on voyage
+            const availableForVoyage = this.families.filter((f, i) => f.buildingIdx < 0 && !f.onVoyage);
+            if (availableForVoyage.length > 0) {
+                html += `<div class="bd-section"><div class="bd-label">Envoyer en voyage</div>`;
+                html += `<select class="bd-family-select" id="bd-voyage-family">`;
+                html += `<option value="-1">Choisir une famille...</option>`;
+                for (let i = 0; i < this.families.length; i++) {
+                    if (this.families[i].buildingIdx < 0 && !this.families[i].onVoyage) {
+                        html += `<option value="${i}">${this.families[i].name}</option>`;
+                    }
+                }
+                html += `</select>`;
+                html += `<div style="font-size:0.72rem;color:#8a7a5a;margin-top:2px;">Cout: 20 or. Duree: 24-48h. Evenements aleatoires.</div>`;
+                html += `<button class="bd-upgrade-btn${(this.resources.gold || 0) >= 20 ? '' : ' disabled'}" id="bd-send-voyage" style="margin-top:4px;" ${(this.resources.gold || 0) >= 20 ? '' : 'disabled'}>Envoyer (20 or)</button>`;
+                html += `</div>`;
+            }
+        }
+
         // Upgrade
-        if (def.upgrades && lvl - 1 < def.upgrades.length) {
+        if (def.upgrades && def.upgrades.length > 0 && lvl - 1 < def.upgrades.length) {
             const nextUpgrade = def.upgrades[lvl - 1];
-            const costStr = Object.entries(nextUpgrade.cost).map(([r, v]) => `${v} ${r}`).join(', ');
+            const costStr = Object.entries(nextUpgrade.cost).map(([r, v]) => `${v} ${CONFIG.RESOURCE_NAMES[r] || r}`).join(', ');
             const canUpgrade = this._canAfford(nextUpgrade.cost);
             html += `<div class="bd-section bd-upgrade"><div class="bd-label">Amelioration : ${nextUpgrade.name}</div><div class="bd-value">Cout : ${costStr}</div>`;
             if (nextUpgrade.productionBonus) {
-                const bonusStr = Object.entries(nextUpgrade.productionBonus).map(([r, a]) => `+${a} ${r}`).join(', ');
+                const bonusStr = Object.entries(nextUpgrade.productionBonus).map(([r, a]) => `+${a} ${CONFIG.RESOURCE_NAMES[r] || r}`).join(', ');
                 html += `<div class="bd-value">Bonus : ${bonusStr}</div>`;
             }
             if (nextUpgrade.bonus) {
                 html += `<div class="bd-value">Bonus : ${nextUpgrade.bonus}</div>`;
             }
             html += `<button class="bd-upgrade-btn${canUpgrade ? '' : ' disabled'}" id="bd-upgrade-btn"${canUpgrade ? '' : ' disabled'}>Ameliorer</button></div>`;
-        } else {
+        } else if (def.upgrades && def.upgrades.length > 0) {
             html += `<div class="bd-section"><div class="bd-label" style="color:#c8a84a;">Niveau maximum atteint</div></div>`;
         }
 
+        // Demolish button
+        html += `<div class="bd-section" style="text-align:center;margin-top:8px;">`;
+        html += `<button class="bd-upgrade-btn" id="bd-demolish-btn" style="background:linear-gradient(180deg,#5a2020,#3a1010);border-color:#8a3030;color:#d88888;">Demolir (50% remboursement)</button>`;
+        html += `</div>`;
+
         content.innerHTML = html;
 
-        // Bind events
+        // === Bind events ===
+
+        // Single-family assignment
         const famSelect = document.getElementById('bd-family-select');
-        if (famSelect) {
+        if (famSelect && !def.multiFamily) {
             famSelect.addEventListener('change', (e) => {
                 const newFamIdx = parseInt(e.target.value);
-                // Unassign old family
                 if (b.familyIdx >= 0 && this.families[b.familyIdx]) {
                     this.families[b.familyIdx].buildingIdx = -1;
                     this.families[b.familyIdx].job = null;
                 }
-                // Assign new family
                 b.familyIdx = newFamIdx;
                 if (newFamIdx >= 0 && this.families[newFamIdx]) {
                     this.families[newFamIdx].buildingIdx = bIdx;
@@ -1091,10 +1394,143 @@ const Game = {
             });
         }
 
+        // Barracks: add family
+        const barracksAdd = document.getElementById('bd-barracks-add');
+        if (barracksAdd) {
+            barracksAdd.addEventListener('change', (e) => {
+                const fi = parseInt(e.target.value);
+                if (fi < 0) return;
+                const typeSelect = document.getElementById('bd-barracks-type');
+                const milType = typeSelect ? typeSelect.value : 'soldier';
+                this.families[fi].buildingIdx = bIdx;
+                this.families[fi].job = 'barracks';
+                this.families[fi].militaryType = milType;
+                b.familyIndices.push(fi);
+                this._updateHUD();
+                this._renderBuildingDetail();
+            });
+        }
+
+        // Barracks: remove family
+        content.querySelectorAll('.bd-barracks-remove').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const fi = parseInt(btn.dataset.fi);
+                if (this.families[fi]) {
+                    this.families[fi].buildingIdx = -1;
+                    this.families[fi].job = null;
+                    this.families[fi].militaryType = null;
+                    this.families[fi].training = null;
+                }
+                b.familyIndices = b.familyIndices.filter(i => i !== fi);
+                this._updateHUD();
+                this._renderBuildingDetail();
+            });
+        });
+
+        // Barracks: train
+        const trainBtn = document.getElementById('bd-train-btn');
+        if (trainBtn) {
+            trainBtn.addEventListener('click', () => {
+                const trainSelect = document.getElementById('bd-train-select');
+                if (!trainSelect) return;
+                const fi = parseInt(trainSelect.value);
+                const fam = this.families[fi];
+                if (!fam || !fam.militaryType) return;
+                const costs = def.trainingCosts[fam.militaryType];
+                if (!costs) return;
+                if ((this.resources.food || 0) < costs.food || (this.resources.gold || 0) < costs.gold) {
+                    this._showNotification(`\u{26A0} Ressources insuffisantes pour l'entrainement !`, '#d88888');
+                    return;
+                }
+                this.resources.food -= costs.food;
+                this.resources.gold -= costs.gold;
+                fam.training = { cyclesLeft: costs.cycles };
+                this._updateHUD();
+                this._renderBuildingDetail();
+                this._showNotification(`\u{2694} ${fam.name} commence l'entrainement (${costs.cycles} cycles)`, '#a8c8d8');
+            });
+        }
+
+        // Comptoir: sell lingots
+        const sellIron = document.getElementById('bd-sell-iron');
+        if (sellIron) {
+            sellIron.addEventListener('click', () => {
+                if ((this.resources.ironIngot || 0) > 0) {
+                    this.resources.ironIngot--;
+                    this.resources.gold = (this.resources.gold || 0) + CONFIG.LINGOT_PRICES.ironIngot;
+                    this._showNotification(`\u{1FA99} Lingot de fer vendu pour ${CONFIG.LINGOT_PRICES.ironIngot} or`, '#a8d8a8');
+                    this._updateHUD();
+                    this._renderBuildingDetail();
+                }
+            });
+        }
+        const sellGold = document.getElementById('bd-sell-gold');
+        if (sellGold) {
+            sellGold.addEventListener('click', () => {
+                if ((this.resources.goldIngot || 0) > 0) {
+                    this.resources.goldIngot--;
+                    this.resources.gold = (this.resources.gold || 0) + CONFIG.LINGOT_PRICES.goldIngot;
+                    this._showNotification(`\u{1FA99} Lingot d'or vendu pour ${CONFIG.LINGOT_PRICES.goldIngot} or`, '#a8d8a8');
+                    this._updateHUD();
+                    this._renderBuildingDetail();
+                }
+            });
+        }
+
+        // Comptoir: shop buy
+        content.querySelectorAll('.bd-shop-buy').forEach(btn => {
+            if (btn.disabled) return;
+            btn.addEventListener('click', () => {
+                const itemKey = btn.dataset.item;
+                const item = def.shopItems[itemKey];
+                if (!item || (this.resources.gold || 0) < item.cost) return;
+                this.resources.gold -= item.cost;
+                this._showNotification(`\u{1F6D2} ${item.name} achete pour ${item.cost} or`, '#a8c8d8');
+                this._updateHUD();
+                this._renderBuildingDetail();
+            });
+        });
+
+        // Comptoir: send voyage
+        const sendVoyage = document.getElementById('bd-send-voyage');
+        if (sendVoyage) {
+            sendVoyage.addEventListener('click', () => {
+                const voyageSelect = document.getElementById('bd-voyage-family');
+                if (!voyageSelect) return;
+                const fi = parseInt(voyageSelect.value);
+                if (fi < 0 || !this.families[fi]) return;
+                if ((this.resources.gold || 0) < 20) return;
+                this.resources.gold -= 20;
+                this.families[fi].onVoyage = true;
+                const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+                const duration = 24 + Math.random() * 24; // 24-48h
+                this._activeVoyages.push({
+                    familyIdx: fi,
+                    goldCarried: 20,
+                    returnGameHours: currentGH + duration,
+                    items: []
+                });
+                this._showNotification(`\u{1F6B6} ${this.families[fi].name} part en voyage commercial`, '#a8c8d8');
+                this._updateHUD();
+                this._renderBuildingDetail();
+            });
+        }
+
+        // Upgrade button
         const upgradeBtn = document.getElementById('bd-upgrade-btn');
         if (upgradeBtn && !upgradeBtn.disabled) {
             upgradeBtn.addEventListener('click', () => {
                 this._upgradeBuilding(bIdx);
+            });
+        }
+
+        // Demolish button
+        const demolishBtn = document.getElementById('bd-demolish-btn');
+        if (demolishBtn) {
+            demolishBtn.addEventListener('click', () => {
+                if (confirm('Demolir ce batiment ? (50% remboursement)')) {
+                    this._demolishBuilding(bIdx);
+                }
             });
         }
     },
@@ -1115,9 +1551,10 @@ const Game = {
 
         b.level = lvl + 1;
 
-        // If house was upgraded, check for new family recruitment
-        if (b.type === 'house') {
-            this._checkRecruitFamily();
+        // House niv2: family gets a child → +25% production, +50% food consumption
+        if (b.type === 'house' && b.level === 2 && b.familyIdx >= 0 && this.families[b.familyIdx]) {
+            this.families[b.familyIdx].hasChild = true;
+            this._showNotification(`\u{1F476} Enfant ne dans ${this.families[b.familyIdx].name} ! +25% production`, '#a8d8a8');
         }
 
         Renderer._bufferDirty = true;
@@ -1185,9 +1622,12 @@ const Game = {
             }
         }
 
-        // Satisfaction-based departure: <25% → 10% chance per family
+        // Daily satisfaction update (natural recovery, barracks bonus)
+        this._dailySatisfactionUpdate();
+
+        // Satisfaction-based departure: <20% (critique) → 10% chance per family
         const sat = this._getSatisfaction();
-        if (sat < 25 && this.families.length > 1) {
+        if (sat < 20 && this.families.length > 1) {
             for (let i = this.families.length - 1; i >= 1; i--) { // never remove family 0
                 if (Math.random() < 0.10) {
                     const fam = this.families[i];
@@ -1226,10 +1666,14 @@ const Game = {
         title.textContent = `Jour ${this._gameDay}`;
 
         const sat = this._getSatisfaction();
+        const satState = this._getSatisfactionState();
         let summaryHtml = `<strong>Resume du jour precedent :</strong><br>`;
         summaryHtml += `Familles : ${this.families.length} / ${this.getMaxFamilies()}<br>`;
-        summaryHtml += `Satisfaction : <span style="color:${sat > 75 ? '#a8d8a8' : sat > 50 ? '#e8d48a' : sat > 25 ? '#d8a888' : '#d88888'}">${sat}%</span><br>`;
-        summaryHtml += `Bois : ${this.resources.wood} | Pierre : ${this.resources.stone} | Fer : ${this.resources.iron} | Or : ${this.resources.gold}<br>`;
+        summaryHtml += `Satisfaction : <span style="color:${satState.color}">${sat}% (${satState.label})</span><br>`;
+        summaryHtml += `Bois: ${this.resources.wood} | Pierre: ${this.resources.stone} | Nourriture: ${this.resources.food} | Or: ${this.resources.gold || 0}<br>`;
+        if ((this.resources.ironOre || 0) > 0 || (this.resources.goldOre || 0) > 0 || (this.resources.ironIngot || 0) > 0 || (this.resources.goldIngot || 0) > 0) {
+            summaryHtml += `Min.Fer: ${this.resources.ironOre || 0} | Min.Or: ${this.resources.goldOre || 0} | Ling.Fer: ${this.resources.ironIngot || 0} | Ling.Or: ${this.resources.goldIngot || 0}<br>`;
+        }
         summaryHtml += `Constructions : ${this.buildings.length}`;
 
         if (arrivals && arrivals.length > 0) {
@@ -1305,6 +1749,7 @@ const Game = {
         this._updateGameTime();
         this._productionTick();
         this._checkPendingArrivals();
+        this._checkVoyageReturns();
         // Live-refresh build menu if open
         if (this._buildMode) this._refreshBuildMenu();
         Renderer.render();
@@ -1335,6 +1780,39 @@ const Game = {
             this._updateHUD();
             // Queue more families if housing still available
             this._checkRecruitFamily();
+        }
+    },
+
+    _checkVoyageReturns() {
+        if (!this._activeVoyages || this._activeVoyages.length === 0) return;
+        if (this._timeSpeed === 0 || this._dayTransitionActive) return;
+
+        const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+        for (let i = this._activeVoyages.length - 1; i >= 0; i--) {
+            const v = this._activeVoyages[i];
+            if (v.returnGameHours <= currentGH) {
+                const fam = this.families[v.familyIdx];
+                if (fam) {
+                    fam.onVoyage = false;
+                    // Random event on return
+                    const roll = Math.random();
+                    if (roll < 0.3) {
+                        // Good: found gold
+                        const bonus = 10 + Math.floor(Math.random() * 20);
+                        this.resources.gold = (this.resources.gold || 0) + bonus;
+                        this._showNotification(`\u{1F4B0} ${fam.name} revient avec ${bonus} or bonus !`, '#a8d8a8');
+                    } else if (roll < 0.5) {
+                        // Bad: attacked, lost gold
+                        this._showNotification(`\u{2694} ${fam.name} a ete attaque en route ! Or perdu.`, '#d88888');
+                        this._satisfaction = Math.max(0, this._satisfaction - 5);
+                    } else {
+                        // Normal return
+                        this._showNotification(`\u{1F6B6} ${fam.name} est revenu du voyage.`, '#a8c8d8');
+                    }
+                }
+                this._activeVoyages.splice(i, 1);
+                this._updateHUD();
+            }
         }
     },
 
