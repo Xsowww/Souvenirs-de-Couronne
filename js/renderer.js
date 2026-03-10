@@ -308,6 +308,8 @@ const Renderer = {
             case 'mine':       this._drawTopMine(ctx, sx, sy, s);       break;
             case 'warehouse':  this._drawTopWarehouse(ctx, sx, sy, s);  break;
             case 'foundry':    this._drawTopFoundry(ctx, sx, sy, s);    break;
+            case 'market':     this._drawTopMarket(ctx, sx, sy, s);     break;
+            case 'barracks':   this._drawTopBarracks(ctx, sx, sy, s);   break;
         }
     },
 
@@ -433,6 +435,74 @@ const Renderer = {
             ctx.fillStyle = `rgba(130,130,130,${alpha})`;
             ctx.beginPath(); ctx.arc(smX, smY, smR, 0, Math.PI*2); ctx.fill();
         }
+    },
+
+    // ─── Market (colorful tent roof) ───────────────────────────────────────
+    _drawTopMarket(ctx, sx, sy, s) {
+        const r = s * 0.45;
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.beginPath(); ctx.arc(sx + s*0.04, sy + s*0.04, r, 0, Math.PI*2); ctx.fill();
+
+        // Tent base
+        ctx.fillStyle = '#c49a3a';
+        ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#8a6a1a'; ctx.lineWidth = s * 0.04; ctx.stroke();
+
+        // Colored stripes (market tent)
+        ctx.save();
+        ctx.beginPath(); ctx.arc(sx, sy, r * 0.92, 0, Math.PI*2); ctx.clip();
+        const stripeColors = ['#c43a3a', '#c49a3a', '#3a7a3a', '#3a5ac4'];
+        const sw = r * 0.5;
+        for (let i = 0; i < 4; i++) {
+            ctx.fillStyle = stripeColors[i];
+            ctx.fillRect(sx - r + i * sw, sy - r, sw, r * 2);
+        }
+        ctx.restore();
+
+        // Center post
+        ctx.fillStyle = '#5a3a18';
+        ctx.beginPath(); ctx.arc(sx, sy, s * 0.06, 0, Math.PI*2); ctx.fill();
+
+        // Highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.12)';
+        ctx.beginPath(); ctx.arc(sx - r*0.2, sy - r*0.2, r*0.3, 0, Math.PI*2); ctx.fill();
+    },
+
+    // ─── Barracks (military stone with shield) ──────────────────────────────
+    _drawTopBarracks(ctx, sx, sy, s) {
+        const r = s * 0.48;
+        ctx.fillStyle = 'rgba(0,0,0,0.24)';
+        ctx.beginPath(); ctx.arc(sx + s*0.05, sy + s*0.05, r, 0, Math.PI*2); ctx.fill();
+
+        // Stone building
+        ctx.fillStyle = '#5a5048';
+        ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#3a302a'; ctx.lineWidth = s * 0.05; ctx.stroke();
+
+        // Inner darker area
+        ctx.fillStyle = '#4a4038';
+        ctx.beginPath(); ctx.arc(sx, sy, r * 0.7, 0, Math.PI*2); ctx.fill();
+
+        // Shield emblem
+        ctx.fillStyle = '#8a1a1a';
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - r * 0.35);
+        ctx.lineTo(sx + r * 0.25, sy - r * 0.1);
+        ctx.lineTo(sx + r * 0.2, sy + r * 0.2);
+        ctx.lineTo(sx, sy + r * 0.35);
+        ctx.lineTo(sx - r * 0.2, sy + r * 0.2);
+        ctx.lineTo(sx - r * 0.25, sy - r * 0.1);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#c8a84a'; ctx.lineWidth = s * 0.02; ctx.stroke();
+
+        // Crossed swords
+        ctx.strokeStyle = '#c8c0b0'; ctx.lineWidth = s * 0.025;
+        ctx.beginPath();
+        ctx.moveTo(sx - r * 0.3, sy - r * 0.5);
+        ctx.lineTo(sx + r * 0.3, sy + r * 0.1);
+        ctx.moveTo(sx + r * 0.3, sy - r * 0.5);
+        ctx.lineTo(sx - r * 0.3, sy + r * 0.1);
+        ctx.stroke();
     },
 
     // ─── Castle (top-down stone keep + 4 towers + flag) ──────────────────────

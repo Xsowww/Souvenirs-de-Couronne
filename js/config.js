@@ -129,6 +129,34 @@ const CONFIG = {
                 { name: 'Niveau 2', cost: { wood: 20, stone: 12, iron: 5 }, productionBonus: { iron: 1, gold: 1 } },
                 { name: 'Niveau 3', cost: { wood: 30, stone: 20, iron: 12, gold: 3 }, productionBonus: { iron: 2, gold: 2 } }
             ]
+        },
+        market: {
+            name: 'Marche',
+            icon: '\u{1F3EA}',
+            cost: { wood: 15, stone: 10, gold: 2 },
+            job: 'Marchand',
+            description: 'Augmente la satisfaction. Produit de l\'or via le commerce',
+            production: { gold: 2, food: 1 },
+            terrain: null,
+            satisfactionBonus: 20,
+            upgrades: [
+                { name: 'Niveau 2', cost: { wood: 20, stone: 15, gold: 5 }, productionBonus: { gold: 1, food: 1 } },
+                { name: 'Niveau 3', cost: { wood: 30, stone: 25, gold: 10 }, productionBonus: { gold: 2, food: 2 } }
+            ]
+        },
+        barracks: {
+            name: 'Caserne',
+            icon: '\u{2694}',
+            cost: { wood: 20, stone: 15, iron: 5 },
+            job: 'Soldat',
+            description: 'Entraine des soldats. Augmente la securite et la satisfaction',
+            production: null,
+            terrain: null,
+            satisfactionBonus: 15,
+            upgrades: [
+                { name: 'Niveau 2', cost: { wood: 25, stone: 20, iron: 10 }, bonus: 'Soldats veterants (+atk/def)' },
+                { name: 'Niveau 3', cost: { wood: 35, stone: 30, iron: 20, gold: 5 }, bonus: 'Soldats d\'elite (+atk/def)' }
+            ]
         }
     },
 

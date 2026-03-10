@@ -938,6 +938,31 @@ body {
     border-bottom: 1px solid rgba(200,168,74,0.06);
 }
 .bd-category .bd-section:last-child { border-bottom: none; }
+
+/* ===== SATISFACTION TOOLTIP ===== */
+#hud-satisfaction-wrap {
+    position: relative;
+    cursor: pointer;
+}
+#satisfaction-tooltip {
+    display: none;
+    position: absolute;
+    top: 36px;
+    right: 0;
+    background: linear-gradient(180deg, #2a1a0c 0%, #1a100a 100%);
+    border: 1px solid var(--gold-dark);
+    border-radius: 6px;
+    padding: 8px 12px;
+    min-width: 180px;
+    font-family: 'MedievalSharp', serif;
+    font-size: 0.78rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.7);
+    z-index: 30;
+}
+#hud-satisfaction-wrap:hover #satisfaction-tooltip { display: block; }
+.sat-demand { display: flex; justify-content: space-between; padding: 2px 0; }
+.sat-demand-met { color: #a8d8a8; }
+.sat-demand-unmet { color: #d88888; }
     </style>
 </head>
 <body>
@@ -1109,6 +1134,12 @@ body {
                 <div class="hud-housing" title="Familles en route">
                     <span class="hud-icon">&#x1F6B6;</span>
                     <span class="hud-val" id="hud-arriving">0</span>
+                </div>
+                <div class="hud-separator"></div>
+                <div class="hud-housing" id="hud-satisfaction-wrap">
+                    <span class="hud-icon">&#x2764;</span>
+                    <span class="hud-val" id="hud-satisfaction">50%</span>
+                    <div id="satisfaction-tooltip"></div>
                 </div>
             </div>
         </div>

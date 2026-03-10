@@ -27,9 +27,9 @@ const Game = {
     // Building detail panel
     _selectedBuilding: null, // index into this.buildings or 'castle'
 
-    // Production timer
+    // Production timer — 2 cycles per half-day (every 6 game hours)
     _lastTick: 0,
-    _tickInterval: 5000, // ms between production ticks
+    _prodCycleGameHours: 0, // tracks game hours for production
 
     // Time system
     _gameMinute: 0,
@@ -378,11 +378,14 @@ const Game = {
             this._generateFamily()
         ];
 
-        // Scheduled family arrivals
-        this._pendingFamilies = [
-            { day: 2, count: 2 }  // 2 families arrive on day 2
-        ];
+        // Pending families: arrive based on free housing + satisfaction
+        // { arrivalHour: game-hours since start when they arrive }
+        this._pendingFamilies = [];
         this._dayTransitionActive = false;
+
+        // Satisfaction system (0-100)
+        this._satisfaction = 50;
+        this._totalGameHours = 0; // track total elapsed game hours
 
         // Show HUD
         document.getElementById('hud-bar').classList.add('active');
@@ -457,16 +460,18 @@ const Game = {
     },
 
     // ==================== PRODUCTION TICK ====================
+    // 2 cycles per half-day = 1 cycle every 6 game hours
 
     _productionTick() {
-        // No production when paused
-        if (this._timeSpeed === 0) return;
+        // No production when paused or in transition
+        if (this._timeSpeed === 0 || this._dayTransitionActive) return;
 
-        const now = Date.now();
-        const multiplier = this._timeSpeed === 2 ? 2 : 1;
-        const effectiveInterval = this._tickInterval / multiplier;
-        if (now - this._lastTick < effectiveInterval) return;
-        this._lastTick = now;
+        // Calculate current total game hours
+        const currentGameHours = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+        const hoursSinceLastProd = currentGameHours - this._prodCycleGameHours;
+
+        if (hoursSinceLastProd < 6) return; // Every 6 game hours
+        this._prodCycleGameHours = currentGameHours;
 
         for (let i = 0; i < this.buildings.length; i++) {
             const b = this.buildings[i];
@@ -520,9 +525,29 @@ const Game = {
         if (idleEl) idleEl.textContent = idleFamilies;
 
         // Arriving families
-        const arrivingCount = this._pendingFamilies ? this._pendingFamilies.reduce((sum, p) => sum + p.count, 0) : 0;
+        const arrivingCount = this._pendingFamilies ? this._pendingFamilies.length : 0;
         const arrEl = document.getElementById('hud-arriving');
         if (arrEl) arrEl.textContent = arrivingCount;
+
+        // Satisfaction
+        const sat = this._getSatisfaction();
+        this._satisfaction = sat;
+        const satEl = document.getElementById('hud-satisfaction');
+        if (satEl) {
+            satEl.textContent = sat + '%';
+            satEl.style.color = sat > 75 ? '#a8d8a8' : sat > 50 ? '#e8d48a' : sat > 25 ? '#d8a888' : '#d88888';
+        }
+        // Satisfaction tooltip
+        const tipEl = document.getElementById('satisfaction-tooltip');
+        if (tipEl) {
+            const demands = this._getSatisfactionDemands();
+            let tipHtml = `<div style="color:var(--gold);font-family:Cinzel,serif;font-size:0.72rem;margin-bottom:4px;">Satisfaction : ${sat}%</div>`;
+            for (const d of demands) {
+                const cls = d.met ? 'sat-demand-met' : 'sat-demand-unmet';
+                tipHtml += `<div class="sat-demand"><span>${d.icon} ${d.text}</span><span class="${cls}">${d.met ? '\u2714' : '\u2718'}</span></div>`;
+            }
+            tipEl.innerHTML = tipHtml;
+        }
     },
 
     // ==================== BUILD MENU ====================
@@ -661,9 +686,69 @@ const Game = {
 
     _checkRecruitFamily() {
         const maxFam = this.getMaxFamilies();
-        if (this.families.length < maxFam) {
-            this.families.push(this._generateFamily());
+        const totalOccupied = this.families.length + (this._pendingFamilies ? this._pendingFamilies.length : 0);
+        if (totalOccupied < maxFam) {
+            // Queue a family with arrival time based on satisfaction
+            const sat = this._getSatisfaction();
+            let delayHours;
+            if (sat > 75)       delayHours = 12;  // half a day
+            else if (sat > 50)  delayHours = 24;  // 1 day
+            else if (sat > 25)  delayHours = 36;  // 1.5 days
+            else                delayHours = 48;  // 2 days
+
+            const currentGameHours = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+            this._pendingFamilies.push({
+                arrivalGameHours: currentGameHours + delayHours,
+                family: this._generateFamily()
+            });
         }
+        this._updateHUD();
+    },
+
+    // ==================== SATISFACTION SYSTEM ====================
+
+    _getSatisfaction() {
+        let satisfaction = 50; // base
+
+        // Food factor: +20 if food > 0, -20 if food == 0
+        if (this.resources.food > 0) satisfaction += 20;
+        else satisfaction -= 20;
+
+        // Market factor: +satisfactionBonus per market
+        for (const b of this.buildings) {
+            const def = CONFIG.BUILDINGS[b.type];
+            if (def && def.satisfactionBonus && b.familyIdx >= 0) {
+                satisfaction += def.satisfactionBonus;
+            }
+        }
+
+        // Overcrowding: -10 per family without housing
+        const maxFam = this.getMaxFamilies();
+        if (this.families.length > maxFam) {
+            satisfaction -= (this.families.length - maxFam) * 10;
+        }
+
+        // Idle families: -5 per idle family
+        const idleCount = this.families.filter(f => f.buildingIdx < 0).length;
+        if (idleCount > 1) satisfaction -= (idleCount - 1) * 5; // 1 idle is ok (just arrived)
+
+        return Math.max(0, Math.min(100, satisfaction));
+    },
+
+    _getSatisfactionDemands() {
+        const demands = [];
+        if (this.resources.food <= 0) demands.push({ icon: '\u{1F35E}', text: 'Nourriture necessaire', met: false });
+        else demands.push({ icon: '\u{1F35E}', text: 'Nourriture', met: true });
+
+        const hasMarket = this.buildings.some(b => b.type === 'market' && b.familyIdx >= 0);
+        if (!hasMarket) demands.push({ icon: '\u{1F3EA}', text: 'Marche souhaite', met: false });
+        else demands.push({ icon: '\u{1F3EA}', text: 'Marche actif', met: true });
+
+        const hasBarracks = this.buildings.some(b => b.type === 'barracks' && b.familyIdx >= 0);
+        if (!hasBarracks) demands.push({ icon: '\u{2694}', text: 'Armee souhaitee', met: false });
+        else demands.push({ icon: '\u{2694}', text: 'Armee active', met: true });
+
+        return demands;
     },
 
     // ==================== INFO PANEL (castle click) ====================
@@ -802,34 +887,14 @@ const Game = {
             html += `<div style="display:flex;justify-content:space-between;padding:4px 8px;"><span class="bd-label">Region</span><span class="bd-value">${this._getQuadrantName(this._castlePlaced.x, this._castlePlaced.y)}</span></div>`;
             html += `</div>`;
 
-            // === RESSOURCES ===
-            html += `<div class="bd-category"><div class="bd-category-title">Ressources</div>`;
-            const cap = this.getStorageCapacity();
-            const resIcons = { wood: '\u{1FAB5}', stone: '\u{1FAA8}', iron: '\u{2699}', gold: '\u{1FA99}', food: '\u{1F35E}' };
-            const resNames = { wood: 'Bois', stone: 'Pierre', iron: 'Fer', gold: 'Or', food: 'Nourriture' };
-            for (const [key, val] of Object.entries(this.resources)) {
-                const maxStr = key === 'food' ? '' : ` / ${cap}`;
-                html += `<div style="display:flex;justify-content:space-between;padding:3px 8px;"><span style="color:#8a7a5a;font-size:0.82rem;">${resIcons[key]} ${resNames[key]}</span><span style="color:var(--gold-light);font-weight:700;font-size:0.82rem;">${val}${maxStr}</span></div>`;
-            }
-            // Total production
-            const totalProd = {};
-            for (const b of this.buildings) {
-                const def = CONFIG.BUILDINGS[b.type];
-                if (!def || !def.production || b.familyIdx < 0) continue;
-                for (const [r, a] of Object.entries(def.production)) {
-                    totalProd[r] = (totalProd[r] || 0) + a;
-                }
-                const lvl = b.level || 1;
-                if (lvl > 1 && def.upgrades) {
-                    for (let u = 0; u < lvl - 1 && u < def.upgrades.length; u++) {
-                        const bonus = def.upgrades[u].productionBonus;
-                        if (bonus) { for (const [r, a] of Object.entries(bonus)) { totalProd[r] = (totalProd[r] || 0) + a; } }
-                    }
-                }
-            }
-            if (Object.keys(totalProd).length > 0) {
-                const prodStr = Object.entries(totalProd).map(([r, a]) => `+${a} ${resNames[r] || r}`).join(', ');
-                html += `<div style="padding:4px 8px;margin-top:2px;border-top:1px solid rgba(200,168,74,0.1);"><span style="color:#6a5a3a;font-size:0.72rem;">Production/cycle : </span><span style="color:#a8d8a8;font-size:0.78rem;">${prodStr}</span></div>`;
+            // === SATISFACTION ===
+            const sat = this._getSatisfaction();
+            const satColor = sat > 75 ? '#a8d8a8' : sat > 50 ? '#e8d48a' : sat > 25 ? '#d8a888' : '#d88888';
+            html += `<div class="bd-category"><div class="bd-category-title">Satisfaction</div>`;
+            html += `<div style="display:flex;justify-content:space-between;padding:4px 8px;"><span class="bd-label">Niveau</span><span class="bd-value" style="color:${satColor};font-weight:700;">${sat}%</span></div>`;
+            const demands = this._getSatisfactionDemands();
+            for (const d of demands) {
+                html += `<div style="display:flex;justify-content:space-between;padding:2px 8px;"><span style="color:#8a7a5a;font-size:0.78rem;">${d.icon} ${d.text}</span><span style="color:${d.met ? '#a8d8a8' : '#d88888'};font-size:0.78rem;">${d.met ? '\u2714' : '\u2718'}</span></div>`;
             }
             html += `</div>`;
 
@@ -840,8 +905,7 @@ const Game = {
                 html += `<div style="padding:3px 8px;color:#d8a8a8;font-size:0.78rem;">\u{26A0} ${idleFamilies} famille(s) sans emploi</div>`;
             }
             if (this._pendingFamilies && this._pendingFamilies.length > 0) {
-                const totalPending = this._pendingFamilies.reduce((s, p) => s + p.count, 0);
-                html += `<div style="padding:3px 8px;color:#a8c8d8;font-size:0.78rem;">\u{1F6B6} ${totalPending} famille(s) en route</div>`;
+                html += `<div style="padding:3px 8px;color:#a8c8d8;font-size:0.78rem;">\u{1F6B6} ${this._pendingFamilies.length} famille(s) en route</div>`;
             }
             for (let i = 0; i < this.families.length; i++) {
                 const fam = this.families[i];
@@ -855,12 +919,18 @@ const Game = {
             }
             html += `</div>`;
 
-            // === CONSTRUCTIONS (clickable) ===
+            // === CONSTRUCTIONS (clickable, sorted alphabetically) ===
             html += `<div class="bd-category"><div class="bd-category-title">Constructions (${this.buildings.length})</div>`;
             if (this.buildings.length === 0) {
                 html += `<div style="padding:8px;color:#6a5a3a;font-size:0.78rem;font-style:italic;text-align:center;">Aucune construction. Appuyez sur B.</div>`;
             } else {
-                for (let i = 0; i < this.buildings.length; i++) {
+                // Sort indices alphabetically by building name
+                const sortedIndices = this.buildings.map((_, i) => i).sort((a, b) => {
+                    const nameA = (CONFIG.BUILDINGS[this.buildings[a].type] || {}).name || '';
+                    const nameB = (CONFIG.BUILDINGS[this.buildings[b].type] || {}).name || '';
+                    return nameA.localeCompare(nameB);
+                });
+                for (const i of sortedIndices) {
                     const b = this.buildings[i];
                     const def = CONFIG.BUILDINGS[b.type];
                     if (!def) continue;
@@ -1059,9 +1129,9 @@ const Game = {
             this._gameMinute -= 60;
             this._gameHour++;
             if (this._gameHour >= 24) {
-                this._gameHour = 0;
                 this._gameDay++;
-                this._onNewDay();
+                this._onNewDay(); // sets _gameHour=6, _gameMinute=0
+                break; // stop advancing time — day transition pauses
             }
         }
 
@@ -1069,28 +1139,62 @@ const Game = {
     },
 
     _onNewDay() {
-        // Process pending family arrivals
+        // Set wake time to 6:00
+        this._gameHour = 6;
+        this._gameMinute = 0;
+
+        // Check pending family arrivals
         const arrivals = [];
+        const departures = [];
+        const currentGameHours = (this._gameDay - 1) * 24 + this._gameHour;
+
         if (this._pendingFamilies) {
             for (let i = this._pendingFamilies.length - 1; i >= 0; i--) {
                 const pending = this._pendingFamilies[i];
-                if (pending.day <= this._gameDay) {
+                if (pending.arrivalGameHours <= currentGameHours) {
                     const maxFam = this.getMaxFamilies();
-                    for (let j = 0; j < pending.count && this.families.length < maxFam; j++) {
-                        const fam = this._generateFamily();
-                        this.families.push(fam);
-                        arrivals.push(fam.name);
+                    if (this.families.length < maxFam) {
+                        this.families.push(pending.family);
+                        arrivals.push(pending.family.name);
                     }
                     this._pendingFamilies.splice(i, 1);
                 }
             }
         }
 
+        // Satisfaction-based departure: <25% → 10% chance per family
+        const sat = this._getSatisfaction();
+        if (sat < 25 && this.families.length > 1) {
+            for (let i = this.families.length - 1; i >= 1; i--) { // never remove family 0
+                if (Math.random() < 0.10) {
+                    const fam = this.families[i];
+                    // Unassign from building
+                    if (fam.buildingIdx >= 0 && this.buildings[fam.buildingIdx]) {
+                        this.buildings[fam.buildingIdx].familyIdx = -1;
+                    }
+                    departures.push(fam.name);
+                    this.families.splice(i, 1);
+                    // Fix buildingIdx references
+                    for (const b of this.buildings) {
+                        if (b.familyIdx > i) b.familyIdx--;
+                        else if (b.familyIdx === i) b.familyIdx = -1;
+                    }
+                    for (let j = 0; j < this.families.length; j++) {
+                        this.families[j].buildingIdx = this.buildings.findIndex(b => b.familyIdx === j);
+                    }
+                    break; // max 1 departure per day
+                }
+            }
+        }
+
+        // Auto-queue new family if housing available
+        this._checkRecruitFamily();
+
         // Show day transition overlay
-        this._showDayTransition(arrivals);
+        this._showDayTransition(arrivals, departures);
     },
 
-    _showDayTransition(arrivals) {
+    _showDayTransition(arrivals, departures) {
         this._dayTransitionActive = true;
         const overlay = document.getElementById('day-transition-overlay');
         const title = document.getElementById('day-transition-title');
@@ -1098,16 +1202,30 @@ const Game = {
 
         title.textContent = `Jour ${this._gameDay}`;
 
+        const sat = this._getSatisfaction();
         let summaryHtml = `<strong>Resume du jour precedent :</strong><br>`;
         summaryHtml += `Familles : ${this.families.length} / ${this.getMaxFamilies()}<br>`;
+        summaryHtml += `Satisfaction : <span style="color:${sat > 75 ? '#a8d8a8' : sat > 50 ? '#e8d48a' : sat > 25 ? '#d8a888' : '#d88888'}">${sat}%</span><br>`;
         summaryHtml += `Bois : ${this.resources.wood} | Pierre : ${this.resources.stone} | Fer : ${this.resources.iron} | Or : ${this.resources.gold}<br>`;
         summaryHtml += `Constructions : ${this.buildings.length}`;
 
-        if (arrivals.length > 0) {
+        if (arrivals && arrivals.length > 0) {
             summaryHtml += `<br><br><strong style="color:#a8d8a8;">Nouvelles familles arrivees !</strong><br>`;
             for (const name of arrivals) {
                 summaryHtml += `- ${name}<br>`;
             }
+        }
+
+        if (departures && departures.length > 0) {
+            summaryHtml += `<br><br><strong style="color:#d88888;">Familles parties (mecontentement) :</strong><br>`;
+            for (const name of departures) {
+                summaryHtml += `- ${name}<br>`;
+            }
+        }
+
+        const pendingCount = this._pendingFamilies ? this._pendingFamilies.length : 0;
+        if (pendingCount > 0) {
+            summaryHtml += `<br><span style="color:#a8c8d8;">\u{1F6B6} ${pendingCount} famille(s) en route</span>`;
         }
 
         summary.innerHTML = summaryHtml;
@@ -1116,8 +1234,10 @@ const Game = {
 
     _dismissDayTransition() {
         this._dayTransitionActive = false;
+        this._lastTimeUpdate = Date.now(); // reset timer so no time jump
         document.getElementById('day-transition-overlay').classList.remove('active');
         this._updateHUD();
+        this._updateTimeHUD();
     },
 
     _updateTimeHUD() {
@@ -1161,8 +1281,31 @@ const Game = {
         Camera.update();
         this._updateGameTime();
         this._productionTick();
+        this._checkPendingArrivals();
         Renderer.render();
         requestAnimationFrame(() => this._gameLoop());
+    },
+
+    _checkPendingArrivals() {
+        if (!this._pendingFamilies || this._pendingFamilies.length === 0) return;
+        if (this._timeSpeed === 0 || this._dayTransitionActive) return;
+
+        const currentGameHours = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+        let changed = false;
+
+        for (let i = this._pendingFamilies.length - 1; i >= 0; i--) {
+            const pending = this._pendingFamilies[i];
+            if (pending.arrivalGameHours <= currentGameHours) {
+                const maxFam = this.getMaxFamilies();
+                if (this.families.length < maxFam) {
+                    this.families.push(pending.family);
+                    changed = true;
+                }
+                this._pendingFamilies.splice(i, 1);
+            }
+        }
+
+        if (changed) this._updateHUD();
     },
 
     onMapClick(cellX, cellY) {
