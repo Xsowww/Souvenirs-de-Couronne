@@ -726,17 +726,28 @@ const Game = {
             const bld = CONFIG.BUILDINGS[type];
             const canAfford = this._canAfford(bld.cost);
             const alreadyBuilt = bld.unique && this.buildings.some(b => b.type === type);
-            item.classList.toggle('disabled', !canAfford || alreadyBuilt);
-            item.classList.toggle('selected', this._selectedBuild === type);
+            const shouldDisable = !canAfford || alreadyBuilt;
+            const isSelected = this._selectedBuild === type;
+            // Only toggle classes when state actually changes to avoid cursor flicker
+            if (item.classList.contains('disabled') !== shouldDisable) {
+                item.classList.toggle('disabled', shouldDisable);
+            }
+            if (item.classList.contains('selected') !== isSelected) {
+                item.classList.toggle('selected', isSelected);
+            }
             // Update cost text to show "Deja construit" for unique buildings
             const costEl = item.querySelector('.build-cost');
             if (costEl && alreadyBuilt) {
-                costEl.textContent = 'Deja construit';
-                costEl.style.color = '#d88888';
+                if (costEl.textContent !== 'Deja construit') {
+                    costEl.textContent = 'Deja construit';
+                    costEl.style.color = '#d88888';
+                }
             } else if (costEl && !alreadyBuilt) {
                 const costStr = Object.entries(bld.cost).map(([r, v]) => `${v} ${CONFIG.RESOURCE_NAMES[r] || r}`).join(', ');
-                costEl.textContent = costStr;
-                costEl.style.color = '';
+                if (costEl.textContent !== costStr) {
+                    costEl.textContent = costStr;
+                    costEl.style.color = '';
+                }
             }
         }
     },
