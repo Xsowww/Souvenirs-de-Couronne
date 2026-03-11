@@ -386,6 +386,11 @@ const Game = {
         this._satisfaction = 60;
         this._totalGameHours = 0;
 
+        // Production cycle tracking (fixed hours: 8h, 12h, 16h, 20h)
+        this._lastCycleHour = 6; // game starts at 6h, first cycle at 12h (skip 8h on day 1)
+        this._firstDayCycleDone = false;
+        this._prodCycleGameHours = 0;
+
         // Commerce voyages: [{ familyIdx, goldCarried, returnGameHours, items }]
         this._activeVoyages = [];
 
@@ -465,15 +470,33 @@ const Game = {
     },
 
     // ==================== PRODUCTION TICK ====================
-    // 4 cycles per day = 1 cycle every 6 game hours
+    // 4 cycles per day at fixed hours: 8h, 12h, 16h, 20h
+    // Day 1: first cycle skipped (8h), production starts at 12h
+
+    // Fixed cycle hours: 8h, 12h, 16h, 20h
+    _CYCLE_HOURS: [8, 12, 16, 20],
 
     _productionTick() {
         if (this._timeSpeed === 0 || this._dayTransitionActive) return;
 
-        const currentGameHours = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
-        const hoursSinceLastProd = currentGameHours - this._prodCycleGameHours;
-        if (hoursSinceLastProd < 6) return;
-        this._prodCycleGameHours = currentGameHours;
+        const hour = this._gameHour + this._gameMinute / 60;
+
+        // Find the next cycle that should have fired
+        let cycleTriggered = false;
+        for (const ch of this._CYCLE_HOURS) {
+            if (hour >= ch && this._lastCycleHour < ch) {
+                cycleTriggered = true;
+                this._lastCycleHour = ch;
+                break;
+            }
+        }
+        if (!cycleTriggered) return;
+
+        // Skip first cycle (8h) on day 1
+        if (this._gameDay === 1 && this._lastCycleHour === 8 && !this._firstDayCycleDone) {
+            this._firstDayCycleDone = true;
+            return;
+        }
 
         // Track produced resources for notification
         const produced = {};
@@ -601,7 +624,8 @@ const Game = {
             // All families fed?
             const allFed = (this.resources.food || 0) >= 0;
             const color = allFed ? '#a8c8d8' : '#d88888';
-            this._showNotification(`\u{1F4E6} Cycle : ${msg}`, color);
+            const cycleHour = String(Math.floor(this._lastCycleHour)).padStart(2, '0');
+            this._showNotification(`\u{1F4E6} Cycle ${cycleHour}h : ${msg}`, color);
         }
     },
 
@@ -714,6 +738,9 @@ const Game = {
             }
             tipEl.innerHTML = tipHtml;
         }
+
+        // Refresh build menu if open (event-driven, not per-frame)
+        this._refreshBuildMenu();
     },
 
     // ==================== BUILD MENU ====================
@@ -727,8 +754,15 @@ const Game = {
             item.className = 'build-item';
             item.dataset.type = key;
 
-            const costStr = Object.entries(bld.cost).map(([r, v]) => `${v} ${CONFIG.RESOURCE_NAMES[r] || r}`).join(', ');
-            item.innerHTML = `<span class="build-icon">${bld.icon}</span><span class="build-name">${bld.name}</span><span class="build-cost">${costStr}</span>`;
+            const canAfford = this._canAfford(bld.cost);
+            const alreadyBuilt = bld.unique && this.buildings.some(b => b.type === key);
+            if (!canAfford || alreadyBuilt) item.classList.add('disabled');
+
+            const costStr = alreadyBuilt ? 'Deja construit' :
+                Object.entries(bld.cost).map(([r, v]) => `${v} ${CONFIG.RESOURCE_NAMES[r] || r}`).join(', ');
+            const costColor = alreadyBuilt ? '#d88888' : '';
+
+            item.innerHTML = `<span class="build-icon">${bld.icon}</span><span class="build-name">${bld.name}</span><span class="build-cost"${costColor ? ` style="color:${costColor}"` : ''}>${costStr}</span>`;
 
             item.addEventListener('click', () => {
                 if (item.classList.contains('disabled')) return;
@@ -752,11 +786,9 @@ const Game = {
         this._selectedBuild = null;
         this._closeInfoPanel();
         this._closeBuildingDetail();
-        // Rebuild menu from scratch to avoid stale disabled states
+        // Always rebuild from scratch with current resource state
         this._buildBuildMenu();
-        const menu = document.getElementById('build-menu');
-        menu.classList.add('active');
-        this._refreshBuildMenu();
+        document.getElementById('build-menu').classList.add('active');
     },
 
     _closeBuildMenu() {
@@ -769,22 +801,25 @@ const Game = {
     },
 
     _refreshBuildMenu() {
+        if (!this._buildMode) return;
         const menu = document.getElementById('build-menu');
         for (const item of menu.children) {
             const type = item.dataset.type;
+            if (!type) continue;
             const bld = CONFIG.BUILDINGS[type];
+            if (!bld) continue;
             const canAfford = this._canAfford(bld.cost);
             const alreadyBuilt = bld.unique && this.buildings.some(b => b.type === type);
             const shouldDisable = !canAfford || alreadyBuilt;
             const isSelected = this._selectedBuild === type;
-            // Only toggle classes when state actually changes to avoid cursor flicker
+
             if (item.classList.contains('disabled') !== shouldDisable) {
                 item.classList.toggle('disabled', shouldDisable);
             }
             if (item.classList.contains('selected') !== isSelected) {
                 item.classList.toggle('selected', isSelected);
             }
-            // Update cost text to show "Deja construit" for unique buildings
+
             const costEl = item.querySelector('.build-cost');
             if (costEl && alreadyBuilt) {
                 if (costEl.textContent !== 'Deja construit') {
@@ -1672,6 +1707,8 @@ const Game = {
         // Set wake time to 6:00
         this._gameHour = 6;
         this._gameMinute = 0;
+        // Reset cycle tracker for new day (start before first cycle hour)
+        this._lastCycleHour = 6;
 
         // Check pending family arrivals
         const arrivals = [];
@@ -1820,8 +1857,6 @@ const Game = {
         this._productionTick();
         this._checkPendingArrivals();
         this._checkVoyageReturns();
-        // Live-refresh build menu if open
-        if (this._buildMode) this._refreshBuildMenu();
         Renderer.render();
         requestAnimationFrame(() => this._gameLoop());
     },

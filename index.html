@@ -587,9 +587,9 @@ body {
     min-width: 80px;
     background: rgba(200,168,74,0.03);
 }
-.build-item:hover { border-color: var(--gold); background: rgba(200,168,74,0.1); }
+.build-item:hover:not(.disabled) { border-color: var(--gold); background: rgba(200,168,74,0.1); }
 .build-item.selected { border-color: var(--gold); background: rgba(200,168,74,0.15); box-shadow: 0 0 10px rgba(200,168,74,0.2); }
-.build-item.disabled { opacity: 0.35; cursor: not-allowed; }
+.build-item.disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
 .build-item .build-icon { font-size: 1.5rem; pointer-events: none; }
 .build-item .build-name { font-size: 0.7rem; color: var(--parchment); text-align: center; pointer-events: none; }
 .build-item .build-cost { font-size: 0.6rem; color: var(--gold); pointer-events: none; }
