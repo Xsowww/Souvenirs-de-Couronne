@@ -108,6 +108,7 @@ const Game = {
             }
             if (e.key === '1' && this._running) this._setTimeSpeed(1);
             if (e.key === '2' && this._running) this._setTimeSpeed(2);
+            if (e.key === '3' && this._running) this._skipDay();
         });
     },
 
@@ -373,8 +374,9 @@ const Game = {
         this.buildings = [];
         this.houses = 0;
 
-        // Start with 1 family
+        // Start with 2 families
         this.families = [
+            this._generateFamily(),
             this._generateFamily()
         ];
 
@@ -406,6 +408,8 @@ const Game = {
         if (btnPause)  btnPause.onclick  = () => this._togglePause();
         if (btnPlay)   btnPlay.onclick   = () => this._setTimeSpeed(1);
         if (btnFast)   btnFast.onclick   = () => this._setTimeSpeed(2);
+        const btnSkip  = document.getElementById('btn-skip-day');
+        if (btnSkip)   btnSkip.onclick   = () => this._skipDay();
 
         // Build the build menu items
         this._buildBuildMenu();
@@ -498,102 +502,7 @@ const Game = {
             return;
         }
 
-        // Track produced resources for notification
-        const produced = {};
-        const addProduced = (res, amt) => { produced[res] = (produced[res] || 0) + amt; };
-
-        // Satisfaction production modifier
-        const sat = this._satisfaction;
-        let prodMultiplier = 1.0;
-        if (sat >= 80) prodMultiplier = 1.10;
-        else if (sat < 40 && sat >= 20) prodMultiplier = 0.90;
-
-        // --- Standard production (lumberjack, farm) ---
-        for (let i = 0; i < this.buildings.length; i++) {
-            const b = this.buildings[i];
-            const def = CONFIG.BUILDINGS[b.type];
-            if (!def || !def.production) continue;
-            if (b.familyIdx === undefined || b.familyIdx < 0) continue;
-            if (!this.families[b.familyIdx]) continue;
-
-            // Child bonus: +25% if family has child (niv2 house)
-            const fam = this.families[b.familyIdx];
-            const childBonus = fam.hasChild ? 1.25 : 1.0;
-
-            for (const [res, baseAmt] of Object.entries(def.production)) {
-                let amount = baseAmt;
-                // Upgrade bonuses
-                const lvl = b.level || 1;
-                if (lvl > 1 && def.upgrades) {
-                    for (let u = 0; u < lvl - 1 && u < def.upgrades.length; u++) {
-                        const bonus = def.upgrades[u].productionBonus;
-                        if (bonus && bonus[res]) amount += bonus[res];
-                    }
-                }
-                const finalAmt = Math.floor(amount * prodMultiplier * childBonus);
-                this._addResource(res, finalAmt);
-                addProduced(res, finalAmt);
-            }
-        }
-
-        // --- Mine production (chance-based) ---
-        for (const b of this.buildings) {
-            if (b.type !== 'mine') continue;
-            if (b.familyIdx < 0 || !this.families[b.familyIdx]) continue;
-            const lvl = b.level || 1;
-            const def = CONFIG.BUILDINGS.mine;
-            const rates = def.mineRates[lvl - 1];
-            if (!rates) continue;
-
-            const fam = this.families[b.familyIdx];
-            const childBonus = fam.hasChild ? 1.25 : 1.0;
-
-            const stoneAmt = Math.floor(rates.stone * prodMultiplier * childBonus);
-            this._addResource('stone', stoneAmt);
-            addProduced('stone', stoneAmt);
-            if (Math.random() < rates.ironOreChance) {
-                this._addResource('ironOre', 1);
-                addProduced('ironOre', 1);
-            }
-            if (Math.random() < rates.goldOreChance) {
-                this._addResource('goldOre', 1);
-                addProduced('goldOre', 1);
-            }
-        }
-
-        // --- Fonderie conversion (minerai → lingot) ---
-        for (const b of this.buildings) {
-            if (b.type !== 'foundry') continue;
-            // Fonderie works with or without family (optionnel)
-            const lvl = b.level || 1;
-            const def = CONFIG.BUILDINGS.foundry;
-            const rates = def.foundryRates[lvl - 1];
-            if (!rates) continue;
-
-            // Iron: consume oreNeeded ironOre → produce ingotProduced ironIngot
-            if ((this.resources.ironOre || 0) >= rates.oreNeeded) {
-                this.resources.ironOre -= rates.oreNeeded;
-                this._addResource('ironIngot', rates.ingotProduced);
-                addProduced('ironIngot', rates.ingotProduced);
-            }
-            // Gold: consume oreNeeded goldOre → produce ingotProduced goldIngot
-            if ((this.resources.goldOre || 0) >= rates.oreNeeded) {
-                this.resources.goldOre -= rates.oreNeeded;
-                this._addResource('goldIngot', rates.ingotProduced);
-                addProduced('goldIngot', rates.ingotProduced);
-            }
-        }
-
-        // --- Food consumption (2 food/cycle per family, 3 if niv2 house with child) ---
-        this._consumeFood();
-
-        // --- Training progress ---
-        this._tickTraining();
-
-        // --- Cycle notification ---
-        this._showCycleNotification(produced);
-
-        this._updateHUD();
+        this._runProductionCycle();
     },
 
     _showCycleNotification(produced) {
@@ -606,11 +515,13 @@ const Game = {
             }
         }
 
-        // Food consumption summary
+        // Food consumption summary (only at meal cycles 12h and 20h)
         let foodConsumed = 0;
-        for (const fam of this.families) {
-            if (fam.onVoyage) continue;
-            foodConsumed += fam.hasChild ? 3 : 2;
+        if (this._lastCycleHour === 12 || this._lastCycleHour === 20) {
+            for (const fam of this.families) {
+                if (fam.onVoyage) continue;
+                foodConsumed += fam.hasChild ? 6 : 4;
+            }
         }
 
         if (parts.length > 0 || foodConsumed > 0) {
@@ -630,13 +541,13 @@ const Game = {
     },
 
     _consumeFood() {
-        // 4 cycles/day, 8 food/day per family = 2 per cycle. Niv2 house: 12/day = 3 per cycle
+        // 2 meals/day (12h + 20h), 8 food/day per family = 4 per meal. Niv2 house: 12/day = 6 per meal
         let totalNeeded = 0;
         for (let i = 0; i < this.families.length; i++) {
             const fam = this.families[i];
             if (fam.onVoyage) continue; // travelling families don't eat from village stock
-            const perCycle = fam.hasChild ? 3 : 2;
-            totalNeeded += perCycle;
+            const perMeal = fam.hasChild ? 6 : 4;
+            totalNeeded += perMeal;
         }
 
         if ((this.resources.food || 0) >= totalNeeded) {
@@ -645,7 +556,7 @@ const Game = {
             // Not enough food — some families go hungry
             const fed = this.resources.food || 0;
             this.resources.food = 0;
-            const unfedFamilies = Math.ceil((totalNeeded - fed) / 2);
+            const unfedFamilies = Math.ceil((totalNeeded - fed) / 4);
             // -8% satisfaction per underfed family
             this._satisfaction = Math.max(0, this._satisfaction - (unfedFamilies * 8));
             if (unfedFamilies > 0) {
@@ -1684,9 +1595,9 @@ const Game = {
         const deltaMs    = now - this._lastTimeUpdate;
         this._lastTimeUpdate = now;
 
-        // Speed 1 → 1 real second = 4 game minutes
-        // Speed 2 → 2x faster (8 game minutes per second)
-        const baseSpeed = 4;
+        // Speed 1 → 1 real second = 8 game minutes (days are 50% shorter)
+        // Speed 2 → 2x faster (16 game minutes per second)
+        const baseSpeed = 8;
         const multiplier = (this._timeSpeed === 2 ? 2 : 1) * baseSpeed;
         this._gameMinute += (deltaMs / 1000) * multiplier;
 
@@ -1838,6 +1749,125 @@ const Game = {
         this._updateTimeHUD();
     },
 
+    _skipDay() {
+        if (this._dayTransitionActive) return;
+
+        // Run all remaining cycles for today
+        for (const ch of this._CYCLE_HOURS) {
+            if (this._lastCycleHour < ch) {
+                // Skip first cycle (8h) on day 1
+                if (this._gameDay === 1 && ch === 8 && !this._firstDayCycleDone) {
+                    this._firstDayCycleDone = true;
+                    this._lastCycleHour = ch;
+                    continue;
+                }
+                this._lastCycleHour = ch;
+                this._runProductionCycle();
+            }
+        }
+
+        // Advance to next day
+        this._gameDay++;
+        this._onNewDay();
+    },
+
+    // Extracted production logic so it can be called from both _productionTick and _skipDay
+    _runProductionCycle() {
+        // Track produced resources for notification
+        const produced = {};
+        const addProduced = (res, amt) => { produced[res] = (produced[res] || 0) + amt; };
+
+        // Satisfaction production modifier
+        const sat = this._satisfaction;
+        let prodMultiplier = 1.0;
+        if (sat >= 80) prodMultiplier = 1.10;
+        else if (sat < 40 && sat >= 20) prodMultiplier = 0.90;
+
+        // --- Standard production (lumberjack, farm) ---
+        for (let i = 0; i < this.buildings.length; i++) {
+            const b = this.buildings[i];
+            const def = CONFIG.BUILDINGS[b.type];
+            if (!def || !def.production) continue;
+            if (b.familyIdx === undefined || b.familyIdx < 0) continue;
+            if (!this.families[b.familyIdx]) continue;
+
+            const fam = this.families[b.familyIdx];
+            const childBonus = fam.hasChild ? 1.25 : 1.0;
+
+            for (const [res, baseAmt] of Object.entries(def.production)) {
+                let amount = baseAmt;
+                const lvl = b.level || 1;
+                if (lvl > 1 && def.upgrades) {
+                    for (let u = 0; u < lvl - 1 && u < def.upgrades.length; u++) {
+                        const bonus = def.upgrades[u].productionBonus;
+                        if (bonus && bonus[res]) amount += bonus[res];
+                    }
+                }
+                const finalAmt = Math.floor(amount * prodMultiplier * childBonus);
+                this._addResource(res, finalAmt);
+                addProduced(res, finalAmt);
+            }
+        }
+
+        // --- Mine production ---
+        for (const b of this.buildings) {
+            if (b.type !== 'mine') continue;
+            if (b.familyIdx < 0 || !this.families[b.familyIdx]) continue;
+            const lvl = b.level || 1;
+            const def = CONFIG.BUILDINGS.mine;
+            const rates = def.mineRates[lvl - 1];
+            if (!rates) continue;
+
+            const fam = this.families[b.familyIdx];
+            const childBonus = fam.hasChild ? 1.25 : 1.0;
+
+            const stoneAmt = Math.floor(rates.stone * prodMultiplier * childBonus);
+            this._addResource('stone', stoneAmt);
+            addProduced('stone', stoneAmt);
+            if (Math.random() < rates.ironOreChance) {
+                this._addResource('ironOre', 1);
+                addProduced('ironOre', 1);
+            }
+            if (Math.random() < rates.goldOreChance) {
+                this._addResource('goldOre', 1);
+                addProduced('goldOre', 1);
+            }
+        }
+
+        // --- Fonderie conversion ---
+        for (const b of this.buildings) {
+            if (b.type !== 'foundry') continue;
+            const lvl = b.level || 1;
+            const def = CONFIG.BUILDINGS.foundry;
+            const rates = def.foundryRates[lvl - 1];
+            if (!rates) continue;
+
+            if ((this.resources.ironOre || 0) >= rates.oreNeeded) {
+                this.resources.ironOre -= rates.oreNeeded;
+                this._addResource('ironIngot', rates.ingotProduced);
+                addProduced('ironIngot', rates.ingotProduced);
+            }
+            if ((this.resources.goldOre || 0) >= rates.oreNeeded) {
+                this.resources.goldOre -= rates.oreNeeded;
+                this._addResource('goldIngot', rates.ingotProduced);
+                addProduced('goldIngot', rates.ingotProduced);
+            }
+        }
+
+        // --- Food consumption only at meal times ---
+        if (this._lastCycleHour === 12 || this._lastCycleHour === 20) {
+            this._consumeFood();
+        }
+
+        // --- Training progress ---
+        this._tickTraining();
+
+        // --- Cycle notification ---
+        this._showCycleNotification(produced);
+
+        this._updateHUD();
+    },
+
     _togglePause() {
         if (this._timeSpeed === 0) {
             this._timeSpeed = this._prevSpeed || 1;
@@ -1932,7 +1962,7 @@ const Game = {
         setTimeout(() => {
             notif.classList.add('fade-out');
             setTimeout(() => notif.remove(), 500);
-        }, 3500);
+        }, 7000);
     },
 
     onMapClick(cellX, cellY) {

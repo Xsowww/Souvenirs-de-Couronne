@@ -30,7 +30,7 @@ const CONFIG = {
 
     // Starting resources
     START_RESOURCES: {
-        wood: 100, stone: 0, ironOre: 0, goldOre: 0,
+        wood: 150, stone: 0, ironOre: 0, goldOre: 0,
         ironIngot: 0, goldIngot: 0, food: 30, gold: 0
     },
 
@@ -47,7 +47,7 @@ const CONFIG = {
 
     // Per-resource storage caps (gold has no cap)
     STORAGE: {
-        BASE: { wood: 100, stone: 100, ironOre: 50, goldOre: 50, ironIngot: 50, goldIngot: 50, food: 100 },
+        BASE: { wood: 150, stone: 100, ironOre: 50, goldOre: 50, ironIngot: 50, goldIngot: 50, food: 100 },
         // Warehouse bonuses per level [niv1, niv2, niv3]
         WAREHOUSE_BONUS: [
             { wood: 200, stone: 200, ironOre: 100, goldOre: 100, ironIngot: 100, goldIngot: 100, food: 200 },
@@ -81,12 +81,12 @@ const CONFIG = {
             icon: '\u{1FA93}',
             cost: { wood: 50 },
             job: 'Bucheron',
-            description: 'Produit du bois. Se place en foret. 6 bois/cycle.',
-            production: { wood: 6 },
+            description: 'Produit du bois. Se place en foret. 8 bois/cycle.',
+            production: { wood: 8 },
             terrain: [5, 6],
             upgrades: [
-                { name: 'Niveau 2', cost: { wood: 80, stone: 30 }, productionBonus: { wood: 6 } },
-                { name: 'Niveau 3', cost: { wood: 120, stone: 80 }, productionBonus: { wood: 8 } }
+                { name: 'Niveau 2', cost: { wood: 80, stone: 30 }, productionBonus: { wood: 7 } },
+                { name: 'Niveau 3', cost: { wood: 120, stone: 80 }, productionBonus: { wood: 10 } }
             ]
         },
         farm: {
@@ -111,9 +111,9 @@ const CONFIG = {
             production: null, // special mine logic
             terrain: [7, 8],
             mineRates: [
-                { stone: 4, ironOreChance: 0.25, goldOreChance: 0.10 },
-                { stone: 7, ironOreChance: 0.40, goldOreChance: 0.15 },
-                { stone: 10, ironOreChance: 0.60, goldOreChance: 0.25 }
+                { stone: 5, ironOreChance: 0.30, goldOreChance: 0.12 },
+                { stone: 9, ironOreChance: 0.50, goldOreChance: 0.20 },
+                { stone: 12, ironOreChance: 0.75, goldOreChance: 0.30 }
             ],
             upgrades: [
                 { name: 'Niveau 2', cost: { wood: 100, stone: 40 }, bonus: '+7 pierre, fer 40%, or 15%' },
