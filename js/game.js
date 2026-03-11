@@ -2006,5 +2006,11 @@ const Game = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    Game.init();
+    try {
+        Game.init();
+        console.log('[SdC] Game initialized successfully');
+    } catch(e) {
+        console.error('[SdC] Init error:', e);
+        alert('Erreur initialisation: ' + e.message);
+    }
 });
