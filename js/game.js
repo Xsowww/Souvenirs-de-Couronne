@@ -411,6 +411,11 @@ const Game = {
         const btnSkip  = document.getElementById('btn-skip-day');
         if (btnSkip)   btnSkip.onclick   = () => this._skipDay();
 
+        // Auto-place houses for starting families
+        if (this._castlePlaced) {
+            this._autoPlaceStartingHouses();
+        }
+
         // Build the build menu items
         this._buildBuildMenu();
 
@@ -418,7 +423,54 @@ const Game = {
             Camera.centerOnCell(this._castlePlaced.x, this._castlePlaced.y);
         }
 
+        this._updateHUD();
         this._gameLoop();
+    },
+
+    _autoPlaceStartingHouses() {
+        const cx = this._castlePlaced.x;
+        const cy = this._castlePlaced.y;
+        const houseTerrain = CONFIG.BUILDINGS.house.terrain;
+        let placed = 0;
+        const needed = this.families.length;
+
+        // Search in expanding rings around castle
+        for (let radius = 1; radius <= 10 && placed < needed; radius++) {
+            for (let dx = -radius; dx <= radius && placed < needed; dx++) {
+                for (let dy = -radius; dy <= radius && placed < needed; dy++) {
+                    if (Math.abs(dx) !== radius && Math.abs(dy) !== radius) continue; // ring only
+                    const tx = cx + dx;
+                    const ty = cy + dy;
+                    const tile = GameMap.getTile(tx, ty);
+                    if (!tile) continue;
+                    if (tile.building) continue;
+                    if (tile.owner !== 0) continue;
+                    if (!houseTerrain.includes(tile.terrain)) continue;
+
+                    tile.building = 'house';
+                    // familyIdx = which family lives here (not a job assignment)
+                    const buildingData = { type: 'house', x: tx, y: ty, level: 1, familyIdx: placed };
+                    this.buildings.push(buildingData);
+                    // families[].buildingIdx stays -1 (no job, house is not a workplace)
+                    placed++;
+                }
+            }
+        }
+
+        if (placed > 0) {
+            Renderer._bufferDirty = true;
+        }
+    },
+
+    // Auto-assign a newly arrived family to an empty house
+    _assignFamilyToEmptyHouse(familyIdx) {
+        for (const b of this.buildings) {
+            if (b.type === 'house' && b.familyIdx < 0) {
+                b.familyIdx = familyIdx;
+                return true;
+            }
+        }
+        return false;
     },
 
     _generateFamily() {
@@ -652,6 +704,141 @@ const Game = {
 
         // Refresh build menu if open (event-driven, not per-frame)
         this._refreshBuildMenu();
+
+        // Update resource tooltips
+        this._updateResourceTooltips();
+    },
+
+    _updateResourceTooltips() {
+        const resKeys = ['wood', 'stone', 'ironOre', 'goldOre', 'ironIngot', 'goldIngot', 'food', 'gold'];
+        const resNames = CONFIG.RESOURCE_NAMES;
+
+        // Compute production per cycle for each resource
+        const prodPerCycle = {};
+        for (const k of resKeys) prodPerCycle[k] = 0;
+
+        const sat = this._satisfaction;
+        let prodMultiplier = 1.0;
+        if (sat >= 80) prodMultiplier = 1.10;
+        else if (sat < 40 && sat >= 20) prodMultiplier = 0.90;
+
+        // Track which buildings produce what
+        const prodSources = {}; // res → [{name, amount}]
+        for (const k of resKeys) prodSources[k] = [];
+
+        for (const b of this.buildings) {
+            const def = CONFIG.BUILDINGS[b.type];
+            if (!def) continue;
+
+            // Standard production
+            if (def.production && b.familyIdx >= 0 && this.families[b.familyIdx]) {
+                const fam = this.families[b.familyIdx];
+                const childBonus = fam.hasChild ? 1.25 : 1.0;
+                const lvl = b.level || 1;
+                for (const [res, baseAmt] of Object.entries(def.production)) {
+                    let amount = baseAmt;
+                    if (lvl > 1 && def.upgrades) {
+                        for (let u = 0; u < lvl - 1 && u < def.upgrades.length; u++) {
+                            const bonus = def.upgrades[u].productionBonus;
+                            if (bonus && bonus[res]) amount += bonus[res];
+                        }
+                    }
+                    const finalAmt = Math.floor(amount * prodMultiplier * childBonus);
+                    prodPerCycle[res] += finalAmt;
+                    prodSources[res].push({ name: def.name + ' Niv.' + lvl, amount: finalAmt });
+                }
+            }
+
+            // Mine production (estimated)
+            if (b.type === 'mine' && b.familyIdx >= 0 && this.families[b.familyIdx]) {
+                const lvl = b.level || 1;
+                const rates = def.mineRates[lvl - 1];
+                if (rates) {
+                    const fam = this.families[b.familyIdx];
+                    const childBonus = fam.hasChild ? 1.25 : 1.0;
+                    const stoneAmt = Math.floor(rates.stone * prodMultiplier * childBonus);
+                    prodPerCycle.stone += stoneAmt;
+                    prodSources.stone.push({ name: 'Mine Niv.' + lvl, amount: stoneAmt });
+                    const ironEst = Math.round(rates.ironOreChance * 100);
+                    prodSources.ironOre.push({ name: 'Mine Niv.' + lvl, amount: ironEst + '% chance' });
+                    const goldEst = Math.round(rates.goldOreChance * 100);
+                    prodSources.goldOre.push({ name: 'Mine Niv.' + lvl, amount: goldEst + '% chance' });
+                }
+            }
+        }
+
+        // Food consumption
+        let foodPerMeal = 0;
+        let eatingFamilies = 0;
+        for (const fam of this.families) {
+            if (fam.onVoyage) continue;
+            foodPerMeal += fam.hasChild ? 6 : 4;
+            eatingFamilies++;
+        }
+        const foodPerDay = foodPerMeal * 2; // 2 meals at 12h and 20h
+
+        // Food production per cycle
+        const foodProdPerCycle = prodPerCycle.food || 0;
+        const foodProdPerDay = foodProdPerCycle * 4; // 4 cycles/day
+
+        // Storage caps
+        const caps = {};
+        for (const k of resKeys) caps[k] = this.getStorageCap(k);
+
+        // Build tooltip HTML for each resource
+        for (const key of resKeys) {
+            const tipEl = document.getElementById('tooltip-' + key);
+            if (!tipEl) continue;
+
+            const name = resNames[key] || key;
+            const val = this.resources[key] || 0;
+            const cap = caps[key];
+            let html = `<div style="color:var(--gold);font-family:Cinzel,serif;font-size:0.72rem;margin-bottom:4px;">${name}</div>`;
+            html += `<div style="margin-bottom:3px;">Stock : ${val}${cap === Infinity ? '' : ' / ' + cap}</div>`;
+
+            if (key === 'food') {
+                html += `<div style="color:#a8d8a8;">Production : +${foodProdPerCycle}/cycle (+${foodProdPerDay}/jour)</div>`;
+                for (const src of prodSources.food) {
+                    html += `<div style="color:#8a7a5a;padding-left:8px;">- ${src.name} : +${src.amount}</div>`;
+                }
+                html += `<div style="color:#d8a888;margin-top:3px;">Consommation : -${foodPerMeal}/repas (-${foodPerDay}/jour)</div>`;
+                html += `<div style="color:#8a7a5a;padding-left:8px;">- ${eatingFamilies} famille(s) (repas a 12h et 20h)</div>`;
+                const balance = foodProdPerDay - foodPerDay;
+                const balColor = balance >= 0 ? '#a8d8a8' : '#d88888';
+                html += `<div style="color:${balColor};margin-top:3px;font-weight:700;">Bilan/jour : ${balance >= 0 ? '+' : ''}${balance}</div>`;
+            } else if (key === 'gold') {
+                html += `<div style="color:#8a7a5a;">L'or s'obtient via le Comptoir</div>`;
+            } else if (key === 'ironOre' || key === 'goldOre') {
+                if (prodSources[key].length > 0) {
+                    for (const src of prodSources[key]) {
+                        html += `<div style="color:#a8c8d8;">- ${src.name} : ${src.amount}</div>`;
+                    }
+                } else {
+                    html += `<div style="color:#8a7a5a;">Aucune mine active</div>`;
+                }
+            } else if (key === 'ironIngot' || key === 'goldIngot') {
+                const foundries = this.buildings.filter(b => b.type === 'foundry').length;
+                if (foundries > 0) {
+                    html += `<div style="color:#a8c8d8;">${foundries} fonderie(s) active(s)</div>`;
+                } else {
+                    html += `<div style="color:#8a7a5a;">Aucune fonderie</div>`;
+                }
+            } else {
+                // wood, stone
+                const perCycle = prodPerCycle[key] || 0;
+                const perDay = perCycle * 4;
+                if (perCycle > 0) {
+                    html += `<div style="color:#a8d8a8;">Production : +${perCycle}/cycle (+${perDay}/jour)</div>`;
+                    for (const src of prodSources[key]) {
+                        html += `<div style="color:#8a7a5a;padding-left:8px;">- ${src.name} : +${src.amount}</div>`;
+                    }
+                } else {
+                    html += `<div style="color:#8a7a5a;">Aucune production</div>`;
+                }
+            }
+
+            tipEl.innerHTML = html;
+        }
     },
 
     // ==================== BUILD MENU ====================
@@ -713,35 +900,15 @@ const Game = {
 
     _refreshBuildMenu() {
         if (!this._buildMode) return;
-        const menu = document.getElementById('build-menu');
-        for (const item of menu.children) {
-            const type = item.dataset.type;
-            if (!type) continue;
-            const bld = CONFIG.BUILDINGS[type];
-            if (!bld) continue;
-            const canAfford = this._canAfford(bld.cost);
-            const alreadyBuilt = bld.unique && this.buildings.some(b => b.type === type);
-            const shouldDisable = !canAfford || alreadyBuilt;
-            const isSelected = this._selectedBuild === type;
-
-            if (item.classList.contains('disabled') !== shouldDisable) {
-                item.classList.toggle('disabled', shouldDisable);
-            }
-            if (item.classList.contains('selected') !== isSelected) {
-                item.classList.toggle('selected', isSelected);
-            }
-
-            const costEl = item.querySelector('.build-cost');
-            if (costEl && alreadyBuilt) {
-                if (costEl.textContent !== 'Deja construit') {
-                    costEl.textContent = 'Deja construit';
-                    costEl.style.color = '#d88888';
-                }
-            } else if (costEl && !alreadyBuilt) {
-                const costStr = Object.entries(bld.cost).map(([r, v]) => `${v} ${CONFIG.RESOURCE_NAMES[r] || r}`).join(', ');
-                if (costEl.textContent !== costStr) {
-                    costEl.textContent = costStr;
-                    costEl.style.color = '';
+        // Rebuild entirely to guarantee correct state
+        const wasSelected = this._selectedBuild;
+        this._buildBuildMenu();
+        // Restore selected state
+        if (wasSelected) {
+            const menu = document.getElementById('build-menu');
+            for (const item of menu.children) {
+                if (item.dataset.type === wasSelected) {
+                    item.classList.add('selected');
                 }
             }
         }
@@ -1239,7 +1406,38 @@ const Game = {
         if (b.type === 'house') {
             const assignedFam = b.familyIdx >= 0 ? this.families[b.familyIdx] : null;
             const hasChild = assignedFam && assignedFam.hasChild;
-            html += `<div class="bd-section"><div class="bd-label">Logement</div><div class="bd-value">1 famille${hasChild ? ' + enfant (+25% prod, conso x1.5)' : ''}</div></div>`;
+            html += `<div class="bd-section"><div class="bd-label">Logement</div>`;
+            if (assignedFam) {
+                html += `<div class="bd-value" style="color:#a8d8a8;">${assignedFam.name}</div>`;
+                html += `<div class="bd-value" style="font-size:0.75rem;color:#8a7a5a;">${assignedFam.man} & ${assignedFam.woman}</div>`;
+                if (hasChild) {
+                    html += `<div class="bd-value" style="font-size:0.75rem;color:#a8c8d8;">+ enfant (+25% prod, conso x1.5)</div>`;
+                }
+                // Show family job
+                const jobBuilding = assignedFam.buildingIdx >= 0 ? this.buildings[assignedFam.buildingIdx] : null;
+                if (jobBuilding && jobBuilding !== b) {
+                    const jobDef = CONFIG.BUILDINGS[jobBuilding.type];
+                    html += `<div class="bd-value" style="font-size:0.75rem;color:var(--gold);">Travail : ${jobDef ? jobDef.job || jobDef.name : 'Inconnu'}</div>`;
+                } else {
+                    html += `<div class="bd-value" style="font-size:0.75rem;color:#d8a8a8;">Sans emploi</div>`;
+                }
+            } else {
+                // Check if a pending family is destined for this house
+                const houseIdx = bIdx;
+                const emptyHouses = this.buildings.filter((bb, i) => bb.type === 'house' && bb.familyIdx < 0).map((bb, i) => this.buildings.indexOf(bb));
+                const emptyHouseRank = emptyHouses.indexOf(houseIdx);
+                const pendingCount = this._pendingFamilies ? this._pendingFamilies.length : 0;
+                if (emptyHouseRank >= 0 && emptyHouseRank < pendingCount) {
+                    const pending = this._pendingFamilies[emptyHouseRank];
+                    const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+                    const hoursLeft = Math.max(0, pending.arrivalGameHours - currentGH);
+                    const etaStr = hoursLeft < 1 ? '< 1h' : `~${Math.floor(hoursLeft)}h`;
+                    html += `<div class="bd-value" style="color:#a8c8d8;">${pending.family.name} en route (${etaStr})</div>`;
+                } else {
+                    html += `<div class="bd-value" style="color:#6a5a3a;">Vide - aucune famille logee</div>`;
+                }
+            }
+            html += `</div>`;
         }
 
         // === Family assignment (single-family buildings) ===
@@ -1633,6 +1831,7 @@ const Game = {
                     const maxFam = this.getMaxFamilies();
                     if (this.families.length < maxFam) {
                         this.families.push(pending.family);
+                        this._assignFamilyToEmptyHouse(this.families.length - 1);
                         arrivals.push(pending.family.name);
                     }
                     this._pendingFamilies.splice(i, 1);
@@ -1904,6 +2103,7 @@ const Game = {
                 const maxFam = this.getMaxFamilies();
                 if (this.families.length < maxFam) {
                     this.families.push(pending.family);
+                    this._assignFamilyToEmptyHouse(this.families.length - 1);
                     this._showNotification(`\u{1F46A} ${pending.family.name} est arrivee au village !`, '#a8d8a8');
                     changed = true;
                 }

@@ -450,6 +450,28 @@ body {
     color: var(--parchment);
     letter-spacing: 0.5px;
 }
+.hud-res-wrap {
+    position: relative;
+    cursor: pointer;
+}
+.hud-res-tooltip {
+    display: none;
+    position: absolute;
+    top: 36px;
+    left: 0;
+    background: linear-gradient(180deg, #2a1a0c 0%, #1a100a 100%);
+    border: 1px solid var(--gold-dark);
+    border-radius: 6px;
+    padding: 8px 12px;
+    min-width: 220px;
+    font-family: 'MedievalSharp', serif;
+    font-size: 0.75rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.7);
+    z-index: 30;
+    white-space: nowrap;
+    color: var(--parchment);
+}
+.hud-res-wrap:hover .hud-res-tooltip { display: block; }
 .hud-resource .hud-icon {
     font-size: 1.1rem;
     filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5));
@@ -525,6 +547,10 @@ body {
     letter-spacing: 3px;
     text-shadow: 0 0 10px rgba(200,168,74,0.3), 0 1px 2px rgba(0,0,0,0.8);
     line-height: 1;
+    min-width: 5.5ch;
+    text-align: center;
+    display: inline-block;
+    font-variant-numeric: tabular-nums;
 }
 .time-controls {
     display: flex;
@@ -1135,37 +1161,45 @@ body {
         <!-- HUD Bar -->
         <div id="hud-bar">
             <div class="hud-left">
-                <div class="hud-resource" title="Bois">
+                <div class="hud-resource hud-res-wrap" id="hud-wood-wrap" title="">
                     <span class="hud-icon">&#x1FAB5;</span>
                     <span class="hud-val" id="hud-wood">0</span>
+                    <div class="hud-res-tooltip" id="tooltip-wood"></div>
                 </div>
-                <div class="hud-resource" title="Pierre">
+                <div class="hud-resource hud-res-wrap" id="hud-stone-wrap" title="">
                     <span class="hud-icon">&#x1FAA8;</span>
                     <span class="hud-val" id="hud-stone">0</span>
+                    <div class="hud-res-tooltip" id="tooltip-stone"></div>
                 </div>
-                <div class="hud-resource" title="Minerai de Fer">
+                <div class="hud-resource hud-res-wrap" id="hud-ironOre-wrap" title="">
                     <span class="hud-icon">&#x26CF;</span>
                     <span class="hud-val" id="hud-ironOre">0</span>
+                    <div class="hud-res-tooltip" id="tooltip-ironOre"></div>
                 </div>
-                <div class="hud-resource" title="Minerai d'Or">
+                <div class="hud-resource hud-res-wrap" id="hud-goldOre-wrap" title="">
                     <span class="hud-icon">&#x26CF;</span>
                     <span class="hud-val" id="hud-goldOre">0</span>
+                    <div class="hud-res-tooltip" id="tooltip-goldOre"></div>
                 </div>
-                <div class="hud-resource" title="Lingot de Fer">
+                <div class="hud-resource hud-res-wrap" id="hud-ironIngot-wrap" title="">
                     <span class="hud-icon">&#x1F529;</span>
                     <span class="hud-val" id="hud-ironIngot">0</span>
+                    <div class="hud-res-tooltip" id="tooltip-ironIngot"></div>
                 </div>
-                <div class="hud-resource" title="Lingot d'Or">
+                <div class="hud-resource hud-res-wrap" id="hud-goldIngot-wrap" title="">
                     <span class="hud-icon">&#x1F947;</span>
                     <span class="hud-val" id="hud-goldIngot">0</span>
+                    <div class="hud-res-tooltip" id="tooltip-goldIngot"></div>
                 </div>
-                <div class="hud-resource" title="Nourriture">
+                <div class="hud-resource hud-res-wrap" id="hud-food-wrap" title="">
                     <span class="hud-icon">&#x1F35E;</span>
                     <span class="hud-val" id="hud-food">0</span>
+                    <div class="hud-res-tooltip" id="tooltip-food"></div>
                 </div>
-                <div class="hud-resource" title="Or (monnaie)">
+                <div class="hud-resource hud-res-wrap" id="hud-gold-wrap" title="">
                     <span class="hud-icon">&#x1FA99;</span>
                     <span class="hud-val" id="hud-gold">0</span>
+                    <div class="hud-res-tooltip" id="tooltip-gold"></div>
                 </div>
             </div>
             <div class="hud-center">
