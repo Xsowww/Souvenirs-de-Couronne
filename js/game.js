@@ -475,6 +475,10 @@ const Game = {
         if (hoursSinceLastProd < 6) return;
         this._prodCycleGameHours = currentGameHours;
 
+        // Track produced resources for notification
+        const produced = {};
+        const addProduced = (res, amt) => { produced[res] = (produced[res] || 0) + amt; };
+
         // Satisfaction production modifier
         const sat = this._satisfaction;
         let prodMultiplier = 1.0;
@@ -503,7 +507,9 @@ const Game = {
                         if (bonus && bonus[res]) amount += bonus[res];
                     }
                 }
-                this._addResource(res, Math.floor(amount * prodMultiplier * childBonus));
+                const finalAmt = Math.floor(amount * prodMultiplier * childBonus);
+                this._addResource(res, finalAmt);
+                addProduced(res, finalAmt);
             }
         }
 
@@ -519,12 +525,16 @@ const Game = {
             const fam = this.families[b.familyIdx];
             const childBonus = fam.hasChild ? 1.25 : 1.0;
 
-            this._addResource('stone', Math.floor(rates.stone * prodMultiplier * childBonus));
+            const stoneAmt = Math.floor(rates.stone * prodMultiplier * childBonus);
+            this._addResource('stone', stoneAmt);
+            addProduced('stone', stoneAmt);
             if (Math.random() < rates.ironOreChance) {
                 this._addResource('ironOre', 1);
+                addProduced('ironOre', 1);
             }
             if (Math.random() < rates.goldOreChance) {
                 this._addResource('goldOre', 1);
+                addProduced('goldOre', 1);
             }
         }
 
@@ -541,11 +551,13 @@ const Game = {
             if ((this.resources.ironOre || 0) >= rates.oreNeeded) {
                 this.resources.ironOre -= rates.oreNeeded;
                 this._addResource('ironIngot', rates.ingotProduced);
+                addProduced('ironIngot', rates.ingotProduced);
             }
             // Gold: consume oreNeeded goldOre → produce ingotProduced goldIngot
             if ((this.resources.goldOre || 0) >= rates.oreNeeded) {
                 this.resources.goldOre -= rates.oreNeeded;
                 this._addResource('goldIngot', rates.ingotProduced);
+                addProduced('goldIngot', rates.ingotProduced);
             }
         }
 
@@ -555,7 +567,42 @@ const Game = {
         // --- Training progress ---
         this._tickTraining();
 
+        // --- Cycle notification ---
+        this._showCycleNotification(produced);
+
         this._updateHUD();
+    },
+
+    _showCycleNotification(produced) {
+        // Build production summary
+        const parts = [];
+        for (const [res, amt] of Object.entries(produced)) {
+            if (amt > 0) {
+                const name = CONFIG.RESOURCE_NAMES[res] || res;
+                parts.push(`+${amt} ${name}`);
+            }
+        }
+
+        // Food consumption summary
+        let foodConsumed = 0;
+        for (const fam of this.families) {
+            if (fam.onVoyage) continue;
+            foodConsumed += fam.hasChild ? 3 : 2;
+        }
+
+        if (parts.length > 0 || foodConsumed > 0) {
+            let msg = '';
+            if (parts.length > 0) {
+                msg += parts.join(', ');
+            }
+            if (foodConsumed > 0) {
+                msg += (msg ? ' | ' : '') + `-${foodConsumed} Nourriture`;
+            }
+            // All families fed?
+            const allFed = (this.resources.food || 0) >= 0;
+            const color = allFed ? '#a8c8d8' : '#d88888';
+            this._showNotification(`\u{1F4E6} Cycle : ${msg}`, color);
+        }
     },
 
     _consumeFood() {
@@ -705,6 +752,8 @@ const Game = {
         this._selectedBuild = null;
         this._closeInfoPanel();
         this._closeBuildingDetail();
+        // Rebuild menu from scratch to avoid stale disabled states
+        this._buildBuildMenu();
         const menu = document.getElementById('build-menu');
         menu.classList.add('active');
         this._refreshBuildMenu();
@@ -855,6 +904,16 @@ const Game = {
         if (b.type === 'house' && b.familyIdx >= 0) {
             this._satisfaction = Math.max(0, this._satisfaction - 15);
             this._showNotification(`\u{1F3E0} Maison detruite ! Famille partie, -15% satisfaction`, '#d88888');
+        }
+
+        // If house destroyed: cancel a pending family if we now exceed housing capacity
+        if (b.type === 'house' && this._pendingFamilies && this._pendingFamilies.length > 0) {
+            const maxFamAfterDemolish = this.getMaxFamilies() - 1; // -1 because the house hasn't been removed yet
+            const totalOccupied = this.families.length + this._pendingFamilies.length;
+            if (totalOccupied > maxFamAfterDemolish) {
+                const cancelled = this._pendingFamilies.pop();
+                this._showNotification(`\u{1F6AB} ${cancelled.family.name} ne viendra plus (maison detruite)`, '#d8a888');
+            }
         }
 
         // Refund 50% of costs
