@@ -564,8 +564,8 @@ const Game = {
 
         // Lots of resources
         this.resources = {
-            wood: 500, stone: 300, ironOre: 40, goldOre: 20,
-            ironIngot: 15, goldIngot: 8, food: 200, gold: 150
+            wood: 800, stone: 600, ironOre: 100, goldOre: 50,
+            ironIngot: 30, goldIngot: 15, food: 500, gold: 300
         };
         this.buildings = [];
 
@@ -618,11 +618,15 @@ const Game = {
             return -1;
         };
 
-        // Place buildings: 7 houses, 3 lumberjacks, 2 farms, 1 mine, 1 warehouse, 1 barracks, 1 comptoir, 1 foundry
+        // Place buildings: 12 houses, 3 lumberjacks, 4 farms, 2 mines, 1 warehouse lv3, 1 barracks, 1 comptoir, 1 foundry
         const houseIndices = [];
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 12; i++) {
             const idx = placeNear('house');
             if (idx >= 0) houseIndices.push(idx);
+        }
+        // Upgrade houses with children to lv2
+        for (let i = 0; i < 3 && i < houseIndices.length; i++) {
+            if (this.buildings[houseIndices[i]]) this.buildings[houseIndices[i]].level = 2;
         }
 
         const lumberIndices = [];
@@ -632,31 +636,45 @@ const Game = {
         }
 
         const farmIndices = [];
-        for (let i = 0; i < 2; i++) {
+        for (let i = 0; i < 4; i++) {
             const idx = placeNear('farm');
             if (idx >= 0) farmIndices.push(idx);
         }
 
-        const mineIdx = placeNear('mine');
-        placeNear('warehouse');
+        const mineIndices = [];
+        for (let i = 0; i < 2; i++) {
+            const idx = placeNear('mine');
+            if (idx >= 0) mineIndices.push(idx);
+        }
+
+        const warehouseIdx = placeNear('warehouse');
         const barracksIdx = placeNear('barracks');
         placeNear('comptoir');
-        placeNear('foundry');
+        const foundryIdx = placeNear('foundry');
 
-        // Upgrade some buildings
+        // Upgrade buildings for high production
         for (const idx of lumberIndices) {
             if (this.buildings[idx]) this.buildings[idx].level = 2;
         }
         for (const idx of farmIndices) {
+            if (this.buildings[idx]) this.buildings[idx].level = 3; // Max farms for abundant food
+        }
+        for (const idx of mineIndices) {
             if (this.buildings[idx]) this.buildings[idx].level = 2;
         }
+        if (warehouseIdx >= 0 && this.buildings[warehouseIdx]) {
+            this.buildings[warehouseIdx].level = 3; // Max storage
+        }
+        if (foundryIdx >= 0 && this.buildings[foundryIdx]) {
+            this.buildings[foundryIdx].level = 2;
+        }
 
-        // Assign families to houses (first 7)
-        for (let i = 0; i < Math.min(7, houseIndices.length); i++) {
+        // Assign all 12 families to houses
+        for (let i = 0; i < Math.min(12, houseIndices.length); i++) {
             this.buildings[houseIndices[i]].familyIdx = i;
         }
 
-        // Assign families to workplaces (first 7 families get jobs)
+        // Assign 7 families to workplaces
         let famIdx = 0;
         // 3 lumberjacks
         for (const idx of lumberIndices) {
@@ -666,25 +684,24 @@ const Game = {
             this.families[famIdx].job = 'lumberjack';
             famIdx++;
         }
-        // 2 farms
-        for (const idx of farmIndices) {
+        // 3 farms (4th farm ready but unassigned)
+        for (let fi = 0; fi < 3 && fi < farmIndices.length; fi++) {
             if (famIdx >= 7) break;
+            const idx = farmIndices[fi];
             this.buildings[idx].familyIdx = famIdx;
             this.families[famIdx].buildingIdx = idx;
             this.families[famIdx].job = 'farm';
             famIdx++;
         }
-        // 1 mine
-        if (mineIdx >= 0 && famIdx < 7) {
-            this.buildings[mineIdx].familyIdx = famIdx;
-            this.families[famIdx].buildingIdx = mineIdx;
+        // 1 mine (2nd mine ready but unassigned)
+        if (mineIndices.length > 0 && famIdx < 7) {
+            this.buildings[mineIndices[0]].familyIdx = famIdx;
+            this.families[famIdx].buildingIdx = mineIndices[0];
             this.families[famIdx].job = 'mine';
             famIdx++;
         }
-        // Family 6 stays idle (will be the 7th assigned to house but no job)
 
         // Families 7-11 are completely free (5 idle families for testing)
-        // They have houses but no jobs
 
         // Show HUD
         document.getElementById('hud-bar').classList.add('active');
