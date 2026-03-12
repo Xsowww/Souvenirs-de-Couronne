@@ -434,6 +434,14 @@ const Game = {
         // Commerce voyages: [{ familyIdx, goldCarried, returnGameHours, items }]
         this._activeVoyages = [];
 
+        // Scouts: [{ familyIdx, targetOwner, returnGameHours }]
+        this._activeScouts = [];
+        // Scouted intel: { ownerIdx: { soldiers, archers, cavaliers, strength, day } }
+        this._scoutedIntel = {};
+
+        // Raids: [{ familyIndices, targetOwner, returnGameHours, strength }]
+        this._activeRaids = [];
+
         // Show HUD
         document.getElementById('hud-bar').classList.add('active');
         this._updateHUD();
@@ -1617,6 +1625,91 @@ const Game = {
                 html += `</div>`;
             }
             html += `</div>`;
+
+            // === SCOUT SECTION ===
+            const enemies = this._getEnemyKingdoms();
+            if (enemies.length > 0) {
+                html += `<div class="bd-section"><div class="bd-label">\u{1F441} Reconnaissance</div>`;
+                // Available families for scouting (not on voyage, not training)
+                const scoutCandidates = this.families.filter((f, i) => f.buildingIdx < 0 && !f.onVoyage);
+                // Active scouts
+                if (this._activeScouts && this._activeScouts.length > 0) {
+                    const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+                    for (const s of this._activeScouts) {
+                        const fam = this.families[s.familyIdx];
+                        const target = GameMap.regions.find(r => r.owner === s.targetOwner);
+                        const hoursLeft = Math.max(0, s.returnGameHours - currentGH);
+                        html += `<div style="font-size:0.72rem;color:#a8c8d8;padding:2px 0;">\u{1F441} ${fam ? fam.name : '?'} \u2192 ${target ? target.name : '?'} (retour ~${Math.ceil(hoursLeft)}h)</div>`;
+                    }
+                }
+                // Intel display
+                for (const enemy of enemies) {
+                    const intel = this._scoutedIntel[enemy.owner];
+                    if (intel) {
+                        html += `<div style="padding:4px 6px;margin:3px 0;background:rgba(168,200,216,0.08);border-radius:4px;font-size:0.72rem;">`;
+                        html += `<div style="color:${enemy.color || 'var(--gold)'};font-weight:700;">${enemy.name}</div>`;
+                        html += `<div style="color:#a8c8d8;">${intel.soldiers} soldats, ${intel.archers} archers, ${intel.cavaliers} cavaliers</div>`;
+                        html += `<div style="color:var(--gold-dark);">Force : ${intel.strength} (renseigne Jour ${intel.day})</div>`;
+                        html += `</div>`;
+                    }
+                }
+                // Send scout
+                if (scoutCandidates.length > 0) {
+                    html += `<div style="margin-top:4px;display:flex;gap:4px;">`;
+                    html += `<select class="bd-family-select" id="bd-scout-family" style="flex:1;">`;
+                    html += `<option value="-1">Choisir eclaireur...</option>`;
+                    for (let i = 0; i < this.families.length; i++) {
+                        if (this.families[i].buildingIdx < 0 && !this.families[i].onVoyage) {
+                            html += `<option value="${i}">${this.families[i].name}</option>`;
+                        }
+                    }
+                    html += `</select>`;
+                    html += `<select class="bd-family-select" id="bd-scout-target" style="flex:1;">`;
+                    for (const e of enemies) {
+                        html += `<option value="${e.owner}">${e.name}</option>`;
+                    }
+                    html += `</select>`;
+                    html += `</div>`;
+                    html += `<button class="bd-upgrade-btn${(this.resources.gold || 0) >= 10 ? '' : ' disabled'}" id="bd-send-scout" style="margin-top:4px;font-size:0.72rem;" ${(this.resources.gold || 0) >= 10 ? '' : 'disabled'}>Envoyer eclaireur (10 or)</button>`;
+                } else {
+                    html += `<div style="font-size:0.72rem;color:#6a5a3a;margin-top:4px;">Aucune famille libre pour eclairer</div>`;
+                }
+                html += `</div>`;
+
+                // === RAID SECTION ===
+                html += `<div class="bd-section"><div class="bd-label">\u{2694} Raid</div>`;
+                const army = this._getPlayerArmyStrength();
+                html += `<div style="font-size:0.72rem;color:var(--parchment);margin-bottom:4px;">Armee : ${army.soldiers}S / ${army.archers}A / ${army.cavaliers}C (Force: ${army.strength})</div>`;
+                // Active raids
+                if (this._activeRaids && this._activeRaids.length > 0) {
+                    const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+                    for (const r of this._activeRaids) {
+                        const target = GameMap.regions.find(reg => reg.owner === r.targetOwner);
+                        const hoursLeft = Math.max(0, r.returnGameHours - currentGH);
+                        html += `<div style="font-size:0.72rem;color:#d8a888;padding:2px 0;">\u{2694} Raid vers ${target ? target.name : '?'} (${r.familyIndices.length} familles, retour ~${Math.ceil(hoursLeft)}h)</div>`;
+                    }
+                }
+                // Send raid
+                if (army.total > 0 && (!this._activeRaids || this._activeRaids.length === 0)) {
+                    html += `<div style="margin-top:4px;">`;
+                    html += `<select class="bd-family-select" id="bd-raid-target" style="width:100%;">`;
+                    for (const e of enemies) {
+                        const intel = this._scoutedIntel[e.owner];
+                        const intelStr = intel ? ` (Force ennemie: ${intel.strength})` : ' (non reconnu)';
+                        html += `<option value="${e.owner}">${e.name}${intelStr}</option>`;
+                    }
+                    html += `</select>`;
+                    const canRaid = (this.resources.gold || 0) >= 20 && (this.resources.food || 0) >= 15;
+                    html += `<button class="bd-upgrade-btn${canRaid ? '' : ' disabled'}" id="bd-send-raid" style="margin-top:4px;font-size:0.72rem;" ${canRaid ? '' : 'disabled'}>Lancer le raid (20 or, 15 nourriture)</button>`;
+                    html += `<div style="font-size:0.68rem;color:#8a7a5a;margin-top:2px;">Toutes les familles militaires disponibles partiront</div>`;
+                    html += `</div>`;
+                } else if (this._activeRaids && this._activeRaids.length > 0) {
+                    html += `<div style="font-size:0.72rem;color:#6a5a3a;margin-top:4px;">Raid en cours...</div>`;
+                } else {
+                    html += `<div style="font-size:0.72rem;color:#6a5a3a;margin-top:4px;">Aucun soldat disponible</div>`;
+                }
+                html += `</div>`;
+            }
         }
 
         // === Comptoir: shop + lingot selling + voyages ===
@@ -1797,6 +1890,33 @@ const Game = {
                 this._renderBuildingDetail();
             });
         });
+
+        // Barracks: send scout
+        const sendScout = document.getElementById('bd-send-scout');
+        if (sendScout) {
+            sendScout.addEventListener('click', () => {
+                const famSelect = document.getElementById('bd-scout-family');
+                const targetSelect = document.getElementById('bd-scout-target');
+                if (!famSelect || !targetSelect) return;
+                const fi = parseInt(famSelect.value);
+                const target = parseInt(targetSelect.value);
+                if (fi < 0) return;
+                this._sendScout(fi, target);
+                this._renderBuildingDetail();
+            });
+        }
+
+        // Barracks: send raid
+        const sendRaid = document.getElementById('bd-send-raid');
+        if (sendRaid) {
+            sendRaid.addEventListener('click', () => {
+                const targetSelect = document.getElementById('bd-raid-target');
+                if (!targetSelect) return;
+                const target = parseInt(targetSelect.value);
+                this._sendRaid(target);
+                this._renderBuildingDetail();
+            });
+        }
 
         // Comptoir: sell lingots
         const sellIron = document.getElementById('bd-sell-iron');
@@ -2315,6 +2435,9 @@ const Game = {
             buildings: JSON.parse(JSON.stringify(this.buildings)),
             _pendingFamilies: JSON.parse(JSON.stringify(this._pendingFamilies || [])),
             _activeVoyages: JSON.parse(JSON.stringify(this._activeVoyages || [])),
+            _activeScouts: JSON.parse(JSON.stringify(this._activeScouts || [])),
+            _activeRaids: JSON.parse(JSON.stringify(this._activeRaids || [])),
+            _scoutedIntel: JSON.parse(JSON.stringify(this._scoutedIntel || {})),
             _satisfaction: this._satisfaction,
             _gameDay: this._gameDay,
             _gameHour: this._gameHour,
@@ -2392,6 +2515,9 @@ const Game = {
             this.buildings = data.buildings;
             this._pendingFamilies = data._pendingFamilies || [];
             this._activeVoyages = data._activeVoyages || [];
+            this._activeScouts = data._activeScouts || [];
+            this._activeRaids = data._activeRaids || [];
+            this._scoutedIntel = data._scoutedIntel || {};
             this._satisfaction = data._satisfaction;
             this._gameDay = data._gameDay;
             this._gameHour = data._gameHour;
@@ -2529,6 +2655,8 @@ const Game = {
         this._productionTick();
         this._checkPendingArrivals();
         this._checkVoyageReturns();
+        this._checkScoutReturns();
+        this._checkRaidReturns();
         Renderer.render();
         const currentGen = this._loopGen;
         requestAnimationFrame(() => this._gameLoop(currentGen));
@@ -2590,6 +2718,265 @@ const Game = {
                     }
                 }
                 this._activeVoyages.splice(i, 1);
+                this._updateHUD();
+            }
+        }
+    },
+
+    // ==================== SCOUT SYSTEM ====================
+
+    _getEnemyKingdoms() {
+        const enemies = [];
+        for (const region of GameMap.regions) {
+            if (region.owner > 0 && region.name) {
+                enemies.push({ owner: region.owner, name: region.name, color: region.color });
+            }
+        }
+        return enemies;
+    },
+
+    _generateEnemyArmy(ownerIdx) {
+        // Generate pseudo-random enemy army based on game day and owner
+        const seed = ownerIdx * 1000 + this._gameDay;
+        const rng = () => {
+            const x = Math.sin(seed + rng._c++) * 10000;
+            return x - Math.floor(x);
+        };
+        rng._c = 0;
+
+        const basePower = Math.floor(5 + this._gameDay * 1.5 + ownerIdx * 2);
+        const soldiers = Math.floor(basePower * (0.4 + rng() * 0.3));
+        const archers = Math.floor(basePower * (0.2 + rng() * 0.2));
+        const cavaliers = Math.max(0, basePower - soldiers - archers);
+
+        const strength = soldiers * 3 + archers * 4 + cavaliers * 6;
+        return { soldiers, archers, cavaliers, strength };
+    },
+
+    _sendScout(familyIdx, targetOwner) {
+        const fam = this.families[familyIdx];
+        if (!fam) return;
+
+        // Cost: 10 gold
+        if ((this.resources.gold || 0) < 10) {
+            this._showNotification(`\u{26A0} 10 or necessaires pour envoyer un eclaireur`, '#d88888');
+            return;
+        }
+        this.resources.gold -= 10;
+        fam.onVoyage = true;
+
+        const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+        const duration = 36 + Math.random() * 36; // 1.5-3 days
+        this._activeScouts.push({
+            familyIdx,
+            targetOwner,
+            returnGameHours: currentGH + duration
+        });
+
+        const targetRegion = GameMap.regions.find(r => r.owner === targetOwner);
+        const targetName = targetRegion ? targetRegion.name : 'Royaume inconnu';
+        this._showNotification(`\u{1F441} ${fam.name} part en reconnaissance vers ${targetName}`, '#a8c8d8');
+        this._updateHUD();
+    },
+
+    _checkScoutReturns() {
+        if (!this._activeScouts || this._activeScouts.length === 0) return;
+        if (this._timeSpeed === 0 || this._dayTransitionActive) return;
+
+        const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+        for (let i = this._activeScouts.length - 1; i >= 0; i--) {
+            const s = this._activeScouts[i];
+            if (s.returnGameHours <= currentGH) {
+                const fam = this.families[s.familyIdx];
+                if (fam) {
+                    fam.onVoyage = false;
+
+                    // 15% chance scout gets caught
+                    if (Math.random() < 0.15) {
+                        this._showNotification(`\u{26A0} ${fam.name} a ete repere en eclairant ! Retour sans informations, -5% satisfaction`, '#d88888');
+                        this._satisfaction = Math.max(0, this._satisfaction - 5);
+                    } else {
+                        // Success: generate and store intel
+                        const intel = this._generateEnemyArmy(s.targetOwner);
+                        intel.day = this._gameDay;
+                        this._scoutedIntel[s.targetOwner] = intel;
+
+                        const targetRegion = GameMap.regions.find(r => r.owner === s.targetOwner);
+                        const targetName = targetRegion ? targetRegion.name : 'Royaume inconnu';
+                        this._showNotification(`\u{1F441} ${fam.name} revient avec des renseignements sur ${targetName} !`, '#a8d8a8');
+                    }
+                }
+                this._activeScouts.splice(i, 1);
+                this._updateHUD();
+            }
+        }
+    },
+
+    // ==================== RAID SYSTEM ====================
+
+    _getPlayerArmyStrength() {
+        let soldiers = 0, archers = 0, cavaliers = 0;
+        for (const fam of this.families) {
+            if (!fam.militaryType || fam.onVoyage) continue;
+            if (fam.training && fam.training.cyclesLeft > 0) continue;
+            const totalStats = fam.stats.esquive + fam.stats.force + fam.stats.defense;
+            const statBonus = totalStats / 10; // ~1.0 for base, grows with training
+            if (fam.militaryType === 'soldier') soldiers++;
+            else if (fam.militaryType === 'archer') archers++;
+            else if (fam.militaryType === 'cavalier') cavaliers++;
+        }
+        return {
+            soldiers, archers, cavaliers,
+            strength: soldiers * 3 + archers * 4 + cavaliers * 6,
+            total: soldiers + archers + cavaliers
+        };
+    },
+
+    _sendRaid(targetOwner) {
+        // Gather all available military families
+        const raidFamilies = [];
+        for (let i = 0; i < this.families.length; i++) {
+            const fam = this.families[i];
+            if (!fam.militaryType || fam.onVoyage) continue;
+            if (fam.training && fam.training.cyclesLeft > 0) continue;
+            if (fam.training && fam.training.pendingPoints > 0) continue;
+            raidFamilies.push(i);
+        }
+
+        if (raidFamilies.length === 0) {
+            this._showNotification(`\u{26A0} Aucun soldat disponible pour un raid !`, '#d88888');
+            return;
+        }
+
+        // Cost: 20 gold + 15 food
+        if ((this.resources.gold || 0) < 20 || (this.resources.food || 0) < 15) {
+            this._showNotification(`\u{26A0} 20 or et 15 nourriture necessaires pour un raid`, '#d88888');
+            return;
+        }
+        this.resources.gold -= 20;
+        this.resources.food -= 15;
+
+        // Mark all raid families as on voyage
+        for (const fi of raidFamilies) {
+            this.families[fi].onVoyage = true;
+        }
+
+        // Calculate player raid strength
+        let strength = 0;
+        for (const fi of raidFamilies) {
+            const fam = this.families[fi];
+            const totalStats = fam.stats.esquive + fam.stats.force + fam.stats.defense;
+            const statBonus = 1 + totalStats / 30;
+            if (fam.militaryType === 'soldier') strength += 3 * statBonus;
+            else if (fam.militaryType === 'archer') strength += 4 * statBonus;
+            else if (fam.militaryType === 'cavalier') strength += 6 * statBonus;
+        }
+        strength = Math.round(strength);
+
+        const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+        const duration = 48 + Math.random() * 48; // 2-4 days
+        this._activeRaids.push({
+            familyIndices: raidFamilies,
+            targetOwner,
+            returnGameHours: currentGH + duration,
+            strength
+        });
+
+        const targetRegion = GameMap.regions.find(r => r.owner === targetOwner);
+        const targetName = targetRegion ? targetRegion.name : 'Royaume inconnu';
+        this._showNotification(`\u{2694} Raid lance contre ${targetName} avec ${raidFamilies.length} famille(s) !`, '#d8a888');
+        this._updateHUD();
+    },
+
+    _checkRaidReturns() {
+        if (!this._activeRaids || this._activeRaids.length === 0) return;
+        if (this._timeSpeed === 0 || this._dayTransitionActive) return;
+
+        const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+        for (let i = this._activeRaids.length - 1; i >= 0; i--) {
+            const raid = this._activeRaids[i];
+            if (raid.returnGameHours <= currentGH) {
+                // Resolve combat
+                const enemy = this._generateEnemyArmy(raid.targetOwner);
+                const playerStr = raid.strength;
+                const enemyStr = enemy.strength;
+                const ratio = playerStr / Math.max(1, enemyStr);
+
+                const targetRegion = GameMap.regions.find(r => r.owner === raid.targetOwner);
+                const targetName = targetRegion ? targetRegion.name : 'Royaume inconnu';
+
+                // Determine casualties
+                let casualties = 0;
+                let victory = false;
+
+                if (ratio > 1.5) {
+                    // Decisive victory
+                    victory = true;
+                    casualties = Math.random() < 0.2 ? 1 : 0;
+                    const loot = {
+                        gold: 30 + Math.floor(Math.random() * 40),
+                        wood: 20 + Math.floor(Math.random() * 30),
+                        food: 15 + Math.floor(Math.random() * 20)
+                    };
+                    this.resources.gold = (this.resources.gold || 0) + loot.gold;
+                    this._addResource('wood', loot.wood);
+                    this._addResource('food', loot.food);
+                    this._satisfaction = Math.min(100, this._satisfaction + 8);
+                    this._showNotification(`\u{1F3C6} Victoire ecrasante contre ${targetName} ! +${loot.gold} or, +${loot.wood} bois, +${loot.food} nourriture`, '#a8d8a8');
+                } else if (ratio > 0.8) {
+                    // Close victory
+                    victory = true;
+                    casualties = 1 + (Math.random() < 0.3 ? 1 : 0);
+                    const loot = { gold: 15 + Math.floor(Math.random() * 20) };
+                    this.resources.gold = (this.resources.gold || 0) + loot.gold;
+                    this._satisfaction = Math.min(100, this._satisfaction + 3);
+                    this._showNotification(`\u{2694} Victoire difficile contre ${targetName}. +${loot.gold} or, ${casualties} perte(s)`, '#e8d48a');
+                } else {
+                    // Defeat
+                    victory = false;
+                    casualties = 1 + Math.floor(Math.random() * Math.min(3, raid.familyIndices.length));
+                    this._satisfaction = Math.max(0, this._satisfaction - 10);
+                    this._showNotification(`\u{1F480} Defaite contre ${targetName} ! ${casualties} famille(s) perdue(s), -10% satisfaction`, '#d88888');
+                }
+
+                // Return surviving families
+                const shuffled = [...raid.familyIndices].sort(() => Math.random() - 0.5);
+                const dead = shuffled.slice(0, Math.min(casualties, shuffled.length));
+                const alive = shuffled.slice(Math.min(casualties, shuffled.length));
+
+                for (const fi of alive) {
+                    if (this.families[fi]) {
+                        this.families[fi].onVoyage = false;
+                    }
+                }
+
+                // Remove dead families (in reverse order to keep indices valid)
+                const deadSorted = dead.sort((a, b) => b - a);
+                for (const fi of deadSorted) {
+                    if (!this.families[fi]) continue;
+                    const deadFam = this.families[fi];
+                    // Unassign from barracks
+                    for (const b of this.buildings) {
+                        if (b.familyIndices) {
+                            b.familyIndices = b.familyIndices.filter(idx => idx !== fi);
+                        }
+                        if (b.familyIdx === fi) b.familyIdx = -1;
+                    }
+                    this._showNotification(`\u{1F3F4} ${deadFam.name} est tombee au combat...`, '#d88888');
+                    this.families.splice(fi, 1);
+                    // Fix indices
+                    for (const b of this.buildings) {
+                        if (b.familyIdx > fi) b.familyIdx--;
+                        if (b.familyIndices) {
+                            b.familyIndices = b.familyIndices.map(idx => idx > fi ? idx - 1 : idx);
+                        }
+                    }
+                    for (let j = 0; j < this.families.length; j++) {
+                        if (this.families[j].buildingIdx > fi) this.families[j].buildingIdx--;
+                    }
+                }
+
+                this._activeRaids.splice(i, 1);
                 this._updateHUD();
             }
         }
