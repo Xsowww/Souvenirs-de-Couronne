@@ -2432,6 +2432,16 @@ const Game = {
 
             Camera.centerOnCell(this._castlePlaced.x, this._castlePlaced.y);
 
+            // Bind time controls
+            const btnPause = document.getElementById('btn-pause');
+            const btnPlay  = document.getElementById('btn-play');
+            const btnFast  = document.getElementById('btn-fast');
+            const btnSkip  = document.getElementById('btn-skip-day');
+            if (btnPause) btnPause.onclick = () => this._togglePause();
+            if (btnPlay)  btnPlay.onclick  = () => this._setTimeSpeed(1);
+            if (btnFast)  btnFast.onclick  = () => this._setTimeSpeed(2);
+            if (btnSkip)  btnSkip.onclick  = () => this._skipDay();
+
             this._buildBuildMenu();
             this._updateHUD();
             this._updateTimeHUD();
@@ -2488,6 +2498,9 @@ const Game = {
         // Show a simple load overlay using the pause overlay structure
         this._pauseMenuOpen = true;
         document.querySelector('.pause-buttons').style.display = 'none';
+        // Reset all sub-panels first
+        document.getElementById('quit-confirm').classList.remove('active');
+        document.getElementById('pause-options').classList.remove('active');
         document.getElementById('save-panel').classList.add('active');
         document.getElementById('save-panel').querySelector('h3').textContent = 'Charger une partie';
         this._renderSaveSlots('load');

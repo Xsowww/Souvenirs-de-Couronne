@@ -1,20 +1,27 @@
 // Audio system for Souvenirs de Couronne
-// Uses Web Audio API for procedural music and sound effects
+// Uses HTML5 Audio for music + Web Audio API for sound effects
 
 const AudioManager = {
     _ctx: null,
-    _musicGain: null,
     _sfxGain: null,
     _musicVolume: 0.5,
     _sfxVolume: 0.7,
+    _musicEl: null,
     _musicPlaying: false,
-    _musicNodes: [],
-    _musicInterval: null,
     _initialized: false,
 
     init() {
         if (this._initialized) return;
         this._initialized = true;
+
+        // Create music audio element
+        // Place your music file at assets/audio/music.mp3
+        this._musicEl = new Audio('assets/audio/music.mp3');
+        this._musicEl.loop = true;
+        this._musicEl.volume = this._musicVolume * 0.5;
+        this._musicFileAvailable = false;
+        this._musicEl.addEventListener('canplaythrough', () => { this._musicFileAvailable = true; });
+        this._musicEl.addEventListener('error', () => { this._musicFileAvailable = false; });
 
         // Load saved volumes
         try {
@@ -23,6 +30,8 @@ const AudioManager = {
             if (savedMusic !== null) this._musicVolume = parseInt(savedMusic) / 100;
             if (savedSfx !== null) this._sfxVolume = parseInt(savedSfx) / 100;
         } catch(e) {}
+
+        this._musicEl.volume = this._musicVolume * 0.5;
 
         // Sync slider values
         const sliders = ['opt-music', 'pause-opt-music'];
@@ -42,7 +51,6 @@ const AudioManager = {
             if (el) {
                 el.addEventListener('input', (e) => {
                     this.setMusicVolume(parseInt(e.target.value) / 100);
-                    // Sync other slider
                     for (const oid of sliders) {
                         if (oid !== id) {
                             const oel = document.getElementById(oid);
@@ -71,9 +79,6 @@ const AudioManager = {
     _ensureContext() {
         if (!this._ctx) {
             this._ctx = new (window.AudioContext || window.webkitAudioContext)();
-            this._musicGain = this._ctx.createGain();
-            this._musicGain.gain.value = this._musicVolume * 0.3; // music is quieter
-            this._musicGain.connect(this._ctx.destination);
             this._sfxGain = this._ctx.createGain();
             this._sfxGain.gain.value = this._sfxVolume;
             this._sfxGain.connect(this._ctx.destination);
@@ -85,8 +90,8 @@ const AudioManager = {
 
     setMusicVolume(vol) {
         this._musicVolume = Math.max(0, Math.min(1, vol));
-        if (this._musicGain) {
-            this._musicGain.gain.value = this._musicVolume * 0.3;
+        if (this._musicEl) {
+            this._musicEl.volume = this._musicVolume * 0.5;
         }
         try { localStorage.setItem('sdc_vol_music', Math.round(this._musicVolume * 100)); } catch(e) {}
     },
@@ -100,24 +105,34 @@ const AudioManager = {
     },
 
     // ==================== MUSIC ====================
-    // Medieval ambient music using simple oscillators and pentatonic scale
 
-    _SCALE: [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25], // C pentatonic extended
+    // Pentatonic scale for procedural fallback
+    _SCALE: [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25],
+    _musicNodes: [],
+    _musicInterval: null,
 
     startMusic() {
-        this._ensureContext();
         if (this._musicPlaying) return;
         this._musicPlaying = true;
-        this._playAmbientLoop();
+        if (this._musicFileAvailable && this._musicEl) {
+            this._musicEl.play().catch(() => {});
+        } else {
+            // Procedural fallback
+            this._ensureContext();
+            this._playAmbientLoop();
+        }
     },
 
     stopMusic() {
         this._musicPlaying = false;
+        if (this._musicEl) {
+            this._musicEl.pause();
+            this._musicEl.currentTime = 0;
+        }
         if (this._musicInterval) {
-            clearInterval(this._musicInterval);
+            clearTimeout(this._musicInterval);
             this._musicInterval = null;
         }
-        // Fade out existing nodes
         for (const n of this._musicNodes) {
             try { n.stop(); } catch(e) {}
         }
@@ -125,9 +140,18 @@ const AudioManager = {
     },
 
     _playAmbientLoop() {
-        if (!this._musicPlaying) return;
+        if (!this._musicPlaying || !this._ctx) return;
+        // If music file became available in the meantime, switch to it
+        if (this._musicFileAvailable && this._musicEl) {
+            this._musicEl.play().catch(() => {});
+            return;
+        }
 
         const ctx = this._ctx;
+        const musicGain = ctx.createGain();
+        musicGain.gain.value = this._musicVolume * 0.15;
+        musicGain.connect(ctx.destination);
+
         const playNote = (freq, startTime, duration, type) => {
             const osc = ctx.createOscillator();
             const env = ctx.createGain();
@@ -138,7 +162,7 @@ const AudioManager = {
             env.gain.linearRampToValueAtTime(0.08, startTime + duration * 0.5);
             env.gain.linearRampToValueAtTime(0, startTime + duration);
             osc.connect(env);
-            env.connect(this._musicGain);
+            env.connect(musicGain);
             osc.start(startTime);
             osc.stop(startTime + duration);
             this._musicNodes.push(osc);
@@ -146,17 +170,12 @@ const AudioManager = {
 
         const now = ctx.currentTime;
         const scale = this._SCALE;
-        const barLen = 2.5; // seconds per bar
+        const barLen = 2.5;
 
-        // Generate a 4-bar ambient phrase
         for (let bar = 0; bar < 4; bar++) {
             const barStart = now + bar * barLen;
-
-            // Bass drone (low octave)
             const bassIdx = bar % 2 === 0 ? 0 : 3;
             playNote(scale[bassIdx] / 2, barStart, barLen * 0.95, 'triangle');
-
-            // Melody notes (2-3 per bar, from pentatonic)
             const notesInBar = 2 + Math.floor(Math.random() * 2);
             for (let n = 0; n < notesInBar; n++) {
                 const noteStart = barStart + (n / notesInBar) * barLen + Math.random() * 0.2;
@@ -164,8 +183,6 @@ const AudioManager = {
                 const noteDur = 0.6 + Math.random() * 1.0;
                 playNote(scale[noteIdx], noteStart, noteDur, 'sine');
             }
-
-            // Pad chord (quiet)
             if (Math.random() > 0.4) {
                 const chordRoot = scale[bar % scale.length];
                 playNote(chordRoot * 0.5, barStart + 0.05, barLen * 0.8, 'sine');
@@ -173,12 +190,7 @@ const AudioManager = {
             }
         }
 
-        // Clean up old nodes
-        this._musicNodes = this._musicNodes.filter(n => {
-            try { return n.context.currentTime < n.stop; } catch(e) { return false; }
-        });
-
-        // Schedule next phrase
+        this._musicNodes = this._musicNodes.slice(-50);
         const phraseLen = 4 * barLen * 1000;
         this._musicInterval = setTimeout(() => this._playAmbientLoop(), phraseLen - 200);
     },
@@ -190,7 +202,6 @@ const AudioManager = {
         const ctx = this._ctx;
         const now = ctx.currentTime;
 
-        // Hammer hit sound
         const osc = ctx.createOscillator();
         const env = ctx.createGain();
         osc.type = 'square';
@@ -203,7 +214,6 @@ const AudioManager = {
         osc.start(now);
         osc.stop(now + 0.2);
 
-        // Second tap
         const osc2 = ctx.createOscillator();
         const env2 = ctx.createGain();
         osc2.type = 'square';
@@ -222,7 +232,6 @@ const AudioManager = {
         const ctx = this._ctx;
         const now = ctx.currentTime;
 
-        // Crash/crumble
         const noise = ctx.createBufferSource();
         const bufferSize = ctx.sampleRate * 0.4;
         const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
@@ -248,7 +257,6 @@ const AudioManager = {
         const ctx = this._ctx;
         const now = ctx.currentTime;
 
-        // Soft bell
         const osc = ctx.createOscillator();
         const env = ctx.createGain();
         osc.type = 'sine';
@@ -283,7 +291,6 @@ const AudioManager = {
         const ctx = this._ctx;
         const now = ctx.currentTime;
 
-        // Rising notes
         const notes = [440, 554, 659];
         notes.forEach((freq, i) => {
             const osc = ctx.createOscillator();
@@ -305,13 +312,12 @@ const AudioManager = {
         const ctx = this._ctx;
         const now = ctx.currentTime;
 
-        // Horn fanfare
         const osc = ctx.createOscillator();
         const env = ctx.createGain();
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(293.66, now); // D4
-        osc.frequency.setValueAtTime(392, now + 0.3); // G4
-        osc.frequency.setValueAtTime(523.25, now + 0.6); // C5
+        osc.frequency.setValueAtTime(293.66, now);
+        osc.frequency.setValueAtTime(392, now + 0.3);
+        osc.frequency.setValueAtTime(523.25, now + 0.6);
         env.gain.setValueAtTime(0.08, now);
         env.gain.linearRampToValueAtTime(0.15, now + 0.1);
         env.gain.linearRampToValueAtTime(0.12, now + 0.6);
@@ -345,8 +351,7 @@ const AudioManager = {
         const ctx = this._ctx;
         const now = ctx.currentTime;
 
-        // Military trumpet
-        const notes = [392, 523.25, 659.25, 783.99]; // G4 C5 E5 G5
+        const notes = [392, 523.25, 659.25, 783.99];
         notes.forEach((freq, i) => {
             const osc = ctx.createOscillator();
             const env = ctx.createGain();
@@ -367,11 +372,10 @@ const AudioManager = {
         const ctx = this._ctx;
         const now = ctx.currentTime;
 
-        // Quill scratch + chime
         const osc = ctx.createOscillator();
         const env = ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.value = 1046.5; // C6
+        osc.frequency.value = 1046.5;
         env.gain.setValueAtTime(0.12, now);
         env.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
         osc.connect(env);
@@ -382,7 +386,7 @@ const AudioManager = {
         const osc2 = ctx.createOscillator();
         const env2 = ctx.createGain();
         osc2.type = 'sine';
-        osc2.frequency.value = 1318.5; // E6
+        osc2.frequency.value = 1318.5;
         env2.gain.setValueAtTime(0.1, now + 0.15);
         env2.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
         osc2.connect(env2);
