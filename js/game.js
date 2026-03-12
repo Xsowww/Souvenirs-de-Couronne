@@ -44,8 +44,12 @@ const Game = {
     _prevSpeed: 1,
 
     init() {
-        document.getElementById('btn-new-game').addEventListener('click', () => this.newGame());
-        document.getElementById('btn-continue').addEventListener('click', () => {});
+        AudioManager.init();
+        document.getElementById('btn-new-game').addEventListener('click', () => {
+            AudioManager._ensureContext();
+            AudioManager.startMusic();
+            this.newGame();
+        });
         document.getElementById('btn-options').addEventListener('click', () => this.showScreen('options-screen'));
         document.getElementById('btn-options-close').addEventListener('click', () => this.showScreen('menu-screen'));
         document.getElementById('btn-quit-game').addEventListener('click', () => {
@@ -458,7 +462,8 @@ const Game = {
         }
 
         this._updateHUD();
-        this._gameLoop();
+        this._loopGen = (this._loopGen || 0) + 1;
+        this._gameLoop(this._loopGen);
     },
 
     _autoPlaceStartingHouses() {
@@ -673,6 +678,7 @@ const Game = {
                         day: this._gameDay,
                         status: 'pending'
                     });
+                    AudioManager.playTrainingComplete();
                     this._showNotification(`\u{2694} ${fam.name} a termine l'entrainement ! +${earnedPoints} points a distribuer`, '#a8d8a8');
                 }
             }
@@ -845,13 +851,13 @@ const Game = {
             html += `<div style="margin-bottom:3px;">Stock : ${val}${cap === Infinity ? '' : ' / ' + cap}</div>`;
 
             if (key === 'food') {
-                html += `<div style="color:#a8d8a8;">Production : +${foodProdPerCycle}/cycle (+${foodProdPerDay}/jour)</div>`;
+                html += `<div style="color:#a8d8a8;">Production : +${foodProdPerDay}/jour</div>`;
                 for (const src of prodSources.food) {
                     html += `<div style="color:#8a7a5a;padding-left:8px;">- ${src.name} : +${src.amount}</div>`;
                 }
-                html += `<div style="color:#d8a888;margin-top:3px;">Consommation : -${foodPerMeal}/repas (-${foodPerDay}/jour)</div>`;
+                html += `<div style="color:#d8a888;margin-top:3px;">Consommation : -${foodPerDay}/jour</div>`;
                 const childFamilies = this.families.filter(f => !f.onVoyage && f.hasChild).length;
-                html += `<div style="color:#8a7a5a;padding-left:8px;">- ${eatingFamilies} famille(s) (repas a 12h et 20h)${childFamilies > 0 ? ` dont ${childFamilies} avec enfant` : ''}</div>`;
+                html += `<div style="color:#8a7a5a;padding-left:8px;">- ${eatingFamilies} famille(s)${childFamilies > 0 ? ` dont ${childFamilies} avec enfant` : ''}</div>`;
                 const balance = foodProdPerDay - foodPerDay;
                 const balColor = balance >= 0 ? '#a8d8a8' : '#d88888';
                 html += `<div style="color:${balColor};margin-top:3px;font-weight:700;">Bilan/jour : ${balance >= 0 ? '+' : ''}${balance}</div>`;
@@ -876,8 +882,8 @@ const Game = {
                 // wood, stone
                 const perCycle = prodPerCycle[key] || 0;
                 const perDay = perCycle * 4;
-                if (perCycle > 0) {
-                    html += `<div style="color:#a8d8a8;">Production : +${perCycle}/cycle (+${perDay}/jour)</div>`;
+                if (perDay > 0) {
+                    html += `<div style="color:#a8d8a8;">Production : +${perDay}/jour</div>`;
                     for (const src of prodSources[key]) {
                         html += `<div style="color:#8a7a5a;padding-left:8px;">- ${src.name} : +${src.amount}</div>`;
                     }
@@ -1020,6 +1026,7 @@ const Game = {
         }
 
         // Place
+        AudioManager.playBuild();
         tile.building = type;
         const buildingData = { type, x: cellX, y: cellY, level: 1, familyIdx: -1 };
 
@@ -1045,6 +1052,7 @@ const Game = {
     _demolishBuilding(bIdx) {
         const b = this.buildings[bIdx];
         if (!b) return;
+        AudioManager.playDemolish();
         const def = CONFIG.BUILDINGS[b.type];
 
         // Unassign families
@@ -1274,6 +1282,7 @@ const Game = {
     // ==================== BUILDING DETAIL PANEL ====================
 
     _openBuildingDetail(buildingIdx) {
+        AudioManager.playClick();
         this._selectedBuilding = buildingIdx;
         this._closeBuildMenu();
         this._closeInfoPanel();
@@ -1882,6 +1891,7 @@ const Game = {
         const upgrade = def.upgrades[lvl - 1];
         if (!this._canAfford(upgrade.cost)) return;
 
+        AudioManager.playUpgrade();
         // Spend resources
         for (const [res, amount] of Object.entries(upgrade.cost)) {
             this.resources[res] -= amount;
@@ -2000,6 +2010,7 @@ const Game = {
 
     _showDayTransition(arrivals, departures) {
         this._dayTransitionActive = true;
+        AudioManager.playNewDay();
         const overlay = document.getElementById('day-transition-overlay');
         const title = document.getElementById('day-transition-title');
         const summary = document.getElementById('day-transition-summary');
@@ -2316,6 +2327,7 @@ const Game = {
         try {
             localStorage.setItem('sdc_save_' + slotIndex, JSON.stringify(saveData));
             this._lastSaveTimestamp = Date.now();
+            AudioManager.playSave();
             this._showNotification(`Partie sauvegardee (Slot ${slotIndex + 1})`, '#a8d8a8');
             // Refresh slots display
             this._renderSaveSlots('save');
@@ -2399,6 +2411,7 @@ const Game = {
             Camera.zoom = 4;
 
             this._running = true;
+            this._loopGen = (this._loopGen || 0) + 1; // invalidate any previous game loop
             this._worldMapOpen = false;
             this._worldMapBuffer = null;
             this._buildMode = false;
@@ -2422,8 +2435,10 @@ const Game = {
             this._buildBuildMenu();
             this._updateHUD();
             this._updateTimeHUD();
-            this._gameLoop();
+            this._gameLoop(this._loopGen);
 
+            AudioManager._ensureContext();
+            AudioManager.startMusic();
             this._showNotification(`Partie chargee (Slot ${slotIndex + 1})`, '#a8d8a8');
         } catch(e) {
             console.error('Load error:', e);
@@ -2457,6 +2472,7 @@ const Game = {
 
     _quitToMenu() {
         this._running = false;
+        AudioManager.stopMusic();
         this._pauseMenuOpen = false;
         document.getElementById('pause-overlay').classList.remove('active');
         document.getElementById('hud-bar').classList.remove('active');
@@ -2492,15 +2508,17 @@ const Game = {
 
     // ==================== GAME LOOP ====================
 
-    _gameLoop() {
+    _gameLoop(gen) {
         if (!this._running) return;
+        if (gen !== undefined && gen !== this._loopGen) return; // stale loop
         Camera.update();
         this._updateGameTime();
         this._productionTick();
         this._checkPendingArrivals();
         this._checkVoyageReturns();
         Renderer.render();
-        requestAnimationFrame(() => this._gameLoop());
+        const currentGen = this._loopGen;
+        requestAnimationFrame(() => this._gameLoop(currentGen));
     },
 
     _checkPendingArrivals() {

@@ -22,21 +22,26 @@ const Camera = {
         this.x = mapPixelW / 2 - canvas.width / 2;
         this.y = mapPixelH / 2 - canvas.height / 2;
 
-        canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
-        canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
-        canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
-        canvas.addEventListener('mouseleave', () => this.dragging = false);
-        canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
-        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        // Only bind event listeners once
+        if (!this._eventsBound) {
+            this._eventsBound = true;
 
-        // Touch
-        canvas.addEventListener('touchstart', (e) => this.onTouchStart(e));
-        canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
-        canvas.addEventListener('touchend', () => this.dragging = false);
+            canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+            canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+            canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
+            canvas.addEventListener('mouseleave', () => this.dragging = false);
+            canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
+            canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-        // Keyboard
-        window.addEventListener('keydown', (e) => this._keys[e.key] = true);
-        window.addEventListener('keyup', (e) => this._keys[e.key] = false);
+            // Touch
+            canvas.addEventListener('touchstart', (e) => this.onTouchStart(e));
+            canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
+            canvas.addEventListener('touchend', () => this.dragging = false);
+
+            // Keyboard
+            window.addEventListener('keydown', (e) => this._keys[e.key] = true);
+            window.addEventListener('keyup', (e) => this._keys[e.key] = false);
+        }
     },
 
     update() {
