@@ -15,8 +15,8 @@ const AudioManager = {
         this._initialized = true;
 
         // Create music audio element
-        // Place your music file at assets/audio/music.mp3
-        this._musicEl = new Audio('assets/audio/music.mp3');
+        // Place your music file as music.mp3 at the project root
+        this._musicEl = new Audio('music.mp3');
         this._musicEl.loop = true;
         this._musicEl.volume = this._musicVolume * 0.5;
         this._musicFileAvailable = false;

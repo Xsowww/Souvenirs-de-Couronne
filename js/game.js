@@ -50,6 +50,11 @@ const Game = {
             AudioManager.startMusic();
             this.newGame();
         });
+        document.getElementById('btn-dev-test').addEventListener('click', () => {
+            AudioManager._ensureContext();
+            AudioManager.startMusic();
+            this._startDevTest();
+        });
         document.getElementById('btn-options').addEventListener('click', () => this.showScreen('options-screen'));
         document.getElementById('btn-options-close').addEventListener('click', () => this.showScreen('menu-screen'));
         document.getElementById('btn-quit-game').addEventListener('click', () => {
@@ -472,6 +477,238 @@ const Game = {
         this._updateHUD();
         this._loopGen = (this._loopGen || 0) + 1;
         this._gameLoop(this._loopGen);
+    },
+
+    // ==================== DEV TEST MODE ====================
+    _startDevTest() {
+        // Generate map with random seed
+        this.seed = 'devtest_' + Date.now();
+        this._castlePlaced = null;
+
+        // Generate terrain synchronously
+        Perlin.seed(this.seed);
+        Perlin.seedRng(this.seed);
+        GameMap.width = CONFIG.MAP_WIDTH;
+        GameMap.height = CONFIG.MAP_HEIGHT;
+        GameMap.tiles = [];
+        GameMap.regions = [];
+        for (let y = 0; y < GameMap.height; y++) {
+            GameMap.tiles[y] = [];
+            for (let x = 0; x < GameMap.width; x++) {
+                const elevation = Perlin.octave(x * 0.035, y * 0.035, 6, 0.5);
+                const moisture = Perlin.octave(x * 0.04 + 200, y * 0.04 + 200, 4, 0.5);
+                const dx = (x / GameMap.width - 0.5) * 2;
+                const dy = (y / GameMap.height - 0.5) * 2;
+                const distFromCenter = Math.sqrt(dx * dx + dy * dy);
+                const falloff = Math.max(0, 1 - distFromCenter * 1.1);
+                const finalElev = elevation * 0.7 + falloff * 0.3;
+                const terrain = GameMap._elevToTerrain(finalElev, moisture, x, y);
+                GameMap.tiles[y][x] = {
+                    x, y, terrain, elevation: finalElev, moisture,
+                    building: null, owner: -1, regionId: -1,
+                    visible: true, explored: true,
+                };
+            }
+        }
+        GameMap._generateNaturalRegions();
+
+        // Place castle near center
+        const cx = Math.floor(GameMap.width / 2);
+        const cy = Math.floor(GameMap.height / 2);
+        // Find valid spot near center
+        let castleX = cx, castleY = cy;
+        for (let r = 0; r < 30; r++) {
+            for (let dx = -r; dx <= r; dx++) {
+                for (let dy = -r; dy <= r; dy++) {
+                    if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+                    const tile = GameMap.getTile(cx + dx, cy + dy);
+                    if (tile && tile.terrain > 1 && tile.terrain < 6 && GameMap.isValidKingdomSpot(cx + dx, cy + dy)) {
+                        castleX = cx + dx;
+                        castleY = cy + dy;
+                        r = 99; dx = 99; dy = 99; // break all
+                    }
+                }
+            }
+        }
+        this._castlePlaced = { x: castleX, y: castleY };
+        GameMap.placeKingdoms(castleX, castleY);
+
+        // Init renderer
+        Renderer.init();
+        Renderer.buildTerrainBuffer();
+
+        // Now use normal _startMapView to set up game state
+        this.showScreen('game-screen');
+        Camera.init(Renderer.canvas);
+        Renderer.setIsoMode(false);
+        Camera.zoom = 4;
+
+        this._running = true;
+        this._worldMapOpen = false;
+        this._worldMapBuffer = null;
+        this._buildMode = false;
+        this._selectedBuild = null;
+        this._infoPanelOpen = false;
+        this._selectedBuilding = null;
+        this._pauseMenuOpen = false;
+        this._lastSaveTimestamp = 0;
+        this._lastTick = Date.now();
+
+        // Day 20 setup
+        this._gameMinute = 0;
+        this._gameHour = 8;
+        this._gameDay = 20;
+        this._timeSpeed = 1;
+        this._lastTimeUpdate = Date.now();
+        this._prevSpeed = 1;
+
+        // Lots of resources
+        this.resources = {
+            wood: 500, stone: 300, ironOre: 40, goldOre: 20,
+            ironIngot: 15, goldIngot: 8, food: 200, gold: 150
+        };
+        this.buildings = [];
+
+        // Generate 12 families (7 assigned + 5 free)
+        this.families = [];
+        for (let i = 0; i < 12; i++) {
+            const fam = this._generateFamily();
+            // Give some families children
+            if (i < 3) fam.hasChild = true;
+            this.families.push(fam);
+        }
+
+        this._pendingFamilies = [];
+        this._dayTransitionActive = false;
+        this._satisfaction = 75;
+        this._totalGameHours = 0;
+        this._lastCycleHour = 8;
+        this._firstDayCycleDone = true;
+        this._prodCycleGameHours = 0;
+        this._activeVoyages = [];
+        this._activeScouts = [];
+        this._activeRaids = [];
+        this._scoutedIntel = {};
+
+        // Place castle tile
+        const castleTile = GameMap.getTile(castleX, castleY);
+        if (castleTile) castleTile.building = 'castle';
+
+        // Helper to find and place a building near castle
+        const placeNear = (type, maxRadius) => {
+            const def = CONFIG.BUILDINGS[type];
+            const validTerrain = def.terrain || [2, 3, 4];
+            for (let r = 1; r <= (maxRadius || 15); r++) {
+                for (let dx = -r; dx <= r; dx++) {
+                    for (let dy = -r; dy <= r; dy++) {
+                        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+                        const tx = castleX + dx;
+                        const ty = castleY + dy;
+                        const tile = GameMap.getTile(tx, ty);
+                        if (!tile || tile.building || tile.owner !== 0) continue;
+                        if (!validTerrain.includes(tile.terrain)) continue;
+                        tile.building = type;
+                        const bd = { type, x: tx, y: ty, level: 1, familyIdx: -1 };
+                        if (def.multiFamily) bd.familyIndices = [];
+                        this.buildings.push(bd);
+                        return this.buildings.length - 1;
+                    }
+                }
+            }
+            return -1;
+        };
+
+        // Place buildings: 7 houses, 3 lumberjacks, 2 farms, 1 mine, 1 warehouse, 1 barracks, 1 comptoir, 1 foundry
+        const houseIndices = [];
+        for (let i = 0; i < 7; i++) {
+            const idx = placeNear('house');
+            if (idx >= 0) houseIndices.push(idx);
+        }
+
+        const lumberIndices = [];
+        for (let i = 0; i < 3; i++) {
+            const idx = placeNear('lumberjack');
+            if (idx >= 0) lumberIndices.push(idx);
+        }
+
+        const farmIndices = [];
+        for (let i = 0; i < 2; i++) {
+            const idx = placeNear('farm');
+            if (idx >= 0) farmIndices.push(idx);
+        }
+
+        const mineIdx = placeNear('mine');
+        placeNear('warehouse');
+        const barracksIdx = placeNear('barracks');
+        placeNear('comptoir');
+        placeNear('foundry');
+
+        // Upgrade some buildings
+        for (const idx of lumberIndices) {
+            if (this.buildings[idx]) this.buildings[idx].level = 2;
+        }
+        for (const idx of farmIndices) {
+            if (this.buildings[idx]) this.buildings[idx].level = 2;
+        }
+
+        // Assign families to houses (first 7)
+        for (let i = 0; i < Math.min(7, houseIndices.length); i++) {
+            this.buildings[houseIndices[i]].familyIdx = i;
+        }
+
+        // Assign families to workplaces (first 7 families get jobs)
+        let famIdx = 0;
+        // 3 lumberjacks
+        for (const idx of lumberIndices) {
+            if (famIdx >= 7) break;
+            this.buildings[idx].familyIdx = famIdx;
+            this.families[famIdx].buildingIdx = idx;
+            this.families[famIdx].job = 'lumberjack';
+            famIdx++;
+        }
+        // 2 farms
+        for (const idx of farmIndices) {
+            if (famIdx >= 7) break;
+            this.buildings[idx].familyIdx = famIdx;
+            this.families[famIdx].buildingIdx = idx;
+            this.families[famIdx].job = 'farm';
+            famIdx++;
+        }
+        // 1 mine
+        if (mineIdx >= 0 && famIdx < 7) {
+            this.buildings[mineIdx].familyIdx = famIdx;
+            this.families[famIdx].buildingIdx = mineIdx;
+            this.families[famIdx].job = 'mine';
+            famIdx++;
+        }
+        // Family 6 stays idle (will be the 7th assigned to house but no job)
+
+        // Families 7-11 are completely free (5 idle families for testing)
+        // They have houses but no jobs
+
+        // Show HUD
+        document.getElementById('hud-bar').classList.add('active');
+
+        // Bind time controls
+        const btnPause = document.getElementById('btn-pause');
+        const btnPlay  = document.getElementById('btn-play');
+        const btnFast  = document.getElementById('btn-fast');
+        const btnSkip  = document.getElementById('btn-skip-day');
+        if (btnPause) btnPause.onclick = () => this._togglePause();
+        if (btnPlay)  btnPlay.onclick  = () => this._setTimeSpeed(1);
+        if (btnFast)  btnFast.onclick  = () => this._setTimeSpeed(2);
+        if (btnSkip)  btnSkip.onclick  = () => this._skipDay();
+
+        Renderer._bufferDirty = true;
+        Camera.centerOnCell(castleX, castleY);
+
+        this._buildBuildMenu();
+        this._updateHUD();
+        this._updateTimeHUD();
+        this._loopGen = (this._loopGen || 0) + 1;
+        this._gameLoop(this._loopGen);
+
+        this._showNotification('Mode Test : Jour 20, 12 familles, 5 libres', '#a8c8d8');
     },
 
     _autoPlaceStartingHouses() {
