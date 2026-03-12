@@ -20,6 +20,10 @@ const Game = {
     _buildMode: false,
     _selectedBuild: null,
 
+    // Pause menu
+    _pauseMenuOpen: false,
+    _lastSaveTimestamp: 0,
+
     // Info panel
     _infoPanelOpen: false,
     _infoTab: 'buildings',
@@ -80,35 +84,63 @@ const Game = {
         // Building detail panel close
         document.getElementById('building-detail-close').addEventListener('click', () => this._closeBuildingDetail());
 
+        // Pause menu buttons
+        document.getElementById('btn-resume').addEventListener('click', () => this._closePauseMenu());
+        document.getElementById('btn-save').addEventListener('click', () => this._openSavePanel());
+        document.getElementById('btn-pause-options').addEventListener('click', () => {
+            document.querySelector('.pause-buttons').style.display = 'none';
+            document.getElementById('pause-options').classList.add('active');
+        });
+        document.getElementById('btn-pause-options-back').addEventListener('click', () => {
+            document.getElementById('pause-options').classList.remove('active');
+            document.querySelector('.pause-buttons').style.display = '';
+        });
+        document.getElementById('btn-save-back').addEventListener('click', () => {
+            document.getElementById('save-panel').classList.remove('active');
+            document.querySelector('.pause-buttons').style.display = '';
+        });
+        document.getElementById('btn-quit-to-menu').addEventListener('click', () => this._openQuitConfirm());
+        document.getElementById('btn-quit-yes').addEventListener('click', () => this._quitToMenu());
+        document.getElementById('btn-quit-no').addEventListener('click', () => {
+            document.getElementById('quit-confirm').classList.remove('active');
+            document.querySelector('.pause-buttons').style.display = '';
+        });
+
+        // Main menu load button
+        document.getElementById('btn-continue').addEventListener('click', () => this._showLoadScreen());
+        this._updateMainMenuLoadButton();
+
         // Time controls — buttons added when game screen is active, not at init
         // (bound in _startMapView instead)
 
         // Key bindings
         window.addEventListener('keydown', (e) => {
             if (e.key === 'm' || e.key === 'M') {
-                if (this._running && !this._infoPanelOpen) {
+                if (this._running && !this._infoPanelOpen && !this._pauseMenuOpen) {
                     if (this._worldMapOpen) this._closeWorldMap();
                     else this._openWorldMap();
                 }
             }
             if (e.key === 'b' || e.key === 'B') {
-                if (this._running && !this._worldMapOpen) {
+                if (this._running && !this._worldMapOpen && !this._pauseMenuOpen) {
                     this._toggleBuildMenu();
                 }
             }
             if (e.key === 'Escape') {
-                if (this._worldMapOpen) this._closeWorldMap();
+                if (this._pauseMenuOpen) this._closePauseMenu();
+                else if (this._worldMapOpen) this._closeWorldMap();
                 else if (this._buildMode) this._closeBuildMenu();
                 else if (this._selectedBuilding !== null) this._closeBuildingDetail();
                 else if (this._infoPanelOpen) this._closeInfoPanel();
+                else if (this._running && !this._dayTransitionActive) this._openPauseMenu();
             }
-            if (e.key === ' ' && this._running) {
+            if (e.key === ' ' && this._running && !this._pauseMenuOpen) {
                 e.preventDefault();
                 this._togglePause();
             }
-            if (e.key === '1' && this._running) this._setTimeSpeed(1);
-            if (e.key === '2' && this._running) this._setTimeSpeed(2);
-            if (e.key === '3' && this._running) this._skipDay();
+            if (e.key === '1' && this._running && !this._pauseMenuOpen) this._setTimeSpeed(1);
+            if (e.key === '2' && this._running && !this._pauseMenuOpen) this._setTimeSpeed(2);
+            if (e.key === '3' && this._running && !this._pauseMenuOpen) this._skipDay();
         });
     },
 
@@ -359,6 +391,8 @@ const Game = {
         this._selectedBuild = null;
         this._infoPanelOpen = false;
         this._selectedBuilding = null;
+        this._pauseMenuOpen = false;
+        this._lastSaveTimestamp = 0;
         this._lastTick = Date.now();
 
         // Init time system
@@ -479,6 +513,11 @@ const Game = {
         const surnames = ['Dupont', 'Leblanc', 'Moreau', 'Lefebvre', 'Chevalier', 'Duval', 'Fontaine', 'Lambert', 'Marchand', 'Beaumont'];
         const pick = arr => arr[Math.floor(Math.random() * arr.length)];
         const surname = pick(surnames);
+        // Random base stats totaling 10 points
+        const totalPts = 10;
+        let e = Math.floor(Math.random() * (totalPts + 1));
+        let f = Math.floor(Math.random() * (totalPts - e + 1));
+        let d = totalPts - e - f;
         return {
             name: 'Famille ' + surname,
             man: pick(manNames) + ' ' + surname,
@@ -486,8 +525,9 @@ const Game = {
             job: null,
             buildingIdx: -1,
             militaryType: null, // 'soldier' | 'archer' | 'cavalier'
-            stats: { esquive: 0, force: 0, defense: 0 },
-            training: null, // { cyclesLeft: N } or null
+            stats: { esquive: e, force: f, defense: d },
+            training: null, // { cyclesLeft: N, pendingPoints: N } or null
+            trainingHistory: [], // [{type, points, date}]
             hasChild: false,
             onVoyage: false,
             weapon: null // 'simpleWeapon' | 'heavyWeapon' | null
@@ -622,12 +662,18 @@ const Game = {
             if (fam.training && fam.training.cyclesLeft > 0) {
                 fam.training.cyclesLeft--;
                 if (fam.training.cyclesLeft <= 0) {
-                    // Training complete — +1 to a random relevant stat
-                    const statKeys = ['esquive', 'force', 'defense'];
-                    const pick = statKeys[Math.floor(Math.random() * statKeys.length)];
-                    fam.stats[pick] = (fam.stats[pick] || 0) + 1;
-                    fam.training = null;
-                    this._showNotification(`\u{2694} ${fam.name} a termine l'entrainement ! +1 ${pick}`, '#a8d8a8');
+                    // Training complete — earn 4-10 distributable points
+                    const earnedPoints = 4 + Math.floor(Math.random() * 7); // 4-10
+                    fam.training.pendingPoints = earnedPoints;
+                    fam.training.cyclesLeft = 0;
+                    if (!fam.trainingHistory) fam.trainingHistory = [];
+                    fam.trainingHistory.push({
+                        type: fam.militaryType,
+                        points: earnedPoints,
+                        day: this._gameDay,
+                        status: 'pending'
+                    });
+                    this._showNotification(`\u{2694} ${fam.name} a termine l'entrainement ! +${earnedPoints} points a distribuer`, '#a8d8a8');
                 }
             }
         }
@@ -745,7 +791,8 @@ const Game = {
                     }
                     const finalAmt = Math.floor(amount * prodMultiplier * childBonus);
                     prodPerCycle[res] += finalAmt;
-                    prodSources[res].push({ name: def.name + ' Niv.' + lvl, amount: finalAmt });
+                    const childNote = fam.hasChild ? ' \u{1F476}' : '';
+                    prodSources[res].push({ name: def.name + ' Niv.' + lvl + childNote, amount: finalAmt });
                 }
             }
 
@@ -758,11 +805,12 @@ const Game = {
                     const childBonus = fam.hasChild ? 1.25 : 1.0;
                     const stoneAmt = Math.floor(rates.stone * prodMultiplier * childBonus);
                     prodPerCycle.stone += stoneAmt;
-                    prodSources.stone.push({ name: 'Mine Niv.' + lvl, amount: stoneAmt });
+                    const childNote = fam.hasChild ? ' \u{1F476}' : '';
+                    prodSources.stone.push({ name: 'Mine Niv.' + lvl + childNote, amount: stoneAmt });
                     const ironEst = Math.round(rates.ironOreChance * 100);
-                    prodSources.ironOre.push({ name: 'Mine Niv.' + lvl, amount: ironEst + '% chance' });
+                    prodSources.ironOre.push({ name: 'Mine Niv.' + lvl + childNote, amount: ironEst + '% chance' });
                     const goldEst = Math.round(rates.goldOreChance * 100);
-                    prodSources.goldOre.push({ name: 'Mine Niv.' + lvl, amount: goldEst + '% chance' });
+                    prodSources.goldOre.push({ name: 'Mine Niv.' + lvl + childNote, amount: goldEst + '% chance' });
                 }
             }
         }
@@ -802,7 +850,8 @@ const Game = {
                     html += `<div style="color:#8a7a5a;padding-left:8px;">- ${src.name} : +${src.amount}</div>`;
                 }
                 html += `<div style="color:#d8a888;margin-top:3px;">Consommation : -${foodPerMeal}/repas (-${foodPerDay}/jour)</div>`;
-                html += `<div style="color:#8a7a5a;padding-left:8px;">- ${eatingFamilies} famille(s) (repas a 12h et 20h)</div>`;
+                const childFamilies = this.families.filter(f => !f.onVoyage && f.hasChild).length;
+                html += `<div style="color:#8a7a5a;padding-left:8px;">- ${eatingFamilies} famille(s) (repas a 12h et 20h)${childFamilies > 0 ? ` dont ${childFamilies} avec enfant` : ''}</div>`;
                 const balance = foodProdPerDay - foodPerDay;
                 const balColor = balance >= 0 ? '#a8d8a8' : '#d88888';
                 html += `<div style="color:${balColor};margin-top:3px;font-weight:700;">Bilan/jour : ${balance >= 0 ? '+' : ''}${balance}</div>`;
@@ -1175,10 +1224,12 @@ const Game = {
             const jobName = assignedTo ? CONFIG.BUILDINGS[assignedTo.type].job || 'Habitant' : 'Sans emploi';
             const buildName = assignedTo ? CONFIG.BUILDINGS[assignedTo.type].name : '';
 
+            const childStr = fam.hasChild ? '<div class="info-family-members" style="color:#a8c8d8;">\u{1F476} Enfant (+25% production, conso x1.5)</div>' : '';
             html += `<div class="info-family-row">
                 <div>
                     <div class="info-family-name">${fam.name}</div>
                     <div class="info-family-members">${fam.man} & ${fam.woman}</div>
+                    ${childStr}
                     <div class="info-family-members" style="color:${assignedTo ? '#c8a84a' : '#6a5a3a'}">${jobName}${buildName ? ' - ' + buildName : ''}</div>
                 </div>
             </div>`;
@@ -1276,7 +1327,8 @@ const Game = {
                 const jobStr = assigned ? CONFIG.BUILDINGS[assigned.type].job : 'Sans emploi';
                 const jobColor = assigned ? '#a8d8a8' : '#d8a8a8';
                 html += `<div class="bd-castle-family" style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;border-bottom:1px solid rgba(200,168,74,0.06);">`;
-                html += `<div><div style="color:var(--parchment);font-size:0.78rem;">${fam.name}</div><div style="color:#6a5a3a;font-size:0.68rem;">${fam.man} & ${fam.woman}</div></div>`;
+                const childTag = fam.hasChild ? ' <span style="color:#a8c8d8;font-size:0.68rem;">\u{1F476}+25%</span>' : '';
+                html += `<div><div style="color:var(--parchment);font-size:0.78rem;">${fam.name}${childTag}</div><div style="color:#6a5a3a;font-size:0.68rem;">${fam.man} & ${fam.woman}</div></div>`;
                 html += `<span style="color:${jobColor};font-size:0.72rem;font-family:Cinzel,serif;">${jobStr}</span>`;
                 html += `</div>`;
             }
@@ -1458,15 +1510,38 @@ const Game = {
         // === Multi-family building (barracks) ===
         if (def.multiFamily && b.familyIndices) {
             html += `<div class="bd-section"><div class="bd-label">Familles assignees (${b.familyIndices.length})</div>`;
-            // List assigned families with remove button
+            // List assigned families with stats, remove button, and point distribution
             for (const fi of b.familyIndices) {
                 const fam = this.families[fi];
                 if (!fam) continue;
                 const typeStr = fam.militaryType ? (fam.militaryType === 'soldier' ? 'Soldat' : fam.militaryType === 'archer' ? 'Archer' : 'Cavalier') : 'Non assigne';
-                const trainingStr = fam.training ? ` (entrainement: ${fam.training.cyclesLeft} cycles)` : '';
-                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(200,168,74,0.06);">`;
+                const isTraining = fam.training && fam.training.cyclesLeft > 0;
+                const hasPending = fam.training && fam.training.pendingPoints > 0;
+                const trainingStr = isTraining ? ` (entrainement: ${fam.training.cyclesLeft} cycles)` : '';
+
+                html += `<div style="padding:6px 0;border-bottom:1px solid rgba(200,168,74,0.1);">`;
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;">`;
                 html += `<span style="font-size:0.78rem;color:var(--parchment);">${fam.name} - ${typeStr}${trainingStr}</span>`;
                 html += `<button class="bd-barracks-remove" data-fi="${fi}" style="background:none;border:1px solid #d88888;color:#d88888;padding:2px 6px;font-size:0.68rem;cursor:pointer;border-radius:3px;">Retirer</button>`;
+                html += `</div>`;
+                // Stats display
+                html += `<div style="display:flex;gap:8px;margin-top:3px;font-size:0.72rem;">`;
+                html += `<span style="color:#a8c8d8;">Esq: ${fam.stats.esquive}</span>`;
+                html += `<span style="color:#d8a888;">For: ${fam.stats.force}</span>`;
+                html += `<span style="color:#a8d8a8;">Def: ${fam.stats.defense}</span>`;
+                const totalStats = fam.stats.esquive + fam.stats.force + fam.stats.defense;
+                html += `<span style="color:#6a5a3a;">(Total: ${totalStats})</span>`;
+                html += `</div>`;
+                // Pending points to distribute
+                if (hasPending) {
+                    html += `<div style="margin-top:4px;padding:4px 6px;background:rgba(168,200,216,0.1);border-radius:4px;">`;
+                    html += `<div style="font-size:0.72rem;color:var(--gold);margin-bottom:3px;">${fam.training.pendingPoints} point(s) a distribuer</div>`;
+                    html += `<div style="display:flex;gap:4px;align-items:center;">`;
+                    html += `<button class="bd-dist-btn" data-fi="${fi}" data-stat="esquive" style="flex:1;padding:3px;font-size:0.68rem;background:rgba(168,200,216,0.2);border:1px solid #a8c8d8;color:#a8c8d8;border-radius:3px;cursor:pointer;">+1 Esq</button>`;
+                    html += `<button class="bd-dist-btn" data-fi="${fi}" data-stat="force" style="flex:1;padding:3px;font-size:0.68rem;background:rgba(216,168,136,0.2);border:1px solid #d8a888;color:#d8a888;border-radius:3px;cursor:pointer;">+1 For</button>`;
+                    html += `<button class="bd-dist-btn" data-fi="${fi}" data-stat="defense" style="flex:1;padding:3px;font-size:0.68rem;background:rgba(168,216,168,0.2);border:1px solid #a8d8a8;color:#a8d8a8;border-radius:3px;cursor:pointer;">+1 Def</button>`;
+                    html += `</div></div>`;
+                }
                 html += `</div>`;
             }
             // Add family selector
@@ -1491,7 +1566,10 @@ const Game = {
             }
             // Training button
             if (b.familyIndices.length > 0) {
-                const untrained = b.familyIndices.filter(fi => this.families[fi] && !this.families[fi].training);
+                const untrained = b.familyIndices.filter(fi => {
+                    const f = this.families[fi];
+                    return f && (!f.training || (f.training.cyclesLeft <= 0 && !f.training.pendingPoints));
+                });
                 if (untrained.length > 0) {
                     html += `<div style="margin-top:6px;">`;
                     html += `<select class="bd-family-select" id="bd-train-select" style="width:60%;display:inline-block;">`;
@@ -1506,6 +1584,28 @@ const Game = {
                     // Show training cost
                     html += `<div style="font-size:0.72rem;color:#8a7a5a;margin-top:4px;">Cout: 8-12 nourriture + 10-25 or (selon type)</div>`;
                 }
+            }
+
+            // Training history log
+            const allHistory = [];
+            for (const fi of b.familyIndices) {
+                const fam = this.families[fi];
+                if (!fam || !fam.trainingHistory) continue;
+                for (const h of fam.trainingHistory) {
+                    allHistory.push({ ...h, famName: fam.name });
+                }
+            }
+            if (allHistory.length > 0) {
+                html += `<div style="margin-top:8px;border-top:1px solid rgba(200,168,74,0.15);padding-top:6px;">`;
+                html += `<div style="font-size:0.72rem;color:var(--gold);font-family:Cinzel,serif;margin-bottom:4px;">Historique d'entrainement</div>`;
+                // Show most recent first, max 10
+                const recent = allHistory.slice(-10).reverse();
+                for (const entry of recent) {
+                    const typeStr = entry.type === 'soldier' ? 'Soldat' : entry.type === 'archer' ? 'Archer' : 'Cavalier';
+                    const statusStr = entry.status === 'pending' ? '(a distribuer)' : '(distribue)';
+                    html += `<div style="font-size:0.68rem;color:#8a7a5a;padding:1px 0;">Jour ${entry.day} - ${entry.famName} (${typeStr}) : +${entry.points} pts ${statusStr}</div>`;
+                }
+                html += `</div>`;
             }
             html += `</div>`;
         }
@@ -1658,12 +1758,36 @@ const Game = {
                 }
                 this.resources.food -= costs.food;
                 this.resources.gold -= costs.gold;
-                fam.training = { cyclesLeft: costs.cycles };
+                fam.training = { cyclesLeft: costs.cycles, pendingPoints: 0 };
                 this._updateHUD();
                 this._renderBuildingDetail();
                 this._showNotification(`\u{2694} ${fam.name} commence l'entrainement (${costs.cycles} cycles)`, '#a8c8d8');
             });
         }
+
+        // Barracks: distribute points
+        content.querySelectorAll('.bd-dist-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const fi = parseInt(btn.dataset.fi);
+                const stat = btn.dataset.stat;
+                const fam = this.families[fi];
+                if (!fam || !fam.training || !fam.training.pendingPoints) return;
+                fam.stats[stat] = (fam.stats[stat] || 0) + 1;
+                fam.training.pendingPoints--;
+                this._showNotification(`\u{2694} ${fam.name} : +1 ${stat} (${fam.training.pendingPoints} restant)`, '#a8c8d8');
+                if (fam.training.pendingPoints <= 0) {
+                    // Mark history entry as distributed
+                    if (fam.trainingHistory) {
+                        const last = fam.trainingHistory.findLast(h => h.status === 'pending');
+                        if (last) last.status = 'distributed';
+                    }
+                    fam.training = null;
+                    this._showNotification(`\u{2694} ${fam.name} : tous les points distribues !`, '#a8d8a8');
+                }
+                this._updateHUD();
+                this._renderBuildingDetail();
+            });
+        });
 
         // Comptoir: sell lingots
         const sellIron = document.getElementById('bd-sell-iron');
@@ -2075,6 +2199,295 @@ const Game = {
             this._timeSpeed = 0;
         }
         this._updateTimeHUD();
+    },
+
+    // ==================== PAUSE MENU ====================
+
+    _openPauseMenu() {
+        this._pauseMenuOpen = true;
+        // Pause game time
+        if (this._timeSpeed !== 0) {
+            this._prevSpeed = this._timeSpeed;
+            this._timeSpeed = 0;
+        }
+        this._updateTimeHUD();
+        // Close other panels
+        this._closeBuildMenu();
+        this._closeBuildingDetail();
+        this._closeInfoPanel();
+        // Reset sub-panels
+        document.getElementById('save-panel').classList.remove('active');
+        document.getElementById('pause-options').classList.remove('active');
+        document.getElementById('quit-confirm').classList.remove('active');
+        document.querySelector('.pause-buttons').style.display = '';
+        document.getElementById('pause-overlay').classList.add('active');
+    },
+
+    _closePauseMenu() {
+        this._pauseMenuOpen = false;
+        document.getElementById('pause-overlay').classList.remove('active');
+        // Resume game time
+        this._timeSpeed = this._prevSpeed || 1;
+        this._lastTimeUpdate = Date.now();
+        this._updateTimeHUD();
+    },
+
+    _openSavePanel() {
+        document.querySelector('.pause-buttons').style.display = 'none';
+        document.getElementById('save-panel').classList.add('active');
+        this._renderSaveSlots('save');
+    },
+
+    _openLoadPanel() {
+        this._renderSaveSlots('load');
+    },
+
+    _renderSaveSlots(mode) {
+        const container = document.getElementById('save-slots-list');
+        let html = '';
+        for (let i = 0; i < 3; i++) {
+            const key = 'sdc_save_' + i;
+            const raw = localStorage.getItem(key);
+            let slotInfo = '';
+            let isEmpty = true;
+            if (raw) {
+                try {
+                    const data = JSON.parse(raw);
+                    isEmpty = false;
+                    const date = new Date(data._saveDate);
+                    const dateStr = date.toLocaleDateString('fr-FR') + ' ' + date.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+                    slotInfo = `<div style="font-size:0.78rem;color:var(--parchment);">Jour ${data._gameDay} - ${data.families ? data.families.length : '?'} familles</div>`;
+                    slotInfo += `<div style="font-size:0.68rem;color:#6a5a3a;">${dateStr}</div>`;
+                } catch(e) { /* corrupt save */ }
+            }
+            if (isEmpty) {
+                slotInfo = `<div style="font-size:0.78rem;color:#6a5a3a;">Emplacement vide</div>`;
+            }
+
+            if (mode === 'save') {
+                html += `<div class="save-slot" data-slot="${i}" style="padding:10px;margin:6px 0;border:1px solid rgba(200,168,74,0.3);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='rgba(200,168,74,0.3)'">`;
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;">`;
+                html += `<div><div style="font-family:Cinzel,serif;color:var(--gold);font-size:0.82rem;">Slot ${i + 1}</div>${slotInfo}</div>`;
+                html += `<span style="color:var(--gold-dark);font-size:0.72rem;">${isEmpty ? 'Sauvegarder' : 'Ecraser'}</span>`;
+                html += `</div></div>`;
+            } else {
+                const disabled = isEmpty ? ' style="opacity:0.4;pointer-events:none;"' : '';
+                html += `<div class="save-slot" data-slot="${i}"${disabled} style="padding:10px;margin:6px 0;border:1px solid rgba(200,168,74,0.3);border-radius:6px;${isEmpty ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;'}transition:border-color 0.15s;"${isEmpty ? '' : ' onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.borderColor=\'rgba(200,168,74,0.3)\'"'}>`;
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;">`;
+                html += `<div><div style="font-family:Cinzel,serif;color:var(--gold);font-size:0.82rem;">Slot ${i + 1}</div>${slotInfo}</div>`;
+                html += `<span style="color:var(--gold-dark);font-size:0.72rem;">Charger</span>`;
+                html += `</div></div>`;
+            }
+        }
+        container.innerHTML = html;
+
+        // Bind slot clicks
+        container.querySelectorAll('.save-slot').forEach(el => {
+            el.addEventListener('click', () => {
+                const slot = parseInt(el.dataset.slot);
+                if (mode === 'save') {
+                    this._saveGame(slot);
+                } else {
+                    this._loadGame(slot);
+                }
+            });
+        });
+    },
+
+    _saveGame(slotIndex) {
+        const saveData = {
+            _saveDate: Date.now(),
+            seed: this.seed,
+            _castlePlaced: this._castlePlaced,
+            resources: { ...this.resources },
+            families: JSON.parse(JSON.stringify(this.families)),
+            buildings: JSON.parse(JSON.stringify(this.buildings)),
+            _pendingFamilies: JSON.parse(JSON.stringify(this._pendingFamilies || [])),
+            _activeVoyages: JSON.parse(JSON.stringify(this._activeVoyages || [])),
+            _satisfaction: this._satisfaction,
+            _gameDay: this._gameDay,
+            _gameHour: this._gameHour,
+            _gameMinute: this._gameMinute,
+            _lastCycleHour: this._lastCycleHour,
+            _firstDayCycleDone: this._firstDayCycleDone,
+            _totalGameHours: this._totalGameHours,
+            _prevSpeed: this._prevSpeed,
+        };
+        try {
+            localStorage.setItem('sdc_save_' + slotIndex, JSON.stringify(saveData));
+            this._lastSaveTimestamp = Date.now();
+            this._showNotification(`Partie sauvegardee (Slot ${slotIndex + 1})`, '#a8d8a8');
+            // Refresh slots display
+            this._renderSaveSlots('save');
+            // Show load button on main menu
+            this._updateMainMenuLoadButton();
+        } catch(e) {
+            this._showNotification(`Erreur de sauvegarde : ${e.message}`, '#d88888');
+        }
+    },
+
+    _loadGame(slotIndex) {
+        const raw = localStorage.getItem('sdc_save_' + slotIndex);
+        if (!raw) return;
+        try {
+            const data = JSON.parse(raw);
+
+            // Regenerate map from seed
+            this.seed = data.seed;
+            Perlin.seed(this.seed);
+            Perlin.seedRng(this.seed);
+            GameMap.width = CONFIG.MAP_WIDTH;
+            GameMap.height = CONFIG.MAP_HEIGHT;
+            GameMap.tiles = [];
+            GameMap.regions = [];
+
+            // Regenerate terrain synchronously
+            for (let y = 0; y < GameMap.height; y++) {
+                GameMap.tiles[y] = [];
+                for (let x = 0; x < GameMap.width; x++) {
+                    const nx = x / GameMap.width;
+                    const ny = y / GameMap.height;
+                    const elevation = Perlin.octave(x * 0.035, y * 0.035, 6, 0.5);
+                    const moisture = Perlin.octave(x * 0.04 + 200, y * 0.04 + 200, 4, 0.5);
+                    const dx = (nx - 0.5) * 2;
+                    const dy = (ny - 0.5) * 2;
+                    const distFromCenter = Math.sqrt(dx * dx + dy * dy);
+                    const falloff = Math.max(0, 1 - distFromCenter * 1.1);
+                    const finalElev = elevation * 0.7 + falloff * 0.3;
+                    const terrain = GameMap._elevToTerrain(finalElev, moisture, x, y);
+                    GameMap.tiles[y][x] = {
+                        x, y, terrain,
+                        elevation: finalElev, moisture,
+                        building: null, owner: -1, regionId: -1,
+                        visible: true, explored: true,
+                    };
+                }
+            }
+            GameMap._generateNaturalRegions();
+
+            this._castlePlaced = data._castlePlaced;
+            GameMap.placeKingdoms(this._castlePlaced.x, this._castlePlaced.y);
+
+            // Restore buildings on map
+            for (const b of data.buildings) {
+                const tile = GameMap.getTile(b.x, b.y);
+                if (tile) tile.building = b.type;
+            }
+
+            // Restore game state
+            this.resources = data.resources;
+            this.families = data.families;
+            this.buildings = data.buildings;
+            this._pendingFamilies = data._pendingFamilies || [];
+            this._activeVoyages = data._activeVoyages || [];
+            this._satisfaction = data._satisfaction;
+            this._gameDay = data._gameDay;
+            this._gameHour = data._gameHour;
+            this._gameMinute = data._gameMinute;
+            this._lastCycleHour = data._lastCycleHour;
+            this._firstDayCycleDone = data._firstDayCycleDone;
+            this._totalGameHours = data._totalGameHours || 0;
+            this._prevSpeed = data._prevSpeed || 1;
+            this._lastSaveTimestamp = data._saveDate;
+
+            // Init renderer
+            this.showScreen('game-screen');
+            if (!Renderer.canvas) Renderer.init();
+            else { Renderer.buildTerrainBuffer(); }
+            Camera.init(Renderer.canvas);
+            Renderer.setIsoMode(false);
+            Camera.zoom = 4;
+
+            this._running = true;
+            this._worldMapOpen = false;
+            this._worldMapBuffer = null;
+            this._buildMode = false;
+            this._selectedBuild = null;
+            this._infoPanelOpen = false;
+            this._selectedBuilding = null;
+            this._dayTransitionActive = false;
+            this._pauseMenuOpen = false;
+            this._lastTimeUpdate = Date.now();
+            this._lastTick = Date.now();
+            this._timeSpeed = this._prevSpeed || 1;
+
+            document.getElementById('pause-overlay').classList.remove('active');
+            document.getElementById('hud-bar').classList.add('active');
+
+            Renderer._bufferDirty = true;
+            Renderer.buildTerrainBuffer();
+
+            Camera.centerOnCell(this._castlePlaced.x, this._castlePlaced.y);
+
+            this._buildBuildMenu();
+            this._updateHUD();
+            this._updateTimeHUD();
+            this._gameLoop();
+
+            this._showNotification(`Partie chargee (Slot ${slotIndex + 1})`, '#a8d8a8');
+        } catch(e) {
+            console.error('Load error:', e);
+            this._showNotification(`Erreur de chargement : ${e.message}`, '#d88888');
+        }
+    },
+
+    _updateMainMenuLoadButton() {
+        const hasAnySave = [0, 1, 2].some(i => localStorage.getItem('sdc_save_' + i));
+        const btn = document.getElementById('btn-continue');
+        if (btn) btn.style.display = hasAnySave ? '' : 'none';
+    },
+
+    _openQuitConfirm() {
+        document.querySelector('.pause-buttons').style.display = 'none';
+        document.getElementById('save-panel').classList.remove('active');
+        document.getElementById('pause-options').classList.remove('active');
+        const qc = document.getElementById('quit-confirm');
+        qc.classList.add('active');
+
+        const warnText = document.getElementById('quit-warn-text');
+        if (this._lastSaveTimestamp) {
+            const ago = Math.floor((Date.now() - this._lastSaveTimestamp) / 60000);
+            if (ago < 1) warnText.textContent = 'Derniere sauvegarde : il y a moins d\'une minute';
+            else warnText.textContent = `Derniere sauvegarde : il y a ${ago} minute(s)`;
+        } else {
+            warnText.textContent = 'Vous n\'avez pas sauvegarde cette partie !';
+            warnText.style.color = '#d88888';
+        }
+    },
+
+    _quitToMenu() {
+        this._running = false;
+        this._pauseMenuOpen = false;
+        document.getElementById('pause-overlay').classList.remove('active');
+        document.getElementById('hud-bar').classList.remove('active');
+        document.getElementById('build-menu').classList.remove('active');
+        document.getElementById('build-hint').classList.remove('active');
+        document.getElementById('info-panel').classList.remove('active');
+        document.getElementById('building-detail').classList.remove('active');
+        this._updateMainMenuLoadButton();
+        this.showScreen('menu-screen');
+    },
+
+    _showLoadScreen() {
+        // Show a simple load overlay using the pause overlay structure
+        this._pauseMenuOpen = true;
+        document.querySelector('.pause-buttons').style.display = 'none';
+        document.getElementById('save-panel').classList.add('active');
+        document.getElementById('save-panel').querySelector('h3').textContent = 'Charger une partie';
+        this._renderSaveSlots('load');
+        document.getElementById('pause-overlay').classList.add('active');
+        // Override back button to go to menu
+        document.getElementById('btn-save-back').onclick = () => {
+            document.getElementById('pause-overlay').classList.remove('active');
+            document.getElementById('save-panel').classList.remove('active');
+            document.getElementById('save-panel').querySelector('h3').textContent = 'Choisir un emplacement';
+            this._pauseMenuOpen = false;
+            // Rebind normal back behavior
+            document.getElementById('btn-save-back').onclick = () => {
+                document.getElementById('save-panel').classList.remove('active');
+                document.querySelector('.pause-buttons').style.display = '';
+            };
+        };
     },
 
     // ==================== GAME LOOP ====================

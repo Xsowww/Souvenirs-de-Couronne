@@ -1050,6 +1050,118 @@ body {
     from { opacity: 1; transform: translateY(0); }
     to { opacity: 0; transform: translateY(-10px); }
 }
+
+/* ===== PAUSE MENU OVERLAY ===== */
+#pause-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(2,2,8,0.88);
+    z-index: 70;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+#pause-overlay.active { display: flex; }
+.pause-container {
+    text-align: center;
+    min-width: 340px;
+    max-width: 460px;
+}
+.pause-container h2 {
+    font-family: 'Cinzel Decorative', serif;
+    color: var(--gold);
+    font-size: 1.6rem;
+    margin-bottom: 1.5rem;
+    letter-spacing: 4px;
+}
+.pause-buttons {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+/* Save slots panel */
+#save-panel {
+    display: none;
+    margin-top: 1rem;
+    background: linear-gradient(180deg, #1e1408 0%, #16100a 100%);
+    border: 2px solid var(--gold-dark);
+    padding: 20px;
+    text-align: left;
+}
+#save-panel.active { display: block; }
+#save-panel h3 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold);
+    font-size: 1rem;
+    margin-bottom: 12px;
+    text-align: center;
+    letter-spacing: 2px;
+}
+.save-slot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid rgba(200,168,74,0.15);
+    border-radius: 4px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    font-family: 'MedievalSharp', serif;
+    font-size: 0.82rem;
+    color: var(--parchment);
+}
+.save-slot:hover { border-color: var(--gold); background: rgba(200,168,74,0.06); }
+.save-slot-info { flex: 1; }
+.save-slot-empty { color: #6a5a3a; font-style: italic; }
+.save-slot-name { color: var(--gold-light); font-weight: 700; }
+.save-slot-detail { color: #8a7a5a; font-size: 0.72rem; margin-top: 2px; }
+.save-slot-overwrite { color: #d8a888; font-size: 0.68rem; margin-top: 2px; }
+
+/* Pause options (in-game) */
+#pause-options {
+    display: none;
+    margin-top: 1rem;
+    background: linear-gradient(180deg, #1e1408 0%, #16100a 100%);
+    border: 2px solid var(--gold-dark);
+    padding: 20px 32px;
+}
+#pause-options.active { display: block; }
+#pause-options h3 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold);
+    font-size: 1rem;
+    margin-bottom: 12px;
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+/* Quit confirm */
+#quit-confirm {
+    display: none;
+    margin-top: 1rem;
+    background: linear-gradient(180deg, #2a1010 0%, #1a0808 100%);
+    border: 2px solid #8a3030;
+    padding: 20px;
+    text-align: center;
+}
+#quit-confirm.active { display: block; }
+#quit-confirm p {
+    font-family: 'MedievalSharp', serif;
+    color: #d8a8a8;
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+}
+#quit-confirm .quit-warn {
+    color: #d88888;
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+}
     </style>
 </head>
 <body>
@@ -1294,6 +1406,48 @@ body {
             <p class="day-transition-text">Le royaume s'endort. Un nouveau jour se prepare.</p>
             <div id="day-transition-summary"></div>
             <button id="btn-wake-up" class="menu-btn">Se reveiller</button>
+        </div>
+    </div>
+
+    <!-- Pause Menu Overlay -->
+    <div id="pause-overlay">
+        <div class="pause-container">
+            <h2>&#x2694; Pause &#x2694;</h2>
+            <div class="pause-buttons">
+                <button id="btn-resume" class="menu-btn">Reprendre</button>
+                <button id="btn-save" class="menu-btn">Sauvegarder</button>
+                <button id="btn-pause-options" class="menu-btn">Options</button>
+                <button id="btn-quit-to-menu" class="menu-btn">Quitter la partie</button>
+            </div>
+            <div id="save-panel">
+                <h3>Choisir un emplacement</h3>
+                <div id="save-slots-list"></div>
+                <div style="text-align:center;margin-top:10px;">
+                    <button id="btn-save-back" class="menu-btn small">Retour</button>
+                </div>
+            </div>
+            <div id="pause-options">
+                <h3>Options</h3>
+                <div class="option-row">
+                    <label>Volume musique</label>
+                    <input type="range" id="pause-opt-music" min="0" max="100" value="50">
+                </div>
+                <div class="option-row">
+                    <label>Volume effets</label>
+                    <input type="range" id="pause-opt-sfx" min="0" max="100" value="70">
+                </div>
+                <div style="text-align:center;margin-top:12px;">
+                    <button id="btn-pause-options-back" class="menu-btn small">Retour</button>
+                </div>
+            </div>
+            <div id="quit-confirm">
+                <p class="quit-warn" id="quit-warn-text"></p>
+                <p>Voulez-vous vraiment quitter ?</p>
+                <div style="display:flex;gap:10px;justify-content:center;">
+                    <button id="btn-quit-yes" class="menu-btn small">Oui, quitter</button>
+                    <button id="btn-quit-no" class="menu-btn small">Annuler</button>
+                </div>
+            </div>
         </div>
     </div>
 
