@@ -907,6 +907,53 @@ body {
 }
 #day-transition-overlay.active { display: flex; }
 
+/* ===== END SCREEN ===== */
+#end-screen {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(2,2,8,0.96);
+    z-index: 80;
+    justify-content: center;
+    align-items: center;
+}
+#end-screen.active { display: flex; }
+#end-screen .end-container {
+    text-align: center;
+    padding: 40px 60px;
+    background: linear-gradient(180deg, #2a1a0c 0%, #1a100a 100%);
+    border: 3px solid var(--gold-dark);
+    border-radius: 12px;
+    box-shadow: 0 0 60px rgba(200,168,74,0.2);
+    max-width: 600px;
+    font-family: 'MedievalSharp', serif;
+}
+#end-screen.victory .end-container { border-color: #d4c070; box-shadow: 0 0 80px rgba(212,192,112,0.4); }
+#end-screen.defeat  .end-container { border-color: #8a3838; box-shadow: 0 0 80px rgba(138,56,56,0.4); }
+#end-screen h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 2.4rem;
+    letter-spacing: 4px;
+    color: var(--gold);
+    margin-bottom: 16px;
+}
+#end-screen.victory h1 { color: #f4e090; text-shadow: 0 0 20px rgba(244,224,144,0.5); }
+#end-screen.defeat  h1 { color: #d88888; }
+#end-screen p {
+    color: var(--parchment);
+    font-size: 1rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+#end-screen #end-screen-stats {
+    color: var(--parchment-dark);
+    font-size: 0.9rem;
+    margin: 20px 0;
+    line-height: 1.8;
+}
+#end-screen #end-screen-stats strong { color: var(--gold); }
+
 .day-transition-container {
     text-align: center;
     max-width: 420px;
@@ -1419,6 +1466,16 @@ body {
             <p class="day-transition-text">Le royaume s'endort. Un nouveau jour se prepare.</p>
             <div id="day-transition-summary"></div>
             <button id="btn-wake-up" class="menu-btn">Se reveiller</button>
+        </div>
+    </div>
+
+    <!-- End Screen (victory / defeat) -->
+    <div id="end-screen">
+        <div class="end-container">
+            <h1 id="end-screen-title">Fin</h1>
+            <p id="end-screen-desc"></p>
+            <div id="end-screen-stats"></div>
+            <button id="btn-end-to-menu" class="menu-btn">Retour au menu</button>
         </div>
     </div>
 

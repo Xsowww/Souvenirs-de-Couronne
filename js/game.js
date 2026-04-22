@@ -66,6 +66,12 @@ const Game = {
 
         document.getElementById('btn-confirm-placement').addEventListener('click', () => this.confirmPlacement());
         document.getElementById('btn-wake-up').addEventListener('click', () => this._dismissDayTransition());
+        const btnEndMenu = document.getElementById('btn-end-to-menu');
+        if (btnEndMenu) btnEndMenu.addEventListener('click', () => {
+            document.getElementById('end-screen').classList.remove('active');
+            this.showScreen('main-menu-screen');
+            this._running = false;
+        });
 
         document.getElementById('worldmap-overlay').addEventListener('click', (e) => {
             if (e.target.id === 'worldmap-overlay') this._closeWorldMap();
@@ -450,6 +456,14 @@ const Game = {
         // Equipment inventory (shared stock)
         this.inventory = { simpleWeapon: 0, heavyWeapon: 0, cow: 0, horse: 0, chariot: 0 };
 
+        // Daily events + victory tracking
+        this._activeEvents = [];
+        this._prevDayResources = null;
+        this._victoryMode = 'prosperity';
+        this._prosperityStreak = 0;
+        this._zeroSatStreak = 0;
+        this._gameEnded = false;
+
         // Show HUD
         document.getElementById('hud-bar').classList.add('active');
         this._updateHUD();
@@ -595,6 +609,14 @@ const Game = {
 
         // Equipment inventory for testing
         this.inventory = { simpleWeapon: 3, heavyWeapon: 2, cow: 1, horse: 1, chariot: 0 };
+
+        // Daily events + victory tracking
+        this._activeEvents = [];
+        this._prevDayResources = null;
+        this._victoryMode = 'prosperity';
+        this._prosperityStreak = 0;
+        this._zeroSatStreak = 0;
+        this._gameEnded = false;
 
         // Place castle tile
         const castleTile = GameMap.getTile(castleX, castleY);
@@ -2679,11 +2701,28 @@ const Game = {
     },
 
     _onNewDay() {
+        // Snapshot resources for end-of-day delta
+        const prevDay = this._prevDayResources || { ...this.resources };
+
         // Set wake time to 6:00
         this._gameHour = 6;
         this._gameMinute = 0;
         // Reset cycle tracker for new day (start before first cycle hour)
         this._lastCycleHour = 6;
+
+        // Tick active events (plague, etc.) — decrement daysLeft, remove expired
+        if (this._activeEvents && this._activeEvents.length > 0) {
+            for (let i = this._activeEvents.length - 1; i >= 0; i--) {
+                const ev = this._activeEvents[i];
+                ev.daysLeft--;
+                if (ev.daysLeft <= 0) {
+                    if (ev.type === 'plague' && typeof ev.familyIdx === 'number' && this.families[ev.familyIdx]) {
+                        this._showNotification(`\u{1F33F} ${this.families[ev.familyIdx].name} s'est remise de la peste !`, '#a8d8a8');
+                    }
+                    this._activeEvents.splice(i, 1);
+                }
+            }
+        }
 
         // Check pending family arrivals
         const arrivals = [];
@@ -2714,20 +2753,8 @@ const Game = {
             for (let i = this.families.length - 1; i >= 1; i--) { // never remove family 0
                 if (Math.random() < 0.10) {
                     const fam = this.families[i];
-                    // Unassign from building
-                    if (fam.buildingIdx >= 0 && this.buildings[fam.buildingIdx]) {
-                        this.buildings[fam.buildingIdx].familyIdx = -1;
-                    }
                     departures.push(fam.name);
-                    this.families.splice(i, 1);
-                    // Fix buildingIdx references
-                    for (const b of this.buildings) {
-                        if (b.familyIdx > i) b.familyIdx--;
-                        else if (b.familyIdx === i) b.familyIdx = -1;
-                    }
-                    for (let j = 0; j < this.families.length; j++) {
-                        this.families[j].buildingIdx = this.buildings.findIndex(b => b.familyIdx === j);
-                    }
+                    this._removeFamilyAt(i);
                     break; // max 1 departure per day
                 }
             }
@@ -2736,11 +2763,162 @@ const Game = {
         // Auto-queue new family if housing available
         this._checkRecruitFamily();
 
+        // Roll a random daily event (30% chance, not Day 1 to avoid confusion)
+        let todayEvent = null;
+        if (this._gameDay > 1 && Math.random() < 0.30) {
+            todayEvent = this._rollDailyEvent();
+        }
+
+        // Compute resource delta vs previous day
+        const resDelta = {};
+        for (const k of ['wood', 'stone', 'food', 'gold', 'ironIngot', 'goldIngot']) {
+            const before = prevDay[k] || 0;
+            const after = this.resources[k] || 0;
+            resDelta[k] = after - before;
+        }
+        // Snapshot for next day
+        this._prevDayResources = { ...this.resources };
+
+        // Victory / defeat check
+        this._checkVictoryConditions();
+
         // Show day transition overlay
-        this._showDayTransition(arrivals, departures);
+        this._showDayTransition(arrivals, departures, todayEvent, resDelta);
     },
 
-    _showDayTransition(arrivals, departures) {
+    // ==================== DAILY EVENTS ====================
+
+    _rollDailyEvent() {
+        const events = ['plague', 'harvest', 'merchant', 'bandits', 'wedding', 'blacksmith', 'storm'];
+        // Filter events that can't fire (no families, no buildings, etc.)
+        const viable = events.filter(e => {
+            if (e === 'plague' && this.families.length < 2) return false;
+            if (e === 'bandits' && (this.resources.gold || 0) < 5) return false;
+            if (e === 'wedding' && this.families.length >= this.getMaxFamilies()) return false;
+            if (e === 'storm' && this.buildings.filter(b => {
+                const def = CONFIG.BUILDINGS[b.type]; return def && def.production;
+            }).length === 0) return false;
+            return true;
+        });
+        if (viable.length === 0) return null;
+        const type = viable[Math.floor(Math.random() * viable.length)];
+
+        if (!this._activeEvents) this._activeEvents = [];
+
+        switch (type) {
+            case 'plague': {
+                const candidates = this.families.map((_, i) => i).filter(i => i > 0);
+                if (candidates.length === 0) return null;
+                const fi = candidates[Math.floor(Math.random() * candidates.length)];
+                this._activeEvents.push({ type: 'plague', familyIdx: fi, daysLeft: 3 });
+                return { type, title: 'Peste !', desc: `${this.families[fi].name} est tombee malade. -30% production pendant 3 jours.`, color: '#d88888', icon: '\u{1F637}' };
+            }
+            case 'harvest': {
+                this._addResource('food', 50);
+                return { type, title: 'Recolte abondante', desc: '+50 nourriture distribuee dans les reserves.', color: '#a8d8a8', icon: '\u{1F33E}' };
+            }
+            case 'merchant': {
+                // Simple auto-trade: 30 wood -> 20 gold if enough wood
+                if ((this.resources.wood || 0) >= 30) {
+                    this.resources.wood -= 30;
+                    this.resources.gold = (this.resources.gold || 0) + 20;
+                    return { type, title: 'Marchand de passage', desc: 'Echange 30 bois contre 20 or.', color: '#e8d48a', icon: '\u{1F6D2}' };
+                }
+                // Fallback: gift 15 gold
+                this.resources.gold = (this.resources.gold || 0) + 15;
+                return { type, title: 'Marchand genereux', desc: 'Offre 15 or en cadeau.', color: '#e8d48a', icon: '\u{1F6D2}' };
+            }
+            case 'bandits': {
+                const loss = Math.min(this.resources.gold || 0, 15);
+                this.resources.gold -= loss;
+                return { type, title: 'Bandits', desc: `Une embuscade vous coute ${loss} or !`, color: '#d88888', icon: '\u{1F3F4}' };
+            }
+            case 'wedding': {
+                const newFam = this._generateFamily();
+                this.families.push(newFam);
+                this._assignFamilyToEmptyHouse(this.families.length - 1);
+                return { type, title: 'Mariage !', desc: `Une nouvelle famille rejoint le royaume : ${newFam.name}.`, color: '#a8d8a8', icon: '\u{1F48D}' };
+            }
+            case 'blacksmith': {
+                if (!this.inventory) this.inventory = { simpleWeapon: 0, heavyWeapon: 0, cow: 0, horse: 0, chariot: 0 };
+                this.inventory.simpleWeapon = (this.inventory.simpleWeapon || 0) + 1;
+                return { type, title: 'Forgeron itinerant', desc: 'Un forgeron vous offre une arme simple.', color: '#a8c8d8', icon: '\u{1F528}' };
+            }
+            case 'storm': {
+                const prodBuildings = this.buildings.filter(b => {
+                    const def = CONFIG.BUILDINGS[b.type]; return def && (def.production || b.type === 'mine');
+                });
+                if (prodBuildings.length === 0) return null;
+                const target = prodBuildings[Math.floor(Math.random() * prodBuildings.length)];
+                target._stormSkipCycles = (target._stormSkipCycles || 0) + 1;
+                const def = CONFIG.BUILDINGS[target.type];
+                return { type, title: 'Tempete', desc: `${def.name} sera inoperant au prochain cycle.`, color: '#a8a0d8', icon: '\u{26C8}' };
+            }
+        }
+        return null;
+    },
+
+    // ==================== VICTORY ====================
+
+    _checkVictoryConditions() {
+        if (this._gameEnded) return;
+        if (!this._victoryMode) this._victoryMode = 'prosperity';
+        const sat = this._getSatisfaction();
+
+        // Defeat: 0 families (castle stands but kingdom is empty)
+        if (this.families.length === 0) {
+            this._gameEnded = true;
+            this._endScreen('defeat', 'Royaume abandonne', 'Aucune famille ne reste. Le royaume s\'eteint.');
+            return;
+        }
+        // Defeat: 3 consecutive days with satisfaction == 0
+        if (sat <= 0) {
+            this._zeroSatStreak = (this._zeroSatStreak || 0) + 1;
+            if (this._zeroSatStreak >= 3) {
+                this._gameEnded = true;
+                this._endScreen('defeat', 'Revolte', 'La satisfaction est nulle depuis 3 jours. Le peuple se revolte.');
+                return;
+            }
+        } else {
+            this._zeroSatStreak = 0;
+        }
+
+        // Victory (prosperity): 15 families + 500 gold + sat>=80 pendant 3 jours
+        if (this._victoryMode === 'prosperity') {
+            const ok = this.families.length >= 15 && (this.resources.gold || 0) >= 500 && sat >= 80;
+            if (ok) {
+                this._prosperityStreak = (this._prosperityStreak || 0) + 1;
+                if (this._prosperityStreak >= 3) {
+                    this._gameEnded = true;
+                    this._endScreen('victory', 'Prosperite !', `Royaume de ${this.families.length} familles, ${this.resources.gold} or, satisfaction ${sat}%. L'histoire se souviendra.`);
+                    return;
+                }
+            } else {
+                this._prosperityStreak = 0;
+            }
+        }
+    },
+
+    _endScreen(outcome, title, desc) {
+        this._running = false;
+        const overlay = document.getElementById('day-transition-overlay');
+        if (overlay) overlay.classList.remove('active');
+        const endEl = document.getElementById('end-screen');
+        if (!endEl) return;
+        document.getElementById('end-screen-title').textContent = title;
+        document.getElementById('end-screen-desc').textContent = desc;
+        document.getElementById('end-screen-stats').innerHTML = `
+            <div>Jour atteint : <strong>${this._gameDay}</strong></div>
+            <div>Familles : <strong>${this.families.length}</strong></div>
+            <div>Constructions : <strong>${this.buildings.length}</strong></div>
+            <div>Or total : <strong>${this.resources.gold || 0}</strong></div>
+        `;
+        endEl.classList.remove('victory', 'defeat');
+        endEl.classList.add(outcome);
+        endEl.classList.add('active');
+    },
+
+    _showDayTransition(arrivals, departures, todayEvent, resDelta) {
         this._dayTransitionActive = true;
         AudioManager.playNewDay();
         const overlay = document.getElementById('day-transition-overlay');
@@ -2751,32 +2929,67 @@ const Game = {
 
         const sat = this._getSatisfaction();
         const satState = this._getSatisfactionState();
-        let summaryHtml = `<strong>Resume du jour precedent :</strong><br>`;
+        const fmtDelta = (d) => d > 0 ? `<span style="color:#a8d8a8;">+${d}</span>` : d < 0 ? `<span style="color:#d88888;">${d}</span>` : `<span style="color:#8a7a5a;">0</span>`;
+
+        let summaryHtml = '';
+
+        // Event banner (on top)
+        if (todayEvent) {
+            summaryHtml += `<div style="padding:8px 10px;margin-bottom:10px;background:rgba(200,168,74,0.08);border:1px solid ${todayEvent.color};border-radius:6px;">`;
+            summaryHtml += `<div style="color:${todayEvent.color};font-family:Cinzel,serif;font-size:1rem;">${todayEvent.icon} ${todayEvent.title}</div>`;
+            summaryHtml += `<div style="color:var(--parchment);font-size:0.82rem;margin-top:3px;">${todayEvent.desc}</div>`;
+            summaryHtml += `</div>`;
+        }
+
+        summaryHtml += `<strong>Bilan de la journee precedente :</strong><br>`;
         summaryHtml += `Familles : ${this.families.length} / ${this.getMaxFamilies()}<br>`;
         summaryHtml += `Satisfaction : <span style="color:${satState.color}">${sat}% (${satState.label})</span><br>`;
-        summaryHtml += `Bois: ${this.resources.wood} | Pierre: ${this.resources.stone} | Nourriture: ${this.resources.food} | Or: ${this.resources.gold || 0}<br>`;
-        if ((this.resources.ironOre || 0) > 0 || (this.resources.goldOre || 0) > 0 || (this.resources.ironIngot || 0) > 0 || (this.resources.goldIngot || 0) > 0) {
-            summaryHtml += `Min.Fer: ${this.resources.ironOre || 0} | Min.Or: ${this.resources.goldOre || 0} | Ling.Fer: ${this.resources.ironIngot || 0} | Ling.Or: ${this.resources.goldIngot || 0}<br>`;
+        summaryHtml += `Constructions : ${this.buildings.length}<br>`;
+
+        // Resource deltas
+        if (resDelta) {
+            summaryHtml += `<br><strong>Soldes :</strong><br>`;
+            summaryHtml += `Bois ${fmtDelta(resDelta.wood)} | Pierre ${fmtDelta(resDelta.stone)} | Nourriture ${fmtDelta(resDelta.food)} | Or ${fmtDelta(resDelta.gold)}<br>`;
+            if ((this.resources.ironIngot || 0) > 0 || (this.resources.goldIngot || 0) > 0 || (resDelta.ironIngot || 0) !== 0 || (resDelta.goldIngot || 0) !== 0) {
+                summaryHtml += `Ling.Fer ${fmtDelta(resDelta.ironIngot)} | Ling.Or ${fmtDelta(resDelta.goldIngot)}<br>`;
+            }
         }
-        summaryHtml += `Constructions : ${this.buildings.length}`;
+
+        summaryHtml += `<br><strong>Stocks actuels :</strong><br>`;
+        summaryHtml += `Bois: ${this.resources.wood} | Pierre: ${this.resources.stone} | Nourriture: ${this.resources.food} | Or: ${this.resources.gold || 0}`;
+        if ((this.resources.ironOre || 0) > 0 || (this.resources.goldOre || 0) > 0 || (this.resources.ironIngot || 0) > 0 || (this.resources.goldIngot || 0) > 0) {
+            summaryHtml += `<br>Min.Fer: ${this.resources.ironOre || 0} | Min.Or: ${this.resources.goldOre || 0} | Ling.Fer: ${this.resources.ironIngot || 0} | Ling.Or: ${this.resources.goldIngot || 0}`;
+        }
 
         if (arrivals && arrivals.length > 0) {
             summaryHtml += `<br><br><strong style="color:#a8d8a8;">Nouvelles familles arrivees !</strong><br>`;
-            for (const name of arrivals) {
-                summaryHtml += `- ${name}<br>`;
-            }
+            for (const name of arrivals) summaryHtml += `- ${name}<br>`;
         }
-
         if (departures && departures.length > 0) {
             summaryHtml += `<br><br><strong style="color:#d88888;">Familles parties (mecontentement) :</strong><br>`;
-            for (const name of departures) {
-                summaryHtml += `- ${name}<br>`;
-            }
+            for (const name of departures) summaryHtml += `- ${name}<br>`;
         }
 
         const pendingCount = this._pendingFamilies ? this._pendingFamilies.length : 0;
         if (pendingCount > 0) {
             summaryHtml += `<br><span style="color:#a8c8d8;">\u{1F6B6} ${pendingCount} famille(s) en route</span>`;
+        }
+
+        // Victory progress hint
+        if (this._victoryMode === 'prosperity' && !this._gameEnded) {
+            const goals = [
+                { ok: this.families.length >= 15, text: `Familles : ${this.families.length}/15` },
+                { ok: (this.resources.gold || 0) >= 500, text: `Or : ${this.resources.gold || 0}/500` },
+                { ok: sat >= 80, text: `Satisfaction : ${sat}%/80%` }
+            ];
+            const streak = this._prosperityStreak || 0;
+            summaryHtml += `<br><br><strong style="color:var(--gold);">\u{1F451} Objectif - Prosperite :</strong><br>`;
+            for (const g of goals) {
+                summaryHtml += `${g.ok ? '✔' : '✘'} <span style="color:${g.ok ? '#a8d8a8' : '#8a7a5a'};">${g.text}</span><br>`;
+            }
+            if (streak > 0) {
+                summaryHtml += `<span style="color:var(--gold);">Conditions reunies depuis ${streak}/3 jours</span>`;
+            }
         }
 
         summary.innerHTML = summaryHtml;
@@ -2849,6 +3062,14 @@ const Game = {
         if (sat >= 80) prodMultiplier = 1.10;
         else if (sat < 40 && sat >= 20) prodMultiplier = 0.90;
 
+        // Plague: set of family indices with reduced production
+        const plagueSet = new Set();
+        if (this._activeEvents) {
+            for (const ev of this._activeEvents) {
+                if (ev.type === 'plague') plagueSet.add(ev.familyIdx);
+            }
+        }
+
         // --- Standard production (lumberjack, farm) ---
         for (let i = 0; i < this.buildings.length; i++) {
             const b = this.buildings[i];
@@ -2857,8 +3078,15 @@ const Game = {
             if (b.familyIdx === undefined || b.familyIdx < 0) continue;
             if (!this.families[b.familyIdx]) continue;
 
+            // Storm effect: skip this cycle and decrement counter
+            if (b._stormSkipCycles && b._stormSkipCycles > 0) {
+                b._stormSkipCycles--;
+                continue;
+            }
+
             const fam = this.families[b.familyIdx];
             const childBonus = fam.hasChild ? 1.25 : 1.0;
+            const plagueMalus = plagueSet.has(b.familyIdx) ? 0.70 : 1.0;
 
             for (const [res, baseAmt] of Object.entries(def.production)) {
                 let amount = baseAmt;
@@ -2869,7 +3097,7 @@ const Game = {
                         if (bonus && bonus[res]) amount += bonus[res];
                     }
                 }
-                const finalAmt = Math.floor(amount * prodMultiplier * childBonus);
+                const finalAmt = Math.floor(amount * prodMultiplier * childBonus * plagueMalus);
                 this._addResource(res, finalAmt);
                 addProduced(res, finalAmt);
             }
@@ -2879,6 +3107,7 @@ const Game = {
         for (const b of this.buildings) {
             if (b.type !== 'mine') continue;
             if (b.familyIdx < 0 || !this.families[b.familyIdx]) continue;
+            if (b._stormSkipCycles && b._stormSkipCycles > 0) { b._stormSkipCycles--; continue; }
             const lvl = b.level || 1;
             const def = CONFIG.BUILDINGS.mine;
             const rates = def.mineRates[lvl - 1];
@@ -2886,8 +3115,9 @@ const Game = {
 
             const fam = this.families[b.familyIdx];
             const childBonus = fam.hasChild ? 1.25 : 1.0;
+            const plagueMalus = plagueSet.has(b.familyIdx) ? 0.70 : 1.0;
 
-            const stoneAmt = Math.floor(rates.stone * prodMultiplier * childBonus);
+            const stoneAmt = Math.floor(rates.stone * prodMultiplier * childBonus * plagueMalus);
             this._addResource('stone', stoneAmt);
             addProduced('stone', stoneAmt);
             if (Math.random() < rates.ironOreChance) {
@@ -3052,6 +3282,11 @@ const Game = {
             _activeRaids: JSON.parse(JSON.stringify(this._activeRaids || [])),
             _scoutedIntel: JSON.parse(JSON.stringify(this._scoutedIntel || {})),
             inventory: JSON.parse(JSON.stringify(this.inventory || {})),
+            _activeEvents: JSON.parse(JSON.stringify(this._activeEvents || [])),
+            _prevDayResources: JSON.parse(JSON.stringify(this._prevDayResources || {})),
+            _victoryMode: this._victoryMode || 'prosperity',
+            _prosperityStreak: this._prosperityStreak || 0,
+            _zeroSatStreak: this._zeroSatStreak || 0,
             _satisfaction: this._satisfaction,
             _gameDay: this._gameDay,
             _gameHour: this._gameHour,
@@ -3133,6 +3368,12 @@ const Game = {
             this._activeRaids = data._activeRaids || [];
             this._scoutedIntel = data._scoutedIntel || {};
             this.inventory = data.inventory || { simpleWeapon: 0, heavyWeapon: 0, cow: 0, horse: 0, chariot: 0 };
+            this._activeEvents = data._activeEvents || [];
+            this._prevDayResources = data._prevDayResources || null;
+            this._victoryMode = data._victoryMode || 'prosperity';
+            this._prosperityStreak = data._prosperityStreak || 0;
+            this._zeroSatStreak = data._zeroSatStreak || 0;
+            this._gameEnded = false;
             // Backward compat: ensure families have mount field
             for (const fam of this.families) {
                 if (fam.mount === undefined) fam.mount = null;
