@@ -829,7 +829,7 @@ body {
 .bd-content {
     padding: 10px 14px;
     overflow-y: auto;
-    max-height: 450px;
+    max-height: calc(100vh - 130px);
 }
 .bd-content::-webkit-scrollbar { width: 4px; }
 .bd-content::-webkit-scrollbar-thumb { background: var(--gold-dark); border-radius: 2px; }
@@ -966,6 +966,18 @@ body {
     border-bottom: 1px solid rgba(200,168,74,0.06);
 }
 .bd-category .bd-section:last-child { border-bottom: none; }
+.bd-category-military {
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    background: rgba(200,168,74,0.04);
+    border: 1px solid rgba(200,168,74,0.12);
+    border-radius: 6px;
+}
+.bd-category-military .bd-category-title {
+    font-size: 0.82rem;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(200,168,74,0.25);
+}
 
 /* ===== SATISFACTION TOOLTIP ===== */
 #hud-arriving-wrap {

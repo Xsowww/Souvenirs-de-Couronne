@@ -10,7 +10,7 @@ const Game = {
     resources: {},
     houses: 0,
 
-    // Families: [{ name, man, woman, job, buildingIdx, militaryType, stats, training, hasChild, onVoyage, weapon }]
+    // Families: [{ name, man, woman, job, buildingIdx, militaryType, stats, training, hasChild, onVoyage, weapon, mount }]
     families: [],
 
     // Buildings placed: [{ type, x, y, level, familyIdx }]
@@ -436,7 +436,7 @@ const Game = {
         this._firstDayCycleDone = false;
         this._prodCycleGameHours = 0;
 
-        // Commerce voyages: [{ familyIdx, goldCarried, returnGameHours, items }]
+        // Commerce voyages: [{ familyIdx, goldCarried, returnGameHours, cart }]
         this._activeVoyages = [];
 
         // Scouts: [{ familyIdx, targetOwner, returnGameHours }]
@@ -446,6 +446,9 @@ const Game = {
 
         // Raids: [{ familyIndices, targetOwner, returnGameHours, strength }]
         this._activeRaids = [];
+
+        // Equipment inventory (shared stock)
+        this.inventory = { simpleWeapon: 0, heavyWeapon: 0, cow: 0, horse: 0, chariot: 0 };
 
         // Show HUD
         document.getElementById('hud-bar').classList.add('active');
@@ -589,6 +592,9 @@ const Game = {
         this._activeScouts = [];
         this._activeRaids = [];
         this._scoutedIntel = {};
+
+        // Equipment inventory for testing
+        this.inventory = { simpleWeapon: 3, heavyWeapon: 2, cow: 1, horse: 1, chariot: 0 };
 
         // Place castle tile
         const castleTile = GameMap.getTile(castleX, castleY);
@@ -797,7 +803,8 @@ const Game = {
             trainingHistory: [], // [{type, points, date}]
             hasChild: false,
             onVoyage: false,
-            weapon: null // 'simpleWeapon' | 'heavyWeapon' | null
+            weapon: null, // 'simpleWeapon' | 'heavyWeapon' | null
+            mount: null   // 'cow' | 'horse' | 'chariot' | null
         };
     },
 
@@ -830,6 +837,36 @@ const Game = {
             if (b.type === 'house') count += 1;
         }
         return count;
+    },
+
+    // ==================== TIME HELPERS ====================
+
+    _formatGameHours(gh) {
+        const day = Math.floor(gh / 24) + 1;
+        const h = String(Math.floor(gh % 24)).padStart(2, '0');
+        const m = String(Math.floor((gh % 1) * 60)).padStart(2, '0');
+        return `Jour ${day} a ${h}:${m}`;
+    },
+
+    _computeCycleEndGH(fromGH, cyclesCount) {
+        const hours = this._CYCLE_HOURS;
+        let remaining = cyclesCount;
+        let day = Math.floor(fromGH / 24);
+        const hourInDay = fromGH % 24;
+        let startIdx = 0;
+        for (let i = 0; i < hours.length; i++) {
+            if (hours[i] > hourInDay) { startIdx = i; break; }
+            if (i === hours.length - 1) { startIdx = 0; day++; }
+        }
+        while (remaining > 0) {
+            for (let i = startIdx; i < hours.length && remaining > 0; i++) {
+                remaining--;
+                if (remaining === 0) return day * 24 + hours[i];
+            }
+            startIdx = 0;
+            day++;
+        }
+        return fromGH;
     },
 
     // ==================== PRODUCTION TICK ====================
@@ -1753,9 +1790,7 @@ const Game = {
                 if (emptyHouseRank >= 0 && emptyHouseRank < pendingCount) {
                     const pending = this._pendingFamilies[emptyHouseRank];
                     const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
-                    const hoursLeft = Math.max(0, pending.arrivalGameHours - currentGH);
-                    const etaStr = hoursLeft < 1 ? '< 1h' : `~${Math.floor(hoursLeft)}h`;
-                    html += `<div class="bd-value" style="color:#a8c8d8;">${pending.family.name} en route (${etaStr})</div>`;
+                    html += `<div class="bd-value" style="color:#a8c8d8;">${pending.family.name} en route (Arrivee : ${this._formatGameHours(pending.arrivalGameHours)})</div>`;
                 } else {
                     html += `<div class="bd-value" style="color:#6a5a3a;">Vide - aucune famille logee</div>`;
                 }
@@ -1778,24 +1813,52 @@ const Game = {
             html += `</select></div>`;
         }
 
-        // === Multi-family building (barracks) ===
+
+        // === Multi-family building (barracks) — elaborate menu ===
         if (def.multiFamily && b.familyIndices) {
-            html += `<div class="bd-section"><div class="bd-label">Familles assignees (${b.familyIndices.length})</div>`;
-            // List assigned families with stats, remove button, and point distribution
+            const _milTypeStr = (t) => t === 'soldier' ? 'Soldat' : t === 'archer' ? 'Archer' : t === 'cavalier' ? 'Cavalier' : 'Non assigne';
+            const _weaponStr = (w) => w === 'simpleWeapon' ? 'Arme simple' : w === 'heavyWeapon' ? 'Arme lourde' : 'Aucune';
+            const _mountStr = (m) => m === 'cow' ? 'Vache' : m === 'horse' ? 'Cheval' : m === 'chariot' ? 'Chariot' : 'Aucune';
+
+            // ── 1. Vue d'ensemble ──
+            const army = this._getPlayerArmyStrength();
+            html += `<div class="bd-category bd-category-military"><div class="bd-category-title">⚔ Armee — Vue d'ensemble</div>`;
+            html += `<div style="padding:4px 8px;font-size:0.78rem;color:var(--parchment);">Effectifs : ${army.soldiers}S / ${army.archers}A / ${army.cavaliers}C</div>`;
+            html += `<div style="padding:2px 8px;font-size:0.78rem;color:var(--gold);">Force totale : ${army.strength}</div>`;
+            const inv = this.inventory || {};
+            const equipList = [];
+            if (inv.simpleWeapon) equipList.push(`${inv.simpleWeapon} arme(s) simple(s)`);
+            if (inv.heavyWeapon) equipList.push(`${inv.heavyWeapon} arme(s) lourde(s)`);
+            if (inv.cow) equipList.push(`${inv.cow} vache(s)`);
+            if (inv.horse) equipList.push(`${inv.horse} cheval(aux)`);
+            if (inv.chariot) equipList.push(`${inv.chariot} chariot(s)`);
+            html += `<div style="padding:2px 8px;font-size:0.72rem;color:#8a7a5a;">Stock : ${equipList.length > 0 ? equipList.join(', ') : 'Aucun equipement'}</div>`;
+            html += `</div>`;
+
+            // ── 2. Familles assignees ──
+            html += `<div class="bd-category bd-category-military"><div class="bd-category-title">🛡 Familles assignees (${b.familyIndices.length})</div>`;
             for (const fi of b.familyIndices) {
                 const fam = this.families[fi];
                 if (!fam) continue;
-                const typeStr = fam.militaryType ? (fam.militaryType === 'soldier' ? 'Soldat' : fam.militaryType === 'archer' ? 'Archer' : 'Cavalier') : 'Non assigne';
+                const typeStr = _milTypeStr(fam.militaryType);
                 const isTraining = fam.training && fam.training.cyclesLeft > 0;
                 const hasPending = fam.training && fam.training.pendingPoints > 0;
-                const trainingStr = isTraining ? ` (entrainement: ${fam.training.cyclesLeft} cycles)` : '';
+                let statusTag = '';
+                if (isTraining && fam.training.endGameHours) {
+                    statusTag = ` <span style="color:#a8c8d8;font-size:0.68rem;">(Fin : ${this._formatGameHours(fam.training.endGameHours)})</span>`;
+                } else if (isTraining) {
+                    statusTag = ` <span style="color:#a8c8d8;font-size:0.68rem;">(${fam.training.cyclesLeft} cycles)</span>`;
+                } else if (hasPending) {
+                    statusTag = ` <span style="color:var(--gold);font-size:0.68rem;">(${fam.training.pendingPoints} pts)</span>`;
+                }
+                const weaponTag = fam.weapon ? ` 🗡${_weaponStr(fam.weapon)}` : '';
+                const mountTag = fam.mount ? ` 🐎${_mountStr(fam.mount)}` : '';
 
                 html += `<div style="padding:6px 0;border-bottom:1px solid rgba(200,168,74,0.1);">`;
                 html += `<div style="display:flex;justify-content:space-between;align-items:center;">`;
-                html += `<span style="font-size:0.78rem;color:var(--parchment);">${fam.name} - ${typeStr}${trainingStr}</span>`;
+                html += `<span style="font-size:0.78rem;color:var(--parchment);">${fam.name} — ${typeStr}${statusTag}</span>`;
                 html += `<button class="bd-barracks-remove" data-fi="${fi}" style="background:none;border:1px solid #d88888;color:#d88888;padding:2px 6px;font-size:0.68rem;cursor:pointer;border-radius:3px;">Retirer</button>`;
                 html += `</div>`;
-                // Stats display
                 html += `<div style="display:flex;gap:8px;margin-top:3px;font-size:0.72rem;">`;
                 html += `<span style="color:#a8c8d8;">Esq: ${fam.stats.esquive}</span>`;
                 html += `<span style="color:#d8a888;">For: ${fam.stats.force}</span>`;
@@ -1803,7 +1866,9 @@ const Game = {
                 const totalStats = fam.stats.esquive + fam.stats.force + fam.stats.defense;
                 html += `<span style="color:#6a5a3a;">(Total: ${totalStats})</span>`;
                 html += `</div>`;
-                // Pending points to distribute
+                if (weaponTag || mountTag) {
+                    html += `<div style="font-size:0.68rem;color:#a8a0d8;margin-top:2px;">${weaponTag}${mountTag}</div>`;
+                }
                 if (hasPending) {
                     html += `<div style="margin-top:4px;padding:4px 6px;background:rgba(168,200,216,0.1);border-radius:4px;">`;
                     html += `<div style="font-size:0.72rem;color:var(--gold);margin-bottom:3px;">${fam.training.pendingPoints} point(s) a distribuer</div>`;
@@ -1827,7 +1892,6 @@ const Game = {
                     }
                 }
                 html += `</select>`;
-                // Military type selector
                 html += ` <select class="bd-family-select" id="bd-barracks-type" style="width:30%;display:inline-block;">`;
                 html += `<option value="soldier">Soldat</option>`;
                 html += `<option value="archer">Archer</option>`;
@@ -1835,68 +1899,118 @@ const Game = {
                 html += `</select>`;
                 html += `</div>`;
             }
-            // Training button
+            html += `</div>`;
+
+            // ── 3. Entrainement ──
+            html += `<div class="bd-category bd-category-military"><div class="bd-category-title">🏋 Entrainement</div>`;
             if (b.familyIndices.length > 0) {
                 const untrained = b.familyIndices.filter(fi => {
                     const f = this.families[fi];
-                    return f && (!f.training || (f.training.cyclesLeft <= 0 && !f.training.pendingPoints));
+                    return f && f.militaryType && (!f.training || (f.training.cyclesLeft <= 0 && !f.training.pendingPoints));
                 });
                 if (untrained.length > 0) {
-                    html += `<div style="margin-top:6px;">`;
-                    html += `<select class="bd-family-select" id="bd-train-select" style="width:60%;display:inline-block;">`;
+                    html += `<div style="margin-top:4px;">`;
+                    html += `<select class="bd-family-select" id="bd-train-select" style="width:58%;display:inline-block;">`;
                     for (const fi of untrained) {
                         const f = this.families[fi];
-                        const tStr = f.militaryType === 'soldier' ? 'Soldat' : f.militaryType === 'archer' ? 'Archer' : 'Cavalier';
-                        html += `<option value="${fi}">${f.name} (${tStr})</option>`;
+                        html += `<option value="${fi}">${f.name} (${_milTypeStr(f.militaryType)})</option>`;
                     }
                     html += `</select>`;
-                    html += ` <button class="bd-upgrade-btn" id="bd-train-btn" style="width:35%;display:inline-block;padding:4px 8px;font-size:0.72rem;">Entrainer</button>`;
+                    html += ` <button class="bd-upgrade-btn" id="bd-train-btn" style="width:38%;display:inline-block;padding:4px 8px;font-size:0.72rem;">Entrainer</button>`;
                     html += `</div>`;
-                    // Show training cost
-                    html += `<div style="font-size:0.72rem;color:#8a7a5a;margin-top:4px;">Cout: 8-12 nourriture + 10-25 or (selon type)</div>`;
+                    html += `<div style="font-size:0.68rem;color:#8a7a5a;margin-top:4px;">`;
+                    html += `Soldat: 8 🍞 + 10 🪙 (4 cycles) | Archer: 10 🍞 + 15 🪙 (6 cycles) | Cavalier: 12 🍞 + 25 🪙 (8 cycles)`;
+                    html += `</div>`;
+                } else {
+                    html += `<div style="font-size:0.72rem;color:#6a5a3a;padding:4px 0;">Toutes les familles sont en entrainement ou en attente de distribution.</div>`;
                 }
-            }
-
-            // Training history log
-            const allHistory = [];
-            for (const fi of b.familyIndices) {
-                const fam = this.families[fi];
-                if (!fam || !fam.trainingHistory) continue;
-                for (const h of fam.trainingHistory) {
-                    allHistory.push({ ...h, famName: fam.name });
+                // Currently training
+                const inTraining = b.familyIndices.filter(fi => {
+                    const f = this.families[fi];
+                    return f && f.training && f.training.cyclesLeft > 0;
+                });
+                if (inTraining.length > 0) {
+                    html += `<div style="margin-top:6px;border-top:1px solid rgba(200,168,74,0.1);padding-top:4px;">`;
+                    html += `<div style="font-size:0.72rem;color:var(--gold);margin-bottom:3px;">En cours :</div>`;
+                    for (const fi of inTraining) {
+                        const f = this.families[fi];
+                        const endStr = f.training.endGameHours ? this._formatGameHours(f.training.endGameHours) : `${f.training.cyclesLeft} cycles`;
+                        html += `<div style="font-size:0.72rem;color:#a8c8d8;padding:1px 0;">⚔ ${f.name} — Fin : ${endStr}</div>`;
+                    }
+                    html += `</div>`;
                 }
-            }
-            if (allHistory.length > 0) {
-                html += `<div style="margin-top:8px;border-top:1px solid rgba(200,168,74,0.15);padding-top:6px;">`;
-                html += `<div style="font-size:0.72rem;color:var(--gold);font-family:Cinzel,serif;margin-bottom:4px;">Historique d'entrainement</div>`;
-                // Show most recent first, max 10
-                const recent = allHistory.slice(-10).reverse();
-                for (const entry of recent) {
-                    const typeStr = entry.type === 'soldier' ? 'Soldat' : entry.type === 'archer' ? 'Archer' : 'Cavalier';
-                    const statusStr = entry.status === 'pending' ? '(a distribuer)' : '(distribue)';
-                    html += `<div style="font-size:0.68rem;color:#8a7a5a;padding:1px 0;">Jour ${entry.day} - ${entry.famName} (${typeStr}) : +${entry.points} pts ${statusStr}</div>`;
-                }
-                html += `</div>`;
+            } else {
+                html += `<div style="font-size:0.72rem;color:#6a5a3a;padding:4px 0;">Assignez des familles pour les entrainer.</div>`;
             }
             html += `</div>`;
 
-            // === SCOUT SECTION ===
+            // ── 4. Equipement ──
+            html += `<div class="bd-category bd-category-military"><div class="bd-category-title">🛡 Equipement</div>`;
+            const equipableFamilies = b.familyIndices.filter(fi => {
+                const f = this.families[fi];
+                return f && f.militaryType && !(f.training && f.training.cyclesLeft > 0) && !f.onVoyage;
+            });
+            if (equipableFamilies.length > 0) {
+                for (const fi of equipableFamilies) {
+                    const fam = this.families[fi];
+                    html += `<div style="padding:5px 0;border-bottom:1px solid rgba(200,168,74,0.06);">`;
+                    html += `<div style="font-size:0.78rem;color:var(--parchment);margin-bottom:3px;">${fam.name} (${_milTypeStr(fam.militaryType)})</div>`;
+
+                    // Weapon row
+                    const compatWeapon = fam.militaryType === 'cavalier' ? 'heavyWeapon' : 'simpleWeapon';
+                    const compatWeaponName = compatWeapon === 'simpleWeapon' ? 'Arme simple' : 'Arme lourde';
+                    const hasWeapon = !!fam.weapon;
+                    const weaponStock = (this.inventory[compatWeapon] || 0);
+                    html += `<div style="display:flex;align-items:center;gap:4px;margin:2px 0;">`;
+                    html += `<span style="font-size:0.72rem;color:#8a7a5a;width:45%;">🗡 ${hasWeapon ? _weaponStr(fam.weapon) : 'Aucune'}</span>`;
+                    if (hasWeapon) {
+                        html += `<button class="bd-unequip-btn" data-fi="${fi}" data-slot="weapon" style="flex:1;padding:2px 4px;font-size:0.68rem;background:none;border:1px solid #d88888;color:#d88888;border-radius:3px;cursor:pointer;">Retirer</button>`;
+                    } else if (weaponStock > 0) {
+                        html += `<button class="bd-equip-btn" data-fi="${fi}" data-slot="weapon" data-item="${compatWeapon}" style="flex:1;padding:2px 4px;font-size:0.68rem;background:none;border:1px solid #a8d8a8;color:#a8d8a8;border-radius:3px;cursor:pointer;">Equiper ${compatWeaponName} (${weaponStock})</button>`;
+                    } else {
+                        html += `<span style="flex:1;font-size:0.68rem;color:#6a5a3a;">Stock vide</span>`;
+                    }
+                    html += `</div>`;
+
+                    // Mount row
+                    const hasMount = !!fam.mount;
+                    html += `<div style="display:flex;align-items:center;gap:4px;margin:2px 0;">`;
+                    html += `<span style="font-size:0.72rem;color:#8a7a5a;width:45%;">🐎 ${hasMount ? _mountStr(fam.mount) : 'Aucune'}</span>`;
+                    if (hasMount) {
+                        html += `<button class="bd-unequip-btn" data-fi="${fi}" data-slot="mount" style="flex:1;padding:2px 4px;font-size:0.68rem;background:none;border:1px solid #d88888;color:#d88888;border-radius:3px;cursor:pointer;">Retirer</button>`;
+                    } else {
+                        const mountOptions = ['cow', 'horse', 'chariot'].filter(m => (this.inventory[m] || 0) > 0);
+                        if (mountOptions.length > 0) {
+                            html += `<select class="bd-family-select bd-mount-select" data-fi="${fi}" style="flex:1;font-size:0.68rem;">`;
+                            for (const m of mountOptions) {
+                                html += `<option value="${m}">${_mountStr(m)} (${this.inventory[m]})</option>`;
+                            }
+                            html += `</select>`;
+                            html += `<button class="bd-equip-mount-btn" data-fi="${fi}" style="padding:2px 6px;font-size:0.68rem;background:none;border:1px solid #a8d8a8;color:#a8d8a8;border-radius:3px;cursor:pointer;">OK</button>`;
+                        } else {
+                            html += `<span style="flex:1;font-size:0.68rem;color:#6a5a3a;">Stock vide</span>`;
+                        }
+                    }
+                    html += `</div>`;
+                    html += `</div>`;
+                }
+            } else {
+                html += `<div style="font-size:0.72rem;color:#6a5a3a;padding:4px 0;">Aucune famille equipable (en entrainement ou en voyage).</div>`;
+            }
+            html += `</div>`;
+
+            // ── 5. Reconnaissance ──
             const enemies = this._getEnemyKingdoms();
             if (enemies.length > 0) {
-                html += `<div class="bd-section"><div class="bd-label">\u{1F441} Reconnaissance</div>`;
-                // Available families for scouting (not on voyage, not training)
+                html += `<div class="bd-category bd-category-military"><div class="bd-category-title">👁 Reconnaissance</div>`;
                 const scoutCandidates = this.families.filter((f, i) => f.buildingIdx < 0 && !f.onVoyage);
-                // Active scouts
                 if (this._activeScouts && this._activeScouts.length > 0) {
-                    const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
                     for (const s of this._activeScouts) {
                         const fam = this.families[s.familyIdx];
                         const target = GameMap.regions.find(r => r.owner === s.targetOwner);
-                        const hoursLeft = Math.max(0, s.returnGameHours - currentGH);
-                        html += `<div style="font-size:0.72rem;color:#a8c8d8;padding:2px 0;">\u{1F441} ${fam ? fam.name : '?'} \u2192 ${target ? target.name : '?'} (retour ~${Math.ceil(hoursLeft)}h)</div>`;
+                        html += `<div style="font-size:0.72rem;color:#a8c8d8;padding:2px 0;">👁 ${fam ? fam.name : '?'} → ${target ? target.name : '?'} (Retour : ${this._formatGameHours(s.returnGameHours)})</div>`;
                     }
                 }
-                // Intel display
                 for (const enemy of enemies) {
                     const intel = this._scoutedIntel[enemy.owner];
                     if (intel) {
@@ -1907,7 +2021,6 @@ const Game = {
                         html += `</div>`;
                     }
                 }
-                // Send scout
                 if (scoutCandidates.length > 0) {
                     html += `<div style="margin-top:4px;display:flex;gap:4px;">`;
                     html += `<select class="bd-family-select" id="bd-scout-family" style="flex:1;">`;
@@ -1930,26 +2043,21 @@ const Game = {
                 }
                 html += `</div>`;
 
-                // === RAID SECTION ===
-                html += `<div class="bd-section"><div class="bd-label">\u{2694} Raid</div>`;
-                const army = this._getPlayerArmyStrength();
+                // ── 6. Raid ──
+                html += `<div class="bd-category bd-category-military"><div class="bd-category-title">⚔ Raid</div>`;
                 html += `<div style="font-size:0.72rem;color:var(--parchment);margin-bottom:4px;">Armee : ${army.soldiers}S / ${army.archers}A / ${army.cavaliers}C (Force: ${army.strength})</div>`;
-                // Active raids
                 if (this._activeRaids && this._activeRaids.length > 0) {
-                    const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
                     for (const r of this._activeRaids) {
                         const target = GameMap.regions.find(reg => reg.owner === r.targetOwner);
-                        const hoursLeft = Math.max(0, r.returnGameHours - currentGH);
-                        html += `<div style="font-size:0.72rem;color:#d8a888;padding:2px 0;">\u{2694} Raid vers ${target ? target.name : '?'} (${r.familyIndices.length} familles, retour ~${Math.ceil(hoursLeft)}h)</div>`;
+                        html += `<div style="font-size:0.72rem;color:#d8a888;padding:2px 0;">⚔ Raid vers ${target ? target.name : '?'} (${r.familyIndices.length} familles, Retour : ${this._formatGameHours(r.returnGameHours)})</div>`;
                     }
                 }
-                // Send raid
                 if (army.total > 0 && (!this._activeRaids || this._activeRaids.length === 0)) {
                     html += `<div style="margin-top:4px;">`;
                     html += `<select class="bd-family-select" id="bd-raid-target" style="width:100%;">`;
                     for (const e of enemies) {
                         const intel = this._scoutedIntel[e.owner];
-                        const intelStr = intel ? ` (Force ennemie: ${intel.strength})` : ' (non reconnu)';
+                        const intelStr = intel ? ` (Force: ${intel.strength})` : ' (non reconnu)';
                         html += `<option value="${e.owner}">${e.name}${intelStr}</option>`;
                     }
                     html += `</select>`;
@@ -1964,9 +2072,29 @@ const Game = {
                 }
                 html += `</div>`;
             }
+
+            // ── 7. Historique ──
+            const allHistory = [];
+            for (const fi of b.familyIndices) {
+                const fam = this.families[fi];
+                if (!fam || !fam.trainingHistory) continue;
+                for (const h of fam.trainingHistory) {
+                    allHistory.push({ ...h, famName: fam.name });
+                }
+            }
+            if (allHistory.length > 0) {
+                html += `<div class="bd-category bd-category-military"><div class="bd-category-title">📜 Historique</div>`;
+                const recent = allHistory.slice(-10).reverse();
+                for (const entry of recent) {
+                    const typeStr = entry.type === 'soldier' ? 'Soldat' : entry.type === 'archer' ? 'Archer' : 'Cavalier';
+                    const statusStr = entry.status === 'pending' ? '(a distribuer)' : '(distribue)';
+                    html += `<div style="font-size:0.68rem;color:#8a7a5a;padding:1px 0;">Jour ${entry.day} — ${entry.famName} (${typeStr}) : +${entry.points} pts ${statusStr}</div>`;
+                }
+                html += `</div>`;
+            }
         }
 
-        // === Comptoir: shop + lingot selling + voyages ===
+        // === Comptoir: lingot selling + shopping list + voyages ===
         if (b.type === 'comptoir') {
             // Lingot selling
             html += `<div class="bd-section"><div class="bd-label">Vendre des lingots</div>`;
@@ -1977,34 +2105,36 @@ const Game = {
             html += `<button class="bd-upgrade-btn${goldCount > 0 ? '' : ' disabled'}" id="bd-sell-gold" style="flex:1;padding:6px;font-size:0.72rem;" ${goldCount > 0 ? '' : 'disabled'}>Vendre Ling. Or (${goldCount}) = ${CONFIG.LINGOT_PRICES.goldIngot} or</button>`;
             html += `</div></div>`;
 
-            // Shop items
-            html += `<div class="bd-section"><div class="bd-label">Boutique</div>`;
-            for (const [key, item] of Object.entries(def.shopItems)) {
-                const canBuy = (this.resources.gold || 0) >= item.cost;
-                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(200,168,74,0.06);">`;
-                html += `<div><span style="color:var(--parchment);font-size:0.78rem;">${item.name}</span><br><span style="color:#8a7a5a;font-size:0.68rem;">${item.desc}</span></div>`;
-                html += `<button class="bd-upgrade-btn bd-shop-buy${canBuy ? '' : ' disabled'}" data-item="${key}" style="padding:4px 8px;font-size:0.72rem;width:auto;" ${canBuy ? '' : 'disabled'}>${item.cost} or</button>`;
-                html += `</div>`;
-            }
-            html += `</div>`;
-
             // Active voyages
             if (this._activeVoyages && this._activeVoyages.length > 0) {
                 html += `<div class="bd-section"><div class="bd-label">Voyages en cours</div>`;
-                const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
                 for (const v of this._activeVoyages) {
                     const fam = this.families[v.familyIdx];
-                    const hoursLeft = Math.max(0, v.returnGameHours - currentGH);
-                    html += `<div style="padding:3px 0;font-size:0.78rem;color:var(--parchment);">${fam ? fam.name : '?'} — retour dans ~${Math.ceil(hoursLeft)}h</div>`;
+                    html += `<div style="padding:4px 0;border-bottom:1px solid rgba(200,168,74,0.06);">`;
+                    html += `<div style="font-size:0.78rem;color:var(--parchment);">${fam ? fam.name : '?'} — Retour : ${this._formatGameHours(v.returnGameHours)}</div>`;
+                    if (v.cart) {
+                        const cartItems = [];
+                        for (const [k, qty] of Object.entries(v.cart)) {
+                            if (qty > 0) {
+                                const names = { simpleWeapon: 'Arme simple', heavyWeapon: 'Arme lourde', cow: 'Vache', horse: 'Cheval', chariot: 'Chariot' };
+                                cartItems.push(`${qty}x ${names[k] || k}`);
+                            }
+                        }
+                        if (cartItems.length > 0) {
+                            html += `<div style="font-size:0.68rem;color:#a8c8d8;">Panier : ${cartItems.join(', ')}</div>`;
+                        }
+                    }
+                    html += `<div style="font-size:0.68rem;color:#8a7a5a;">Or emporte : ${v.goldCarried}</div>`;
+                    html += `</div>`;
                 }
                 html += `</div>`;
             }
 
-            // Send family on voyage
+            // Shopping list
+            html += `<div class="bd-section"><div class="bd-label">Preparer une liste de course</div>`;
             const availableForVoyage = this.families.filter((f, i) => f.buildingIdx < 0 && !f.onVoyage);
             if (availableForVoyage.length > 0) {
-                html += `<div class="bd-section"><div class="bd-label">Envoyer en voyage</div>`;
-                html += `<select class="bd-family-select" id="bd-voyage-family">`;
+                html += `<select class="bd-family-select" id="bd-voyage-family" style="margin-bottom:6px;">`;
                 html += `<option value="-1">Choisir une famille...</option>`;
                 for (let i = 0; i < this.families.length; i++) {
                     if (this.families[i].buildingIdx < 0 && !this.families[i].onVoyage) {
@@ -2012,10 +2142,33 @@ const Game = {
                     }
                 }
                 html += `</select>`;
-                html += `<div style="font-size:0.72rem;color:#8a7a5a;margin-top:2px;">Cout: 20 or. Duree: 24-48h. Evenements aleatoires.</div>`;
-                html += `<button class="bd-upgrade-btn${(this.resources.gold || 0) >= 20 ? '' : ' disabled'}" id="bd-send-voyage" style="margin-top:4px;" ${(this.resources.gold || 0) >= 20 ? '' : 'disabled'}>Envoyer (20 or)</button>`;
+
+                const shopItems = [
+                    { key: 'simpleWeapon', name: 'Arme simple', cost: 15 },
+                    { key: 'heavyWeapon', name: 'Arme lourde', cost: 25 },
+                    { key: 'cow', name: 'Vache', cost: 40 },
+                    { key: 'horse', name: 'Cheval', cost: 80 },
+                    { key: 'chariot', name: 'Chariot', cost: 120 }
+                ];
+                for (const item of shopItems) {
+                    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(200,168,74,0.06);">`;
+                    html += `<div style="flex:1;"><span style="font-size:0.75rem;color:var(--parchment);">${item.name}</span><br><span style="font-size:0.65rem;color:#8a7a5a;">${item.cost} or/u</span></div>`;
+                    html += `<div style="display:flex;align-items:center;gap:3px;">`;
+                    html += `<button class="bd-cart-minus" data-key="${item.key}" style="width:22px;height:22px;font-size:0.75rem;background:rgba(200,168,74,0.15);border:1px solid var(--gold-dark);color:var(--parchment);border-radius:3px;cursor:pointer;">−</button>`;
+                    html += `<span class="bd-cart-qty" data-key="${item.key}" style="width:20px;text-align:center;font-size:0.75rem;color:var(--gold);">0</span>`;
+                    html += `<button class="bd-cart-plus" data-key="${item.key}" data-cost="${item.cost}" style="width:22px;height:22px;font-size:0.75rem;background:rgba(200,168,74,0.15);border:1px solid var(--gold-dark);color:var(--parchment);border-radius:3px;cursor:pointer;">+</button>`;
+                    html += `</div></div>`;
+                }
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding:4px 0;border-top:1px solid rgba(200,168,74,0.15);">`;
+                html += `<span style="font-size:0.78rem;color:var(--gold);font-family:Cinzel,serif;">Total : <span id="bd-cart-total">0</span> or</span>`;
+                html += `<span style="font-size:0.72rem;color:#8a7a5a;">(Or dispo: ${this.resources.gold || 0})</span>`;
                 html += `</div>`;
+                html += `<button class="bd-upgrade-btn disabled" id="bd-send-voyage" style="margin-top:4px;" disabled>Envoyer la famille</button>`;
+                html += `<div style="font-size:0.68rem;color:#8a7a5a;margin-top:2px;">Duree : 24-48h. Evenements aleatoires possibles.</div>`;
+            } else {
+                html += `<div style="font-size:0.72rem;color:#6a5a3a;">Aucune famille libre pour faire les courses.</div>`;
             }
+            html += `</div>`;
         }
 
         // Upgrade
@@ -2086,6 +2239,14 @@ const Game = {
             btn.addEventListener('click', () => {
                 const fi = parseInt(btn.dataset.fi);
                 if (this.families[fi]) {
+                    if (this.families[fi].weapon) {
+                        this.inventory[this.families[fi].weapon] = (this.inventory[this.families[fi].weapon] || 0) + 1;
+                        this.families[fi].weapon = null;
+                    }
+                    if (this.families[fi].mount) {
+                        this.inventory[this.families[fi].mount] = (this.inventory[this.families[fi].mount] || 0) + 1;
+                        this.families[fi].mount = null;
+                    }
                     this.families[fi].buildingIdx = -1;
                     this.families[fi].job = null;
                     this.families[fi].militaryType = null;
@@ -2114,10 +2275,12 @@ const Game = {
                 }
                 this.resources.food -= costs.food;
                 this.resources.gold -= costs.gold;
-                fam.training = { cyclesLeft: costs.cycles, pendingPoints: 0 };
+                const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
+                const endGH = this._computeCycleEndGH(currentGH, costs.cycles);
+                fam.training = { cyclesLeft: costs.cycles, pendingPoints: 0, endGameHours: endGH };
                 this._updateHUD();
                 this._renderBuildingDetail();
-                this._showNotification(`\u{2694} ${fam.name} commence l'entrainement (${costs.cycles} cycles)`, '#a8c8d8');
+                this._showNotification(`\u{2694} ${fam.name} commence l'entrainement (Fin : ${this._formatGameHours(endGH)})`, '#a8c8d8');
             });
         }
 
@@ -2172,6 +2335,54 @@ const Game = {
             });
         }
 
+        // Barracks: equip weapon
+        content.querySelectorAll('.bd-equip-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const fi = parseInt(btn.dataset.fi);
+                const item = btn.dataset.item;
+                const fam = this.families[fi];
+                if (!fam || !this.inventory || (this.inventory[item] || 0) <= 0) return;
+                if (fam.weapon) this.inventory[fam.weapon] = (this.inventory[fam.weapon] || 0) + 1;
+                fam.weapon = item;
+                this.inventory[item]--;
+                this._renderBuildingDetail();
+            });
+        });
+
+        // Barracks: equip mount
+        content.querySelectorAll('.bd-equip-mount-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const fi = parseInt(btn.dataset.fi);
+                const sel = content.querySelector(`.bd-mount-select[data-fi="${fi}"]`);
+                if (!sel) return;
+                const mountType = sel.value;
+                const fam = this.families[fi];
+                if (!fam || !this.inventory || (this.inventory[mountType] || 0) <= 0) return;
+                if (fam.mount) this.inventory[fam.mount] = (this.inventory[fam.mount] || 0) + 1;
+                fam.mount = mountType;
+                this.inventory[mountType]--;
+                this._renderBuildingDetail();
+            });
+        });
+
+        // Barracks: unequip
+        content.querySelectorAll('.bd-unequip-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const fi = parseInt(btn.dataset.fi);
+                const slot = btn.dataset.slot;
+                const fam = this.families[fi];
+                if (!fam) return;
+                if (slot === 'weapon' && fam.weapon) {
+                    this.inventory[fam.weapon] = (this.inventory[fam.weapon] || 0) + 1;
+                    fam.weapon = null;
+                } else if (slot === 'mount' && fam.mount) {
+                    this.inventory[fam.mount] = (this.inventory[fam.mount] || 0) + 1;
+                    fam.mount = null;
+                }
+                this._renderBuildingDetail();
+            });
+        });
+
         // Comptoir: sell lingots
         const sellIron = document.getElementById('bd-sell-iron');
         if (sellIron) {
@@ -2198,21 +2409,50 @@ const Game = {
             });
         }
 
-        // Comptoir: shop buy
-        content.querySelectorAll('.bd-shop-buy').forEach(btn => {
-            if (btn.disabled) return;
+        // Comptoir: shopping cart system
+        const _cart = { simpleWeapon: 0, heavyWeapon: 0, cow: 0, horse: 0, chariot: 0 };
+        const _itemCosts = { simpleWeapon: 15, heavyWeapon: 25, cow: 40, horse: 80, chariot: 120 };
+        const _updateCartTotal = () => {
+            let total = 0;
+            for (const [k, qty] of Object.entries(_cart)) {
+                total += qty * (_itemCosts[k] || 0);
+            }
+            const totalEl = document.getElementById('bd-cart-total');
+            if (totalEl) totalEl.textContent = total;
+            const sendBtn = document.getElementById('bd-send-voyage');
+            const famSelect = document.getElementById('bd-voyage-family');
+            const famOk = famSelect && parseInt(famSelect.value) >= 0;
+            const canSend = total > 0 && famOk && (this.resources.gold || 0) >= total;
+            if (sendBtn) {
+                sendBtn.disabled = !canSend;
+                sendBtn.classList.toggle('disabled', !canSend);
+            }
+        };
+        content.querySelectorAll('.bd-cart-plus').forEach(btn => {
             btn.addEventListener('click', () => {
-                const itemKey = btn.dataset.item;
-                const item = def.shopItems[itemKey];
-                if (!item || (this.resources.gold || 0) < item.cost) return;
-                this.resources.gold -= item.cost;
-                this._showNotification(`\u{1F6D2} ${item.name} achete pour ${item.cost} or`, '#a8c8d8');
-                this._updateHUD();
-                this._renderBuildingDetail();
+                const key = btn.dataset.key;
+                _cart[key] = (_cart[key] || 0) + 1;
+                const qtyEl = content.querySelector(`.bd-cart-qty[data-key="${key}"]`);
+                if (qtyEl) qtyEl.textContent = _cart[key];
+                _updateCartTotal();
             });
         });
+        content.querySelectorAll('.bd-cart-minus').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const key = btn.dataset.key;
+                if ((_cart[key] || 0) <= 0) return;
+                _cart[key]--;
+                const qtyEl = content.querySelector(`.bd-cart-qty[data-key="${key}"]`);
+                if (qtyEl) qtyEl.textContent = _cart[key];
+                _updateCartTotal();
+            });
+        });
+        const voyageFamSelect = document.getElementById('bd-voyage-family');
+        if (voyageFamSelect) {
+            voyageFamSelect.addEventListener('change', _updateCartTotal);
+        }
 
-        // Comptoir: send voyage
+        // Comptoir: send shopping voyage
         const sendVoyage = document.getElementById('bd-send-voyage');
         if (sendVoyage) {
             sendVoyage.addEventListener('click', () => {
@@ -2220,18 +2460,23 @@ const Game = {
                 if (!voyageSelect) return;
                 const fi = parseInt(voyageSelect.value);
                 if (fi < 0 || !this.families[fi]) return;
-                if ((this.resources.gold || 0) < 20) return;
-                this.resources.gold -= 20;
+                let totalCost = 0;
+                for (const [k, qty] of Object.entries(_cart)) {
+                    totalCost += qty * (_itemCosts[k] || 0);
+                }
+                if (totalCost <= 0) return;
+                if ((this.resources.gold || 0) < totalCost) return;
+                this.resources.gold -= totalCost;
                 this.families[fi].onVoyage = true;
                 const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
-                const duration = 24 + Math.random() * 24; // 24-48h
+                const duration = 24 + Math.random() * 24;
                 this._activeVoyages.push({
                     familyIdx: fi,
-                    goldCarried: 20,
+                    goldCarried: totalCost,
                     returnGameHours: currentGH + duration,
-                    items: []
+                    cart: { ...(_cart) }
                 });
-                this._showNotification(`\u{1F6B6} ${this.families[fi].name} part en voyage commercial`, '#a8c8d8');
+                this._showNotification(`\u{1F6B6} ${this.families[fi].name} part faire les courses (${totalCost} or)`, '#a8c8d8');
                 this._updateHUD();
                 this._renderBuildingDetail();
             });
@@ -2692,6 +2937,7 @@ const Game = {
             _activeScouts: JSON.parse(JSON.stringify(this._activeScouts || [])),
             _activeRaids: JSON.parse(JSON.stringify(this._activeRaids || [])),
             _scoutedIntel: JSON.parse(JSON.stringify(this._scoutedIntel || {})),
+            inventory: JSON.parse(JSON.stringify(this.inventory || {})),
             _satisfaction: this._satisfaction,
             _gameDay: this._gameDay,
             _gameHour: this._gameHour,
@@ -2772,6 +3018,12 @@ const Game = {
             this._activeScouts = data._activeScouts || [];
             this._activeRaids = data._activeRaids || [];
             this._scoutedIntel = data._scoutedIntel || {};
+            this.inventory = data.inventory || { simpleWeapon: 0, heavyWeapon: 0, cow: 0, horse: 0, chariot: 0 };
+            // Backward compat: ensure families have mount field
+            for (const fam of this.families) {
+                if (fam.mount === undefined) fam.mount = null;
+                if (fam.weapon === undefined) fam.weapon = null;
+            }
             this._satisfaction = data._satisfaction;
             this._gameDay = data._gameDay;
             this._gameHour = data._gameHour;
@@ -2947,7 +3199,9 @@ const Game = {
     _checkVoyageReturns() {
         if (!this._activeVoyages || this._activeVoyages.length === 0) return;
         if (this._timeSpeed === 0 || this._dayTransitionActive) return;
+        if (!this.inventory) this.inventory = { simpleWeapon: 0, heavyWeapon: 0, cow: 0, horse: 0, chariot: 0 };
 
+        const itemNames = { simpleWeapon: 'arme simple', heavyWeapon: 'arme lourde', cow: 'vache', horse: 'cheval', chariot: 'chariot' };
         const currentGH = (this._gameDay - 1) * 24 + this._gameHour + this._gameMinute / 60;
         for (let i = this._activeVoyages.length - 1; i >= 0; i--) {
             const v = this._activeVoyages[i];
@@ -2955,20 +3209,59 @@ const Game = {
                 const fam = this.families[v.familyIdx];
                 if (fam) {
                     fam.onVoyage = false;
-                    // Random event on return
+                    const cart = v.cart || {};
                     const roll = Math.random();
-                    if (roll < 0.3) {
-                        // Good: found gold
-                        const bonus = 10 + Math.floor(Math.random() * 20);
-                        this.resources.gold = (this.resources.gold || 0) + bonus;
-                        this._showNotification(`\u{1F4B0} ${fam.name} revient avec ${bonus} or bonus !`, '#a8d8a8');
-                    } else if (roll < 0.5) {
-                        // Bad: attacked, lost gold
-                        this._showNotification(`\u{2694} ${fam.name} a ete attaque en route ! Or perdu.`, '#d88888');
+
+                    if (roll < 0.15) {
+                        // Attack: lose 50% of items, lose all change gold
+                        const delivered = [];
+                        for (const [k, qty] of Object.entries(cart)) {
+                            const kept = Math.ceil(qty / 2);
+                            if (kept > 0) {
+                                this.inventory[k] = (this.inventory[k] || 0) + kept;
+                                delivered.push(`${kept}x ${itemNames[k] || k}`);
+                            }
+                        }
                         this._satisfaction = Math.max(0, this._satisfaction - 5);
+                        this._showNotification(`\u{2694} ${fam.name} attaque en route ! Moitie du panier perdu. ${delivered.length > 0 ? 'Recu: ' + delivered.join(', ') : ''}`, '#d88888');
+                    } else if (roll < 0.30) {
+                        // Great negotiator: all items + 10-20% gold back
+                        const delivered = [];
+                        for (const [k, qty] of Object.entries(cart)) {
+                            if (qty > 0) {
+                                this.inventory[k] = (this.inventory[k] || 0) + qty;
+                                delivered.push(`${qty}x ${itemNames[k] || k}`);
+                            }
+                        }
+                        const bonusGold = Math.floor(v.goldCarried * (0.10 + Math.random() * 0.10));
+                        this.resources.gold = (this.resources.gold || 0) + bonusGold;
+                        this._showNotification(`\u{1F4B0} ${fam.name} a bien negocie ! ${delivered.join(', ')} + ${bonusGold} or economise`, '#a8d8a8');
+                    } else if (roll < 0.50) {
+                        // Bonus: all items + 1 random bonus item
+                        const delivered = [];
+                        for (const [k, qty] of Object.entries(cart)) {
+                            if (qty > 0) {
+                                this.inventory[k] = (this.inventory[k] || 0) + qty;
+                                delivered.push(`${qty}x ${itemNames[k] || k}`);
+                            }
+                        }
+                        const bonusKeys = Object.keys(cart).filter(k => cart[k] > 0);
+                        if (bonusKeys.length > 0) {
+                            const bonusKey = bonusKeys[Math.floor(Math.random() * bonusKeys.length)];
+                            this.inventory[bonusKey] = (this.inventory[bonusKey] || 0) + 1;
+                            delivered.push(`+1 ${itemNames[bonusKey] || bonusKey} bonus`);
+                        }
+                        this._showNotification(`\u{1F381} ${fam.name} a trouve un bonus ! ${delivered.join(', ')}`, '#a8d8a8');
                     } else {
-                        // Normal return
-                        this._showNotification(`\u{1F6B6} ${fam.name} est revenu du voyage.`, '#a8c8d8');
+                        // Normal: all items delivered
+                        const delivered = [];
+                        for (const [k, qty] of Object.entries(cart)) {
+                            if (qty > 0) {
+                                this.inventory[k] = (this.inventory[k] || 0) + qty;
+                                delivered.push(`${qty}x ${itemNames[k] || k}`);
+                            }
+                        }
+                        this._showNotification(`\u{1F6B6} ${fam.name} revient avec ${delivered.length > 0 ? delivered.join(', ') : 'rien'}.`, '#a8c8d8');
                     }
                 }
                 this._activeVoyages.splice(i, 1);
@@ -3070,18 +3363,24 @@ const Game = {
 
     _getPlayerArmyStrength() {
         let soldiers = 0, archers = 0, cavaliers = 0;
+        let strength = 0;
         for (const fam of this.families) {
             if (!fam.militaryType || fam.onVoyage) continue;
             if (fam.training && fam.training.cyclesLeft > 0) continue;
             const totalStats = fam.stats.esquive + fam.stats.force + fam.stats.defense;
-            const statBonus = totalStats / 10; // ~1.0 for base, grows with training
-            if (fam.militaryType === 'soldier') soldiers++;
-            else if (fam.militaryType === 'archer') archers++;
-            else if (fam.militaryType === 'cavalier') cavaliers++;
+            let multiplier = 1 + totalStats / 30;
+            if (fam.weapon === 'simpleWeapon') multiplier += 0.07;
+            if (fam.weapon === 'heavyWeapon') multiplier += 0.10;
+            if (fam.mount === 'horse') multiplier += 0.05;
+            if (fam.mount === 'chariot') multiplier += 0.08;
+            let base = 0;
+            if (fam.militaryType === 'soldier') { soldiers++; base = 3; }
+            else if (fam.militaryType === 'archer') { archers++; base = 4; }
+            else if (fam.militaryType === 'cavalier') { cavaliers++; base = 6; }
+            strength += Math.round(base * multiplier);
         }
         return {
-            soldiers, archers, cavaliers,
-            strength: soldiers * 3 + archers * 4 + cavaliers * 6,
+            soldiers, archers, cavaliers, strength,
             total: soldiers + archers + cavaliers
         };
     },
@@ -3115,15 +3414,23 @@ const Game = {
             this.families[fi].onVoyage = true;
         }
 
-        // Calculate player raid strength
+        // Calculate player raid strength (with equipment bonuses)
         let strength = 0;
+        let hasCow = false;
         for (const fi of raidFamilies) {
             const fam = this.families[fi];
             const totalStats = fam.stats.esquive + fam.stats.force + fam.stats.defense;
-            const statBonus = 1 + totalStats / 30;
-            if (fam.militaryType === 'soldier') strength += 3 * statBonus;
-            else if (fam.militaryType === 'archer') strength += 4 * statBonus;
-            else if (fam.militaryType === 'cavalier') strength += 6 * statBonus;
+            let multiplier = 1 + totalStats / 30;
+            if (fam.weapon === 'simpleWeapon') multiplier += 0.07;
+            if (fam.weapon === 'heavyWeapon') multiplier += 0.10;
+            if (fam.mount === 'horse') multiplier += 0.05;
+            if (fam.mount === 'chariot') multiplier += 0.08;
+            if (fam.mount === 'cow') hasCow = true;
+            let base = 0;
+            if (fam.militaryType === 'soldier') base = 3;
+            else if (fam.militaryType === 'archer') base = 4;
+            else if (fam.militaryType === 'cavalier') base = 6;
+            strength += base * multiplier;
         }
         strength = Math.round(strength);
 
@@ -3133,7 +3440,8 @@ const Game = {
             familyIndices: raidFamilies,
             targetOwner,
             returnGameHours: currentGH + duration,
-            strength
+            strength,
+            hasCow
         });
 
         const targetRegion = GameMap.regions.find(r => r.owner === targetOwner);
@@ -3162,26 +3470,27 @@ const Game = {
                 // Determine casualties
                 let casualties = 0;
                 let victory = false;
+                const cowBonus = raid.hasCow ? 1.15 : 1;
 
                 if (ratio > 1.5) {
                     // Decisive victory
                     victory = true;
                     casualties = Math.random() < 0.2 ? 1 : 0;
                     const loot = {
-                        gold: 30 + Math.floor(Math.random() * 40),
-                        wood: 20 + Math.floor(Math.random() * 30),
-                        food: 15 + Math.floor(Math.random() * 20)
+                        gold: Math.floor((30 + Math.floor(Math.random() * 40)) * cowBonus),
+                        wood: Math.floor((20 + Math.floor(Math.random() * 30)) * cowBonus),
+                        food: Math.floor((15 + Math.floor(Math.random() * 20)) * cowBonus)
                     };
                     this.resources.gold = (this.resources.gold || 0) + loot.gold;
                     this._addResource('wood', loot.wood);
                     this._addResource('food', loot.food);
                     this._satisfaction = Math.min(100, this._satisfaction + 8);
-                    this._showNotification(`\u{1F3C6} Victoire ecrasante contre ${targetName} ! +${loot.gold} or, +${loot.wood} bois, +${loot.food} nourriture`, '#a8d8a8');
+                    this._showNotification(`\u{1F3C6} Victoire ecrasante contre ${targetName} ! +${loot.gold} or, +${loot.wood} bois, +${loot.food} nourriture${raid.hasCow ? ' (bonus vache)' : ''}`, '#a8d8a8');
                 } else if (ratio > 0.8) {
                     // Close victory
                     victory = true;
                     casualties = 1 + (Math.random() < 0.3 ? 1 : 0);
-                    const loot = { gold: 15 + Math.floor(Math.random() * 20) };
+                    const loot = { gold: Math.floor((15 + Math.floor(Math.random() * 20)) * cowBonus) };
                     this.resources.gold = (this.resources.gold || 0) + loot.gold;
                     this._satisfaction = Math.min(100, this._satisfaction + 3);
                     this._showNotification(`\u{2694} Victoire difficile contre ${targetName}. +${loot.gold} or, ${casualties} perte(s)`, '#e8d48a');
