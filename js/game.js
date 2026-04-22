@@ -902,7 +902,21 @@ const Game = {
 
     _addResource(res, amount) {
         const cap = this.getStorageCap(res);
-        this.resources[res] = Math.min(cap, (this.resources[res] || 0) + amount);
+        const before = this.resources[res] || 0;
+        const after = Math.min(cap, before + amount);
+        this.resources[res] = after;
+        // Storage full notification (once per fill cycle)
+        if (cap !== Infinity && amount > 0) {
+            if (!this._stockFullWarned) this._stockFullWarned = {};
+            if (after >= cap && before + amount > cap && !this._stockFullWarned[res]) {
+                this._stockFullWarned[res] = true;
+                const name = CONFIG.RESOURCE_NAMES[res] || res;
+                this._showNotification(`\u{1F4E6} Stockage plein : ${name} (${cap}) — production perdue !`, '#d88888');
+            }
+            if (after < cap && this._stockFullWarned[res]) {
+                this._stockFullWarned[res] = false;
+            }
+        }
     },
 
     // ==================== HOUSING ====================
@@ -1062,6 +1076,13 @@ const Game = {
     },
 
     _updateHUD() {
+        // Refresh comptoir Send button if panel is currently open (gold/cart may have changed)
+        if (this._refreshComptoirButton && this._selectedBuilding !== null && this._selectedBuilding !== 'castle') {
+            const sel = this.buildings[this._selectedBuilding];
+            if (sel && sel.type === 'comptoir') {
+                try { this._refreshComptoirButton(); } catch (e) { /* panel may have been re-rendered */ }
+            }
+        }
         // Update each resource with its own cap
         const resKeys = ['wood', 'stone', 'ironOre', 'goldOre', 'ironIngot', 'goldIngot', 'food', 'gold'];
         for (const key of resKeys) {
@@ -1668,6 +1689,7 @@ const Game = {
 
     _closeBuildingDetail() {
         this._selectedBuilding = null;
+        this._refreshComptoirButton = null;
         document.getElementById('building-detail').classList.remove('active');
     },
 
@@ -2488,8 +2510,17 @@ const Game = {
         }
 
         // Comptoir: shopping cart system
-        const _cart = { simpleWeapon: 0, heavyWeapon: 0, cow: 0, horse: 0, chariot: 0 };
+        // Promote cart to instance state so _updateHUD can re-evaluate Send button
+        // after external resource changes (e.g. a production cycle gives more gold).
+        if (!this._comptoirCart) this._comptoirCart = { simpleWeapon: 0, heavyWeapon: 0, cow: 0, horse: 0, chariot: 0 };
+        const _cart = this._comptoirCart;
+        // Reflect existing cart state in DOM qty spans
+        for (const [k, qty] of Object.entries(_cart)) {
+            const qtyEl = content.querySelector(`.bd-cart-qty[data-key="${k}"]`);
+            if (qtyEl) qtyEl.textContent = qty;
+        }
         const _itemCosts = { simpleWeapon: 15, heavyWeapon: 25, cow: 40, horse: 80, chariot: 120 };
+        this._itemCosts = _itemCosts;
         const _updateCartTotal = () => {
             let total = 0;
             for (const [k, qty] of Object.entries(_cart)) {
@@ -2506,6 +2537,8 @@ const Game = {
                 sendBtn.classList.toggle('disabled', !canSend);
             }
         };
+        this._refreshComptoirButton = _updateCartTotal;
+        _updateCartTotal();
         content.querySelectorAll('.bd-cart-plus').forEach(btn => {
             btn.addEventListener('click', () => {
                 const key = btn.dataset.key;
@@ -2554,6 +2587,8 @@ const Game = {
                     returnGameHours: currentGH + duration,
                     cart: { ...(_cart) }
                 });
+                // Clear cart state after send
+                for (const k of Object.keys(_cart)) _cart[k] = 0;
                 this._showNotification(`\u{1F6B6} ${this.families[fi].name} part faire les courses (${totalCost} or)`, '#a8c8d8');
                 this._updateHUD();
                 this._renderBuildingDetail();

@@ -30,8 +30,8 @@ const CONFIG = {
 
     // Starting resources
     START_RESOURCES: {
-        wood: 150, stone: 0, ironOre: 0, goldOre: 0,
-        ironIngot: 0, goldIngot: 0, food: 30, gold: 0
+        wood: 180, stone: 0, ironOre: 0, goldOre: 0,
+        ironIngot: 0, goldIngot: 0, food: 60, gold: 0
     },
 
     // Resource display info
