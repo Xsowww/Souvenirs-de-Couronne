@@ -808,6 +808,83 @@ const Game = {
         };
     },
 
+    // ==================== FAMILY MANAGEMENT ====================
+
+    // Remove a family and reindex ALL references in one place.
+    // Returns the removed family object (or null).
+    _removeFamilyAt(idx) {
+        if (idx < 0 || idx >= this.families.length) return null;
+        const fam = this.families[idx];
+
+        // Notify lost equipment (cosmetic, before splice)
+        if (fam.weapon) {
+            const weaponName = fam.weapon === 'simpleWeapon' ? 'arme simple' : 'arme lourde';
+            this._showNotification(`\u{1F5E1} Son ${weaponName} est perdue avec ${fam.name}`, '#d8a888');
+        }
+        if (fam.mount) {
+            const mountName = fam.mount === 'cow' ? 'vache' : fam.mount === 'horse' ? 'cheval' : 'chariot';
+            this._showNotification(`\u{1F40E} Sa ${mountName} est perdue avec ${fam.name}`, '#d8a888');
+        }
+
+        // Unassign from buildings (single and multi-family)
+        for (const b of this.buildings) {
+            if (b.familyIdx === idx) b.familyIdx = -1;
+            if (b.familyIndices) {
+                b.familyIndices = b.familyIndices.filter(i => i !== idx);
+            }
+        }
+
+        // Remove from voyages / scouts / raids
+        if (this._activeVoyages) {
+            this._activeVoyages = this._activeVoyages.filter(v => v.familyIdx !== idx);
+        }
+        if (this._activeScouts) {
+            this._activeScouts = this._activeScouts.filter(s => s.familyIdx !== idx);
+        }
+        if (this._activeRaids) {
+            for (const r of this._activeRaids) {
+                if (r.familyIndices) r.familyIndices = r.familyIndices.filter(i => i !== idx);
+            }
+        }
+
+        // Splice out
+        this.families.splice(idx, 1);
+
+        // Shift all indices > idx down by 1
+        for (const b of this.buildings) {
+            if (b.familyIdx > idx) b.familyIdx--;
+            if (b.familyIndices) {
+                b.familyIndices = b.familyIndices.map(i => i > idx ? i - 1 : i);
+            }
+        }
+        for (const f of this.families) {
+            if (f.buildingIdx > idx) f.buildingIdx--;
+        }
+        if (this._activeVoyages) {
+            for (const v of this._activeVoyages) {
+                if (v.familyIdx > idx) v.familyIdx--;
+            }
+        }
+        if (this._activeScouts) {
+            for (const s of this._activeScouts) {
+                if (s.familyIdx > idx) s.familyIdx--;
+            }
+        }
+        if (this._activeRaids) {
+            for (const r of this._activeRaids) {
+                if (r.familyIndices) {
+                    r.familyIndices = r.familyIndices.map(i => i > idx ? i - 1 : i);
+                }
+            }
+        }
+
+        return fam;
+    },
+
+    _adjustSatisfaction(delta) {
+        this._satisfaction = Math.max(0, Math.min(100, this._satisfaction + delta));
+    },
+
     // ==================== STORAGE ====================
 
     getStorageCap(res) {
@@ -954,7 +1031,7 @@ const Game = {
             this.resources.food = 0;
             const unfedFamilies = Math.ceil((totalNeeded - fed) / 4);
             // -8% satisfaction per underfed family
-            this._satisfaction = Math.max(0, this._satisfaction - (unfedFamilies * 8));
+            this._adjustSatisfaction(-unfedFamilies * 8);
             if (unfedFamilies > 0) {
                 this._showNotification(`\u{26A0} ${unfedFamilies} famille(s) mal nourrie(s) ! -${unfedFamilies * 8}% satisfaction`, '#d88888');
             }
@@ -1371,7 +1448,7 @@ const Game = {
 
         // If house with family: family leaves, -15% satisfaction
         if (b.type === 'house' && b.familyIdx >= 0) {
-            this._satisfaction = Math.max(0, this._satisfaction - 15);
+            this._adjustSatisfaction(-15);
             this._showNotification(`\u{1F3E0} Maison detruite ! Famille partie, -15% satisfaction`, '#d88888');
         }
 
@@ -1450,7 +1527,7 @@ const Game = {
         }
         // Barracks bonus: +1 per active barracks
         const hasBarracks = this.buildings.some(b => b.type === 'barracks' && b.familyIndices && b.familyIndices.length > 0);
-        if (hasBarracks) this._satisfaction = Math.min(100, this._satisfaction + 1);
+        if (hasBarracks) this._adjustSatisfaction(1);
     },
 
     _getSatisfactionDemands() {
@@ -1743,8 +1820,9 @@ const Game = {
             if (rates) {
                 html += `<div class="bd-section"><div class="bd-label">Conversion (par cycle)</div>`;
                 html += `<div class="bd-value" style="color:#a8c8d8;">`;
-                html += `${rates.oreNeeded} minerai \u2192 ${rates.ingotProduced} lingot(s)<br>`;
-                html += `<span style="font-size:0.75rem;color:#8a7a5a;">Fonctionne sans famille assignee</span>`;
+                const isActive = b.familyIdx >= 0;
+                html += `<span style="color:${isActive ? '#a8d8a8' : '#d8a8a8'};">${rates.oreNeeded} minerai \u2192 ${rates.ingotProduced} lingot(s)</span><br>`;
+                html += `<span style="font-size:0.75rem;color:${isActive ? '#8a7a5a' : '#d8a8a8'};">${isActive ? 'En fonctionnement' : 'INACTIVE - pas de famille assignee'}</span>`;
                 html += `</div></div>`;
             }
         }
@@ -2790,6 +2868,7 @@ const Game = {
         // --- Fonderie conversion ---
         for (const b of this.buildings) {
             if (b.type !== 'foundry') continue;
+            if (b.familyIdx < 0) continue; // requires a family to run
             const lvl = b.level || 1;
             const def = CONFIG.BUILDINGS.foundry;
             const rates = def.foundryRates[lvl - 1];
@@ -3222,7 +3301,7 @@ const Game = {
                                 delivered.push(`${kept}x ${itemNames[k] || k}`);
                             }
                         }
-                        this._satisfaction = Math.max(0, this._satisfaction - 5);
+                        this._adjustSatisfaction(-5);
                         this._showNotification(`\u{2694} ${fam.name} attaque en route ! Moitie du panier perdu. ${delivered.length > 0 ? 'Recu: ' + delivered.join(', ') : ''}`, '#d88888');
                     } else if (roll < 0.30) {
                         // Great negotiator: all items + 10-20% gold back
@@ -3341,7 +3420,7 @@ const Game = {
                     // 15% chance scout gets caught
                     if (Math.random() < 0.15) {
                         this._showNotification(`\u{26A0} ${fam.name} a ete repere en eclairant ! Retour sans informations, -5% satisfaction`, '#d88888');
-                        this._satisfaction = Math.max(0, this._satisfaction - 5);
+                        this._adjustSatisfaction(-5);
                     } else {
                         // Success: generate and store intel
                         const intel = this._generateEnemyArmy(s.targetOwner);
@@ -3484,7 +3563,7 @@ const Game = {
                     this.resources.gold = (this.resources.gold || 0) + loot.gold;
                     this._addResource('wood', loot.wood);
                     this._addResource('food', loot.food);
-                    this._satisfaction = Math.min(100, this._satisfaction + 8);
+                    this._adjustSatisfaction(8);
                     this._showNotification(`\u{1F3C6} Victoire ecrasante contre ${targetName} ! +${loot.gold} or, +${loot.wood} bois, +${loot.food} nourriture${raid.hasCow ? ' (bonus vache)' : ''}`, '#a8d8a8');
                 } else if (ratio > 0.8) {
                     // Close victory
@@ -3492,13 +3571,13 @@ const Game = {
                     casualties = 1 + (Math.random() < 0.3 ? 1 : 0);
                     const loot = { gold: Math.floor((15 + Math.floor(Math.random() * 20)) * cowBonus) };
                     this.resources.gold = (this.resources.gold || 0) + loot.gold;
-                    this._satisfaction = Math.min(100, this._satisfaction + 3);
+                    this._adjustSatisfaction(3);
                     this._showNotification(`\u{2694} Victoire difficile contre ${targetName}. +${loot.gold} or, ${casualties} perte(s)`, '#e8d48a');
                 } else {
                     // Defeat
                     victory = false;
                     casualties = 1 + Math.floor(Math.random() * Math.min(3, raid.familyIndices.length));
-                    this._satisfaction = Math.max(0, this._satisfaction - 10);
+                    this._adjustSatisfaction(-10);
                     this._showNotification(`\u{1F480} Defaite contre ${targetName} ! ${casualties} famille(s) perdue(s), -10% satisfaction`, '#d88888');
                 }
 
@@ -3514,29 +3593,14 @@ const Game = {
                 }
 
                 // Remove dead families (in reverse order to keep indices valid)
+                // Note: raid.familyIndices is cleaned up by _removeFamilyAt too,
+                // but we already captured dead[] above so iteration is stable.
                 const deadSorted = dead.sort((a, b) => b - a);
                 for (const fi of deadSorted) {
                     if (!this.families[fi]) continue;
                     const deadFam = this.families[fi];
-                    // Unassign from barracks
-                    for (const b of this.buildings) {
-                        if (b.familyIndices) {
-                            b.familyIndices = b.familyIndices.filter(idx => idx !== fi);
-                        }
-                        if (b.familyIdx === fi) b.familyIdx = -1;
-                    }
                     this._showNotification(`\u{1F3F4} ${deadFam.name} est tombee au combat...`, '#d88888');
-                    this.families.splice(fi, 1);
-                    // Fix indices
-                    for (const b of this.buildings) {
-                        if (b.familyIdx > fi) b.familyIdx--;
-                        if (b.familyIndices) {
-                            b.familyIndices = b.familyIndices.map(idx => idx > fi ? idx - 1 : idx);
-                        }
-                    }
-                    for (let j = 0; j < this.families.length; j++) {
-                        if (this.families[j].buildingIdx > fi) this.families[j].buildingIdx--;
-                    }
+                    this._removeFamilyAt(fi);
                 }
 
                 this._activeRaids.splice(i, 1);
